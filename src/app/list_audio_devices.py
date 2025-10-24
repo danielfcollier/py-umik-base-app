@@ -7,7 +7,7 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-from src.library.audio_device.selector import AudioDeviceSelector
+from src import AudioDeviceSelector
 
 
 def main():
