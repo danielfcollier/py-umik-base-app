@@ -1,0 +1,14 @@
+{
+    "version": "0.2",
+    "language": "en",
+    "dictionaries": [
+        "project-dict",
+    ],
+    "dictionaryDefinitions": [
+        {
+            "name": "project-dict",
+            "path": "./cspell.txt",
+            "addWords": true
+        },
+    ],
+}
