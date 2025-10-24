@@ -14,7 +14,7 @@ import argparse
 import os
 import sys
 
-from src.library.audio_device.calibrator import AudioDeviceCalibrator
+from src import AudioDeviceCalibrator
 
 # --- Configuration (Default Values) ---
 DEFAULT_SAMPLE_RATE = 48000
