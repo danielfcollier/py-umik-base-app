@@ -2,26 +2,30 @@
 Implements the audio stream consumer thread.
 
 This module contains the class responsible for fetching audio chunks from a
-shared queue and dispatching them to registered callback functions for
-processing (e.g., analysis, recording, metrics calculation).
+queue and dispatching them to registered callback functions for processing
+(e.g., analysis, recording, metrics calculation).
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from datetime import datetime
 import queue
 import threading
 import logging
-
-from src import AudioProcessingCallback
+from typing import Callable
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
+AudioProcessingCallback = Callable[[np.ndarray, datetime], None]
+
+
 class AudioStreamsConsumerThread:
     """
-    A thread dedicated to processing audio chunks received from a shared queue.
+    A thread dedicated to processing audio chunks received from a queue.
 
     This class acts as the "Consumer" in a producer-consumer pattern. It continuously
     fetches audio data (packaged as a tuple of numpy array and timestamp) from a
@@ -34,7 +38,7 @@ class AudioStreamsConsumerThread:
 
     def __init__(
         self,
-        shared_audio_queue: queue.Queue,
+        audio_queue: queue.Queue,
         stop_event: threading.Event,
         callbacks: list[AudioProcessingCallback],
         consumer_queue_timeout_seconds: int,
@@ -42,7 +46,7 @@ class AudioStreamsConsumerThread:
         """
         Initializes the audio consumer thread.
 
-        :param shared_audio_queue: The thread-safe `queue.Queue` instance from which
+        :param audio_queue: The thread-safe `queue.Queue` instance from which
                                    audio data tuples (audio_chunk, timestamp) will be fetched.
         :param stop_event: A `threading.Event` object used to signal the thread
                            to terminate its loop and exit gracefully.
@@ -50,10 +54,11 @@ class AudioStreamsConsumerThread:
                           audio chunk. Each function must accept two arguments:
                           `audio_chunk (np.ndarray)` and `timestamp (datetime)`.
         """
-        self._queue = shared_audio_queue
+        self._queue = audio_queue
         self._stop_event = stop_event
         self._callbacks = callbacks if callbacks else []
         self._consumer_queue_timeout_seconds = consumer_queue_timeout_seconds
+
         if not self._callbacks:
             logger.warning("AudioStreamsConsumerThread initialized with no callback functions.")
 
