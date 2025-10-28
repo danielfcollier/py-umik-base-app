@@ -34,6 +34,7 @@ class AudioDeviceSelector:
         self.data: dict = self._get_audio_device(target)
         self.id: int = self.data["index"]
         self.name: str = self.data["name"]
+        self.native_rate: str = self.data["native_rate"]
         self.is_default: bool = self.name == "default"
 
         AudioDeviceSelector.show_audio_devices(self.id)
@@ -92,10 +93,11 @@ class AudioDeviceSelector:
                     input_devices_found = True
                     index: int = audio_device["index"]
                     name: str = audio_device["name"]
+                    native_rate: str = audio_device["default_samplerate"]
                     # Add a marker to indicate which device is currently selected.
                     marker: str = ">" if index == selected_id else " "
 
-                    print(f"{marker} ID {index} - {name}")
+                    print(f"{marker} ID {index} - native_rate {native_rate}Hz - name: {name}")
 
             if not input_devices_found:
                 print("No input devices were found on this system.")
