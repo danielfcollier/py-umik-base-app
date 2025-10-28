@@ -11,9 +11,11 @@ Year: 2025
 """
 
 import os
-
+import logging
 import numpy as np
 from scipy.signal import firwin2, lfilter
+
+logger = logging.getLogger(__name__)
 
 
 class AudioDeviceCalibrator:
@@ -39,10 +41,10 @@ class AudioDeviceCalibrator:
         :param num_taps: The number of coefficients (taps) for the FIR filter.
                          Higher values provide more accuracy, especially at low frequencies,
                          but increase computational load during filtering (e.g., 1024, 512, 256).
-        :param force_write: If Tru, always redesign the filter and overwrite the cache file,
+        :param force_write: If True, always redesign the filter and overwrite the cache file,
                             even if it already exists. Defaults to False.
         """
-        print("Initializing AudioDeviceCalibrator...")
+        logger.debug("Initializing AudioDeviceCalibrator...")
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
 
@@ -50,46 +52,45 @@ class AudioDeviceCalibrator:
         calibration_basename = os.path.splitext(os.path.basename(calibration_file_path))[0]
         taps_filename = f"{calibration_basename}_fir_{num_taps}taps_{int(sample_rate)}hz.npy"
         taps_file = os.path.join(calibration_dir, taps_filename)
-        print(f"Using cache file path: {taps_file}")
+        logger.debug(f"Using cache file path: {taps_file}")
 
         cache_exists = os.path.exists(taps_file)
 
         if cache_exists and not force_write:
-            print(f"Found cached filter at '{taps_file}'. Loading...")
+            logger.debug(f"Found cached filter at '{taps_file}'. Loading...")
             try:
                 self._filter_taps = np.load(taps_file)
-                # Basic validation: check if the loaded taps match the requested length
                 if len(self._filter_taps) != num_taps:
-                    print(
-                        f"Warning: Cached filter length ({len(self._filter_taps)}) does not match "
+                    logger.warning(
+                        f"Cached filter length ({len(self._filter_taps)}) does not match "
                         f"requested length ({num_taps}). Will redesign."
                     )
                     cache_exists = False
                 else:
-                    print("Cached filter loaded successfully.")
+                    logger.debug("Cached filter loaded successfully.")
             except Exception as e:
-                print(f"Warning: Failed to load cached filter from '{taps_file}'. Will redesign. Error: {e}")
+                logger.warning(f"Failed to load cached filter from '{taps_file}'. Will redesign. Error: {e}")
                 cache_exists = False
 
         if not cache_exists or force_write:
             if force_write and cache_exists:
-                print("Force_write enabled. Redesigning filter...")
+                logger.debug("Force_write enabled. Redesigning filter...")
             else:
-                print(f"No valid cached filter found at '{taps_file}'.")
+                logger.debug(f"No valid cached filter found at '{taps_file}'.")
 
-            print(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
+            logger.debug(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
             freqs, gains = self._parse_frequency_response(calibration_file_path)
             self._filter_taps = self._design_fir_filter(freqs, gains, num_taps)
-            print(f"Saving new filter to cache at '{taps_file}'...")
+            logger.debug(f"Saving new filter to cache at '{taps_file}'...")
 
             try:
                 np.save(taps_file, self._filter_taps)
             except Exception as e:
-                print(f"Error: Failed to save filter cache to '{taps_file}'. Error: {e}")
+                logger.error(f"Failed to save filter cache to '{taps_file}'. Error: {e}")
 
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-        print(f"✅ AudioDeviceCalibrator initialized. Filter ({len(self._filter_taps)} taps) is ready.")
+        logger.debug(f"✅ AudioDeviceCalibrator initialized. Filter ({len(self._filter_taps)} taps) is ready.")
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -127,39 +128,41 @@ class AudioDeviceCalibrator:
 
                     except ValueError:
                         if not data_started:
-                            print(f"Skipping potential header/comment line {line_num}: '{line}'")
+                            logger.debug(f"Skipping potential header/comment line {line_num}: '{line}'")
                             continue
                         else:
-                            print(
-                                f"Warning: Found non-numeric data after valid data started (line {line_num}). "
+                            logger.warning(
+                                f"Found non-numeric data after valid data started (line {line_num}). "
                                 f"Stopping parse. Line: '{line}'"
                             )
                             break
                 elif not data_started:
-                    print(f"Skipping potential header/comment line {line_num}: '{line}'")
+                    logger.debug(f"Skipping potential header/comment line {line_num}: '{line}'")
                     continue
                 else:
-                    print(
-                        "Warning: Found line with unexpected format after valid data "
+                    logger.warning(
+                        "Found line with unexpected format after valid data "
                         f"started (line {line_num}). Stopping parse. Line: '{line}'"
                     )
                     break
 
             if not frequencies:
-                print(
-                    "❌ FATAL: No valid frequency/gain data pairs (two numeric columns "
+                logger.critical(
+                    "No valid frequency/gain data pairs (two numeric columns "
                     f"separated by whitespace) found in '{file_path}'."
                 )
                 exit(1)
 
-            print(f"Parsed {len(frequencies)} frequency/gain points.")
+            logger.debug(f"Parsed {len(frequencies)} frequency/gain points.")
             return np.array(frequencies), np.array(gains_db)
 
         except FileNotFoundError:
-            print(f"❌ FATAL: Calibration file not found at '{file_path}'. Please check the path.")
+            logger.critical(f"Calibration file not found at '{file_path}'. Please check the path.")
             exit(1)
         except Exception as e:
-            print(f"❌ FATAL: An unexpected error occurred while reading calibration file '{file_path}': {e}")
+            logger.critical(
+                f"An unexpected error occurred while reading calibration file '{file_path}': {e}", exc_info=True
+            )
             exit(1)
 
     def _design_fir_filter(self, freqs: np.ndarray, gains: np.ndarray, num_taps: int) -> np.ndarray:
@@ -194,14 +197,14 @@ class AudioDeviceCalibrator:
         # firwin2 requires the frequency list to start at 0 and end at 1.
         # We extrapolate the gains at these boundaries based on the nearest measured points.
         full_freqs = np.concatenate(([0], normalized_freqs, [1]))
-        full_gains = np.concatenate(
+        extrapolated_gains = np.concatenate(
             ([correction_gains_linear[0]], correction_gains_linear, [correction_gains_linear[-1]])
         )
 
         # Design the FIR filter coefficients using the specified number of taps.
-        print(f"Designing FIR filter with {num_taps} taps...")
-        filter_taps = firwin2(num_taps - 1, full_freqs, full_gains)
-        print("Filter design complete.")
+        logger.debug(f"Designing FIR filter with {num_taps} taps...")
+        filter_taps = firwin2(num_taps - 1, full_freqs, extrapolated_gains)
+        logger.debug("Filter design complete.")
 
         return filter_taps
 
@@ -238,9 +241,10 @@ class AudioDeviceCalibrator:
                  Example: (-18.545, 94.0)
         :raises ValueError: If the "Sens Factor" line cannot be found or parsed,
                            or if the file cannot be read.
+        :raises FileNotFoundError: If the file_path does not exist.
         """
+        logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
         # Assume a nominal sensitivity for the UMIK-1 microphone.
-        # This is the baseline value before applying the correction factor.
         nominal_sensitivity_dbfs = -18.0
         # Assume the standard reference pressure level used during calibration.
         reference_dbspl = 94.0
@@ -253,16 +257,13 @@ class AudioDeviceCalibrator:
                     if "Sens Factor" in line:
                         try:
                             # --- Parse the "Sens Factor" line ---
-                            # Example: "Sens Factor =-0.545dB, SERNO: 7175488"
-
-                            # Find the part after "=" and before "dB"
                             factor_str = line.split("=")[1].split("dB")[0].strip()
                             sens_factor_db = float(factor_str)
 
                             # Calculate the actual sensitivity
                             calculated_sensitivity_dbfs = nominal_sensitivity_dbfs + sens_factor_db
 
-                            print(f"✅ Found 'Sens Factor': {sens_factor_db:.3f} dB")
+                            logger.debug(f"Found 'Sens Factor': {sens_factor_db:.3f} dB")
                             return calculated_sensitivity_dbfs, reference_dbspl
 
                         except (ValueError, IndexError, TypeError) as parse_error:
@@ -274,6 +275,8 @@ class AudioDeviceCalibrator:
             # If the loop finishes without finding the line
             raise ValueError(f"'Sens Factor' header line not found in the first few lines of file: {file_path}.")
 
+        except FileNotFoundError:
+            raise
         except Exception as e:
-            print(f"❌ FATAL: Error reading calibration file '{file_path}' for sensitivity: {e}")
+            logger.error(f"Unexpected error reading calibration file '{file_path}' for sensitivity: {e}", exc_info=True)
             raise

@@ -456,6 +456,17 @@ files = [
 ]
 
 [[package]]
+name = "logging"
+version = "0.4.9.6"
+description = "A logging module for Python"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "logging-0.4.9.6.tar.gz", hash = "sha256:26f6b50773f085042d301085bd1bf5d9f3735704db9f37c1ce6d8b85c38f2417"},
+]
+
+[[package]]
 name = "msgpack"
 version = "1.1.2"
 description = "MessagePack serializer"
@@ -1341,4 +1352,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "~=3.12"
-content-hash = "e135dbf92de58280a5679bfe05d7f2cb2af00196277b1bb9886c3654584ec24c"
+content-hash = "39863aac69e236c4ab3d72d0bf724f2746251ca1c9a4607efacef55e0c7727e5"
