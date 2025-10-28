@@ -246,6 +246,7 @@ class AudioDeviceCalibrator:
         logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
         # Assume a nominal sensitivity for the UMIK-1 microphone.
         nominal_sensitivity_dbfs = -18.0
+
         # Assume the standard reference pressure level used during calibration.
         reference_dbspl = 94.0
 
@@ -260,7 +261,6 @@ class AudioDeviceCalibrator:
                             factor_str = line.split("=")[1].split("dB")[0].strip()
                             sens_factor_db = float(factor_str)
 
-                            # Calculate the actual sensitivity
                             calculated_sensitivity_dbfs = nominal_sensitivity_dbfs + sens_factor_db
 
                             logger.debug(f"Found 'Sens Factor': {sens_factor_db:.3f} dB")
@@ -272,7 +272,6 @@ class AudioDeviceCalibrator:
                                 f"Expected format like 'Sens Factor =-X.Xd B,...'. Error: {parse_error}"
                             )
 
-            # If the loop finishes without finding the line
             raise ValueError(f"'Sens Factor' header line not found in the first few lines of file: {file_path}.")
 
         except FileNotFoundError:
