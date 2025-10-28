@@ -5,10 +5,6 @@ This file marks the directory as a Python package and can be used to
 define package-level objects or type hints, such as the callback definition.
 """
 
-from typing import Callable
-from datetime import datetime
-import numpy as np
-
 from src.library.audio_device.calibrator import AudioDeviceCalibrator
 from src.library.audio_device.config import AudioDeviceConfig
 from src.library.audio_device.selector import AudioDeviceSelector
