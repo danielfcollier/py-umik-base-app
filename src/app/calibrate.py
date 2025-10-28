@@ -11,10 +11,14 @@ Year: 2025
 """
 
 import argparse
+import logging
 import os
 import sys
 
 from src import AudioDeviceCalibrator
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 # --- Configuration (Default Values) ---
 DEFAULT_SAMPLE_RATE = 48000
@@ -30,18 +34,17 @@ def get_sensitivity(calibration_file_path: str):
     :raises SystemExit: If sensitivity extraction fails.
     """
     try:
-        print("-" * 50)
         sensitivity_dbfs, reference_dbspl = AudioDeviceCalibrator.get_sensitivity_values(calibration_file_path)
-        print("\n--- Sensitivity Values Extracted ---")
-        print(f"Sensitivity: {sensitivity_dbfs:.3f} dBFS")
-        print(f"Reference SPL: {reference_dbspl:.1f} dBSPL")
-        print("-" * 50)
+        logger.info("--- Sensitivity Values Extracted ---")
+        logger.info(f"Sensitivity: {sensitivity_dbfs:.3f} dBFS")
+        logger.info(f"Reference SPL: {reference_dbspl:.1f} dBSPL")
+        logger.info("--------------------------------")
 
     except (FileNotFoundError, ValueError) as e:
-        print(f"\n❌ ERROR: Could not extract sensitivity values: {e}")
-        print("   Please ensure the file path is correct and the file contains")
-        print("   a valid 'Sensitivity' or 'Sens Factor' line in the header.")
-        print("-" * 50)
+        logger.error(f"Could not extract sensitivity values: {e}")
+        logger.error("   Please ensure the file path is correct and the file contains")
+        logger.error("   a valid 'Sensitivity' or 'Sens Factor' line in the header.")
+        logger.error("-" * 50)
         sys.exit(1)
 
 
@@ -58,11 +61,10 @@ def calibrate(device_sample_rate: int, calibration_file_path: str, num_taps: int
     :param num_taps: The number of coefficients (taps) for the FIR filter.
     :raises SystemExit: If initialization fails.
     """
-    print("-" * 50)
-    print(f"Testing Calibrator initialization with file: {calibration_file_path}")
-    print(f"Using sample rate: {device_sample_rate} Hz")
-    print(f"Using filter taps: {num_taps}")
-    print("-" * 50)
+    logger.info(f"Testing Calibrator initialization with file: {calibration_file_path}")
+    logger.info(f"Using sample rate: {device_sample_rate} Hz")
+    logger.info(f"Using filter taps: {num_taps}")
+    logger.info("--------------------------------")
 
     try:
         AudioDeviceCalibrator(
@@ -71,12 +73,11 @@ def calibrate(device_sample_rate: int, calibration_file_path: str, num_taps: int
             num_taps=num_taps,
             force_write=True,
         )
-        print("\n✅ AudioDeviceCalibrator successfully initialized, filter designed!")
-        print("-" * 50)
+        logger.info("✅ AudioDeviceCalibrator successfully initialized (filter designed or loaded).")
 
     except Exception as e:
-        print(f"\n❌ ERROR: Failed to initialize AudioDeviceCalibrator: {e}")
-        print("-" * 50)
+        logger.error(f"Failed to initialize AudioDeviceCalibrator: {e}", exc_info=True)  # Log traceback
+        logger.error("-" * 50)
         sys.exit(1)
 
 
@@ -111,13 +112,14 @@ def main():
     num_taps = args.num_taps
 
     if not os.path.isfile(file_path):
-        print(f"❌ ERROR: The specified path is not a valid file: {file_path}")
+        logger.error(f"The specified path is not a valid file: {file_path}")
         sys.exit(1)
 
+    logger.info("Starting calibration test process...")
     get_sensitivity(file_path)
     calibrate(sample_rate, file_path, num_taps)
 
-    print("\n✅ All calibration tests completed successfully.")
+    logger.info("✅ All calibration tests completed successfully.")
 
 
 if __name__ == "__main__":
