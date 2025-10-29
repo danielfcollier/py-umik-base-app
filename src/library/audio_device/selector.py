@@ -106,7 +106,7 @@ class AudioDeviceSelector:
                     # Add a marker to indicate which device is currently selected.
                     marker: str = ">" if index == selected_id else " "
 
-                    logger.info(f"{marker} ID {index} - {native_rate}Hz - name: {name}")
+                    logger.info(f"{marker} ID {index} - {native_rate:.0f}Hz - name: {name}")
 
             if not input_devices_found:
                 logger.warning("No input devices were found on this system.")
