@@ -10,13 +10,14 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import logging
 import queue
 import threading
-import sounddevice as sd
-import logging
 
-from src.library.audio_device.config import AudioDeviceConfig
+import sounddevice as sd
+
 from src.datetime_stamp import DatetimeStamp
+from src.library.audio_device.config import AudioDeviceConfig
 
 logger = logging.getLogger(__name__)
 

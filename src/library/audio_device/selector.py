@@ -8,7 +8,11 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import logging
+
 import sounddevice as sd
+
+logger = logging.getLogger(__name__)
 
 
 class AudioDeviceNotFound(Exception):
@@ -22,58 +26,63 @@ class AudioDeviceNotFound(Exception):
 class AudioDeviceSelector:
     """A class to handle the selection and validation of an audio input device."""
 
-    def __init__(self, target: int | None):
+    def __init__(self, target_id: int | None):
         """
         Initializes the selector and finds the specified audio device.
 
-        If a target ID is provided, it gets a matching device.
-        If the target is None, it selects the system's default input device.
+        If a target_id is provided, it gets a matching device.
+        If the target_id is None, it selects the system's default input device.
 
-        :param target: The name (or partial name) of the microphone to find.
+        :param target_id: The ID of the microphone to find.
         """
-        self.data: dict = self._get_audio_device(target)
+        self.data: dict = self._get_audio_device(target_id)
         self.id: int = self.data["index"]
         self.name: str = self.data["name"]
-        self.native_rate: str = self.data["native_rate"]
+        self.native_rate: str = self.data["default_samplerate"]
         self.is_default: bool = self.name == "default"
 
         AudioDeviceSelector.show_audio_devices(self.id)
 
-    def _get_audio_device(self, target: int | None = None) -> dict:
+    def _get_audio_device(self, target_id: int | None = None) -> dict:
         """
         Queries the system for available devices and returns the desired one.
 
-        :param target: The ID of the device to search for.
+        :param target_id: The ID of the device to search for.
         :return: A dictionary containing the device's information.
-        :raises AudioDeviceNotFound: If the target device is not found.
+        :raises AudioDeviceNotFound: If the target_id device is not found.
         """
 
         try:
             audio_devices: list[dict] = list(sd.query_devices())
             default_audio_device_id = sd.default.device[0]
 
-            if not target:
-                print(f"No target specified. Selecting default input device (ID: {default_audio_device_id})...")
+            if not target_id:
+                logger.warning(
+                    f"No target specified. Selecting default input device (ID: {default_audio_device_id})..."
+                )
                 return next(filter(lambda device: device["index"] == default_audio_device_id, audio_devices))
 
-            print(f"Searching for an input device index '{target}'...")
+            logger.debug(f"Searching for an input device index '{target_id}'...")
             target_audio_device: dict | None = next(
-                filter(lambda device: target == device["index"] and device["max_input_channels"] > 0, audio_devices),
+                filter(lambda device: target_id == device["index"] and device["max_input_channels"] > 0, audio_devices),
                 None,
             )
 
             if target_audio_device is None:
+                logger.warning("Failed to select audio device. Exiting.", exc_info=True)
                 raise AudioDeviceNotFound(message=f"Device not found in device list {audio_devices}")
 
-            print(f"✅ Found device: {target_audio_device['name']}")
+            target_name = target_audio_device["name"]
+            logger.info(f"✅ Selected audio device: ID={target_id}, Name={target_name}")
+
             return target_audio_device
 
         except AudioDeviceNotFound as e:
-            print(f"❌ {e.message}")
+            logger.critical(f"❌ {e.message}")
             AudioDeviceSelector.show_audio_devices()
-            raise
+            exit(1)
         except Exception as e:
-            print(f"❌ An unexpected error occurred while getting audio devices: {e}")
+            logger.error(f"❌ An unexpected error occurred while getting audio devices: {e}")
             raise
 
     @staticmethod
@@ -84,7 +93,7 @@ class AudioDeviceSelector:
 
         :param selected_id: The ID of the device to highlight with a '>' marker.
         """
-        print("--- Listing all available input audio devices ---")
+        logger.info("--- Listing all available input audio devices ---")
         try:
             audio_devices: list[dict] = list(sd.query_devices())
             input_devices_found = False
@@ -97,9 +106,10 @@ class AudioDeviceSelector:
                     # Add a marker to indicate which device is currently selected.
                     marker: str = ">" if index == selected_id else " "
 
-                    print(f"{marker} ID {index} - native_rate {native_rate}Hz - name: {name}")
+                    logger.info(f"{marker} ID {index} - {native_rate}Hz - name: {name}")
 
             if not input_devices_found:
-                print("No input devices were found on this system.")
+                logger.warning("No input devices were found on this system.")
+
         except Exception as e:
-            print(f"❌ Could not query audio devices: {e}")
+            logger.error(f"❌ Could not query audio devices: {e}")

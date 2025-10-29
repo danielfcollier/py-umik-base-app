@@ -12,7 +12,6 @@ from src.library.audio_metrics import AudioMetrics
 from src.library.audio_streams.consumer_thread import AudioStreamsConsumerThread
 from src.library.audio_streams.listener_thread import AudioStreamsListenerThread
 
-
 __all__ = [
     "AudioDeviceCalibrator",
     "AudioDeviceConfig",

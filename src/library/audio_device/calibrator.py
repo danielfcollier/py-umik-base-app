@@ -10,8 +10,9 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-import os
 import logging
+import os
+
 import numpy as np
 from scipy.signal import firwin2, lfilter
 
@@ -274,8 +275,8 @@ class AudioDeviceCalibrator:
 
             raise ValueError(f"'Sens Factor' header line not found in the first few lines of file: {file_path}.")
 
-        except FileNotFoundError:
-            raise
         except Exception as e:
-            logger.error(f"Unexpected error reading calibration file '{file_path}' for sensitivity: {e}", exc_info=True)
-            raise
+            logger.critical(
+                f"Unexpected error reading calibration file '{file_path}' for sensitivity: {e}", exc_info=True
+            )
+            exit(1)
