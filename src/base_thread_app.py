@@ -10,10 +10,13 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import logging
 import queue
 import signal
 import threading
 from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
 
 
 class BaseThreadApp(ABC):
@@ -41,7 +44,7 @@ class BaseThreadApp(ABC):
         :param signum: The signal number received.
         :param
         """
-        print(f"\nSignal {signal.Signals(signum).name} received, initiating graceful shutdown.")
+        logger.info(f"\nSignal {signal.Signals(signum).name} received, initiating graceful shutdown.")
         self.shutdown()
 
     def shutdown(self):
@@ -50,7 +53,7 @@ class BaseThreadApp(ABC):
         This is the primary method to call to stop the application gracefully.
         """
         if not self._stop_event.is_set():
-            print("🛑 Shutting down gracefully...")
+            logger.info("🛑 Shutting down gracefully...")
             self._stop_event.set()
 
     @abstractmethod
@@ -74,10 +77,10 @@ class BaseThreadApp(ABC):
         This is a blocking call that ensures the main program doesn't exit
         before background tasks have cleaned up.
         """
-        print("Waiting for threads to finish...")
+        logger.debug("Waiting for threads to finish...")
         for thread in self._threads:
             thread.join()
-        print("✅ All threads have been stopped.")
+        logger.info("✅ All threads have been stopped.")
 
     def run(self):
         """
@@ -98,7 +101,7 @@ class BaseThreadApp(ABC):
         for thread in self._threads:
             thread.start()
 
-        print("\n🚀 Application started. Press Ctrl+C or send SIGTERM to stop.")
+        logger.info("\n🚀 Application started. Press Ctrl+C or send SIGTERM to stop.")
 
         self._stop_event.wait()
         self._join_threads()

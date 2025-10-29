@@ -17,7 +17,7 @@ import sys
 
 from src import AudioDeviceCalibrator
 
-logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 # --- Configuration (Default Values) ---

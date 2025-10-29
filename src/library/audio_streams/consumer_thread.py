@@ -10,11 +10,12 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-from datetime import datetime
+import logging
 import queue
 import threading
-import logging
-from typing import Callable
+from collections.abc import Callable
+from datetime import datetime
+
 import numpy as np
 
 logger = logging.getLogger(__name__)

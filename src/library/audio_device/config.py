@@ -9,7 +9,11 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import logging
+
 from src.library.audio_device.selector import AudioDeviceSelector
+
+logger = logging.getLogger(__name__)
 
 
 class AudioDeviceConfig:
@@ -55,7 +59,7 @@ class AudioDeviceConfig:
         self.dtype = dtype
         self.high_priority = high_priority
 
-        print(
+        logger.debug(
             f"AudioDeviceConfig initialized: Device ID={self.id}, SR={self.sample_rate}Hz,"
             f"NR={self.native_rate}Hz Blocksize={self.block_size}, Dtype={self.dtype}"
         )

@@ -7,7 +7,13 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import logging
+import sys
+
 from src import AudioDeviceSelector
+
+logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
+logger = logging.getLogger(__name__)
 
 
 def main():
