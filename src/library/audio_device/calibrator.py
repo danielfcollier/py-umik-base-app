@@ -58,13 +58,13 @@ class AudioDeviceCalibrator:
         cache_exists = os.path.exists(taps_file)
 
         if cache_exists and not force_write:
-            logger.debug(f"Found cached filter at '{taps_file}'. Loading...")
+            logger.info(f"Found cached filter at '{taps_file}'. Loading...")
             try:
                 self._filter_taps = np.load(taps_file)
-                if len(self._filter_taps) != num_taps:
+                if len(self._filter_taps) != (num_taps - 1):
                     logger.warning(
                         f"Cached filter length ({len(self._filter_taps)}) does not match "
-                        f"requested length ({num_taps}). Will redesign."
+                        f"requested length ({num_taps} - 1). Will redesign."
                     )
                     cache_exists = False
                 else:
@@ -75,14 +75,14 @@ class AudioDeviceCalibrator:
 
         if not cache_exists or force_write:
             if force_write and cache_exists:
-                logger.debug("Force_write enabled. Redesigning filter...")
+                logger.info("Force_write enabled. Redesigning filter...")
             else:
-                logger.debug(f"No valid cached filter found at '{taps_file}'.")
+                logger.info(f"No valid cached filter found at '{taps_file}'.")
 
-            logger.debug(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
+            logger.info(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
             freqs, gains = self._parse_frequency_response(calibration_file_path)
             self._filter_taps = self._design_fir_filter(freqs, gains, num_taps)
-            logger.debug(f"Saving new filter to cache at '{taps_file}'...")
+            logger.info(f"Saving new filter to cache at '{taps_file}'...")
 
             try:
                 np.save(taps_file, self._filter_taps)
@@ -91,7 +91,7 @@ class AudioDeviceCalibrator:
 
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-        logger.debug(f"✅ AudioDeviceCalibrator initialized. Filter ({len(self._filter_taps)} taps) is ready.")
+        logger.info(f"✅ AudioDeviceCalibrator initialized. Filter is ready.")
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -154,7 +154,7 @@ class AudioDeviceCalibrator:
                 )
                 exit(1)
 
-            logger.debug(f"Parsed {len(frequencies)} frequency/gain points.")
+            logger.info(f"Parsed {len(frequencies)} frequency/gain points.")
             return np.array(frequencies), np.array(gains_db)
 
         except FileNotFoundError:
@@ -203,9 +203,9 @@ class AudioDeviceCalibrator:
         )
 
         # Design the FIR filter coefficients using the specified number of taps.
-        logger.debug(f"Designing FIR filter with {num_taps} taps...")
-        filter_taps = firwin2(num_taps - 1, full_freqs, extrapolated_gains)
-        logger.debug("Filter design complete.")
+        logger.info(f"Designing FIR filter with {num_taps} taps...")
+        filter_taps = firwin2(num_taps -1, full_freqs, extrapolated_gains)
+        logger.info("Filter design complete.")
 
         return filter_taps
 
@@ -264,7 +264,7 @@ class AudioDeviceCalibrator:
 
                             calculated_sensitivity_dbfs = nominal_sensitivity_dbfs + sens_factor_db
 
-                            logger.debug(f"Found 'Sens Factor': {sens_factor_db:.3f} dB")
+                            logger.info(f"✅ Found 'Sens Factor': {sens_factor_db:.3f} dB for reference {reference_dbspl:.2f} dBSPL")
                             return calculated_sensitivity_dbfs, reference_dbspl
 
                         except (ValueError, IndexError, TypeError) as parse_error:
