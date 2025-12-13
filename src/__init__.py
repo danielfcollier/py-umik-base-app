@@ -3,6 +3,10 @@ Initialization file for the audio_streams package.
 
 This file marks the directory as a Python package and can be used to
 define package-level objects or type hints, such as the callback definition.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from src.library.audio_device.calibrator import AudioDeviceCalibrator
