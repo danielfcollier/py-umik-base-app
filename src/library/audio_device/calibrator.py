@@ -16,7 +16,10 @@ import os
 import numpy as np
 from scipy.signal import firwin2, lfilter
 
+from src.library.cache_strategy import FileFilterCache, FilterCacheStrategy
+
 from src.settings import settings
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,12 @@ class AudioDeviceCalibrator:
     """
 
     def __init__(
-        self, calibration_file_path: str, sample_rate: float, num_taps: int | None = None, force_write: bool = False
+        self,
+        calibration_file_path: str,
+        sample_rate: float,
+        num_taps: int = 1024,
+        force_write: bool = False,
+        cache_strategy: FilterCacheStrategy | None = None,
     ):
         """
         Initializes the Calibrator.
@@ -46,54 +54,50 @@ class AudioDeviceCalibrator:
         :param num_taps: The number of coefficients (taps) for the FIR filter.
                          Higher values provide more accuracy, especially at low frequencies,
                          but increase computational load during filtering (e.g., 1024, 512, 256).
-        :param force_write: If True, always redesign the filter and overwrite the cache file,
-                            even if it already exists. Defaults to False.
+        :param force_write: If True, always redesign the filter and overwrite the cache file.
+        :param cache_strategy: Strategy for loading/saving filter taps. Defaults to FileFilterCache.
         """
         logger.debug("Initializing AudioDeviceCalibrator...")
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
 
-        taps_count = num_taps if num_taps is not None else settings.audio.num_taps
+        # Use provided strategy or default to File System cache
+        self._cache_strategy = cache_strategy or FileFilterCache()
 
         calibration_dir = os.path.dirname(calibration_file_path)
         calibration_basename = os.path.splitext(os.path.basename(calibration_file_path))[0]
-        taps_filename = f"{calibration_basename}_fir_{taps_count}taps_{int(sample_rate)}hz.npy"
+        taps_filename = f"{calibration_basename}_fir_{num_taps}taps_{int(sample_rate)}hz.npy"
         taps_file = os.path.join(calibration_dir, taps_filename)
-        logger.debug(f"Using cache file path: {taps_file}")
+        logger.debug(f"Using cache key/path: {taps_file}")
 
-        cache_exists = os.path.exists(taps_file)
+        # --- 1. Attempt Load ---
+        self._filter_taps = None
 
-        if cache_exists and not force_write:
-            logger.info(f"Found cached filter at '{taps_file}'. Loading...")
-            try:
-                self._filter_taps = np.load(taps_file)
-                if len(self._filter_taps) != (taps_count - 1):
+        if not force_write:
+            loaded_taps = self._cache_strategy.load(taps_file)
+            if loaded_taps is not None:
+                if len(loaded_taps) != (num_taps - 1):
                     logger.warning(
-                        f"Cached filter length ({len(self._filter_taps)}) does not match "
-                        f"requested length ({taps_count} - 1). Will redesign."
+                        f"Cached filter length ({len(loaded_taps)}) does not match "
+                        f"requested length ({num_taps} - 1). Will redesign."
                     )
-                    cache_exists = False
                 else:
+                    self._filter_taps = loaded_taps
                     logger.debug("Cached filter loaded successfully.")
-            except Exception as e:
-                logger.warning(f"Failed to load cached filter from '{taps_file}'. Will redesign. Error: {e}")
-                cache_exists = False
 
-        if not cache_exists or force_write:
-            if force_write and cache_exists:
+        # --- 2. Design & Save (if load failed or forced) ---
+        if self._filter_taps is None:
+            if force_write:
                 logger.info("Force_write enabled. Redesigning filter...")
             else:
-                logger.info(f"No valid cached filter found at '{taps_file}'.")
+                logger.info(f"No valid cached filter found for '{taps_file}'.")
 
-            logger.info(f"Designing new {taps_count}-tap filter from '{calibration_file_path}'...")
+            logger.info(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
             freqs, gains = self._parse_frequency_response(calibration_file_path)
-            self._filter_taps = self._design_fir_filter(freqs, gains, taps_count)
-            logger.info(f"Saving new filter to cache at '{taps_file}'...")
+            self._filter_taps = self._design_fir_filter(freqs, gains, num_taps)
 
-            try:
-                np.save(taps_file, self._filter_taps)
-            except Exception as e:
-                logger.error(f"Failed to save filter cache to '{taps_file}'. Error: {e}")
+            logger.info("Saving new filter to cache...")
+            self._cache_strategy.save(taps_file, self._filter_taps)
 
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
@@ -252,7 +256,6 @@ class AudioDeviceCalibrator:
         """
         logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
 
-        # Load defaults from settings
         nominal_sensitivity_dbfs = settings.hardware.nominal_sensitivity_dbfs
         reference_dbspl = settings.hardware.reference_dbspl
 
