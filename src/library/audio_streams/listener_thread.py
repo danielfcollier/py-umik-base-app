@@ -1,9 +1,11 @@
 """
-Implements the audio stream listener (producer) thread.
+Implements the audio stream listener (producer) thread with robust error handling.
 
-This module contains the class responsible for opening an audio input stream,
-continuously reading audio chunks from the microphone, and placing them onto
-a queue for consumption by other threads.
+This module captures raw audio from the configured input device. It features:
+1. A "Watchdog" reconnection loop to recover from USB device disconnects.
+2. Non-blocking queue insertion to drop frames gracefully if the consumer lags.
+3. Overflow detection to log hardware buffer issues.
+4. A maximum retry limit to prevent infinite loops on permanent hardware failures.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -16,25 +18,32 @@ import threading
 
 import sounddevice as sd
 
-from src.datetime_stamp import DatetimeStamp
 from src.library.audio_device.config import AudioDeviceConfig
+from src.library.datetime_stamp import DatetimeStamp
 
 logger = logging.getLogger(__name__)
+
+AUDIO_RECONNECT_DELAY_SECONDS = 5
+AUDIO_RECONNECT_MAX_RETRIES = 10
 
 
 class AudioStreamsListenerThread:
     """
     A thread dedicated to capturing audio from a specified input device.
 
-    This class acts as the "Producer" in a producer-consumer pattern. Its sole
-    responsibility is to continuously read audio chunks from the sound device
-    using `sounddevice.InputStream` and place them onto a queue for further
-    processing by other threads (Consumers).
+    his class acts as the "Producer" in a producer-consumer pattern.  It runs
+    a continuous loop that attempts to maintain an active audio stream. If
+    the hardware fails (e.g., USB disconnected), it enters a retry/backoff state.
 
-    It runs until a `stop_event` is set, ensuring graceful shutdown.
+    If the failure persists beyond a set limit, it shuts down the application.
     """
 
-    def __init__(self, audio_device_config: AudioDeviceConfig, audio_queue: queue.Queue, stop_event: threading.Event):
+    def __init__(
+        self,
+        audio_device_config: AudioDeviceConfig,
+        audio_queue: queue.Queue,
+        stop_event: threading.Event,
+    ):
         """
         Initializes the audio listener thread.
 
@@ -54,54 +63,89 @@ class AudioStreamsListenerThread:
         self._stop_event = stop_event
 
         self._class_name = self.__class__.__name__
-        logger.info(f"{self._class_name} initialized.")
+        logger.debug(f"{self._class_name} initialized.")
+
+        self._reconnect_delay_seconds = AUDIO_RECONNECT_DELAY_SECONDS
+        self._max_retries = AUDIO_RECONNECT_MAX_RETRIES
 
     def run(self):
         """
-        The main execution loop for the audio listener thread.
+        The main execution loop with built-in hardware recovery.
 
         Continuously reads audio chunks from the configured input device via
         `sounddevice.InputStream` and puts them onto the queue as tuples containing
         the audio data (numpy array) and a timestamp.
 
-        It runs until the `stop_event` is set.
+        1. Enters a 'Reconnection Loop'.
+        2. Tries to open the InputStream.
+        3. If successful, RESETS retry count and enters 'Read Loop'.
+        4. If it fails, increments retry count.
+        5. If retries exceed limit, signals app shutdown.
         """
         logger.info(f"{self._class_name} thread started.")
 
-        try:
-            device_id = self._audio_device_config.id
-            sample_rate = self._audio_device_config.sample_rate
-            dtype = self._audio_device_config.dtype
-            block_size = self._audio_device_config.block_size
+        retry_count = 0
 
-            with sd.InputStream(
-                device=device_id,
-                blocksize=block_size,
-                samplerate=sample_rate,
-                dtype=dtype,
-                channels=1,
-            ) as stream:
-                logger.debug(
-                    f"Opened audio stream on device ID {device_id} with SR={sample_rate}, Blocksize={block_size}."
-                )
+        # --- 1. Reconnection Loop (The Watchdog) ---
+        while not self._stop_event.is_set():
+            try:
+                device_id = self._audio_device_config.id
+                sample_rate = self._audio_device_config.sample_rate
+                dtype = self._audio_device_config.dtype
+                block_size = self._audio_device_config.block_size
 
-                while not self._stop_event.is_set():
-                    audio_chunk, overflowed = stream.read(block_size)
+                with sd.InputStream(
+                    device=device_id,
+                    blocksize=block_size,
+                    samplerate=sample_rate,
+                    dtype=dtype,
+                    channels=1,
+                ) as stream:
+                    retry_count = 0
 
-                    if overflowed:
-                        logger.warning("Audio buffer overflowed! System might be overloaded.")
+                    logger.debug(f"Microphone stream started on Device ID {device_id} at ({sample_rate}Hz).")
 
-                    timestamp = DatetimeStamp.get()
-                    audio_data = (audio_chunk, timestamp)
-                    self._queue.put(audio_data)
+                    # --- 2. Read Loop (The Capture) ---
+                    while not self._stop_event.is_set():
+                        audio_chunk, overflow = stream.read(block_size)
 
-                    logger.debug(f"Sent audio chunk (shape: {audio_chunk.shape}) with timestamp {timestamp} to queue.")
+                        if overflow:
+                            logger.warning(
+                                f"Input overflow detected on device {device_id}. Audio data lost from hardware buffer."
+                            )
 
-        except sd.PortAudioError as pa_err:
-            logger.error(f"PortAudioError in audio stream: {pa_err}", exc_info=True)
-            self._stop_event.set()
-        except Exception as e:
-            logger.error(f"Unexpected error in audio listener thread: {e}", exc_info=True)
-            self._stop_event.set()
-        finally:
-            logger.info(f"{self._class_name} thread finished.")
+                        timestamp = DatetimeStamp.get()
+
+                        # --- 3. Buffer Overflow Handling (Software side) ---
+                        try:
+                            if audio_chunk.ndim > 1:
+                                audio_chunk = audio_chunk.flatten()
+
+                            self._queue.put_nowait((audio_chunk, timestamp))
+
+                        except queue.Full:
+                            logger.warning(
+                                "Consumer queue is full! Dropping audio chunk to maintain real-time monitoring."
+                            )
+
+            except (sd.PortAudioError, OSError) as e:
+                retry_count += 1
+                logger.error(f"Microphone Hardware Error (Attempt {retry_count}/{self._max_retries}): {e}")
+
+                if retry_count >= self._max_retries:
+                    logger.critical(
+                        f"❌ Maximum reconnection attempts ({self._max_retries}) reached. "
+                        "Assuming permanent hardware failure. Stopping application."
+                    )
+                    self._stop_event.set()
+                    break
+
+                logger.info(f"Waiting {self._reconnect_delay_seconds}s before reconnecting...")
+                self._stop_event.wait(self._reconnect_delay_seconds)
+
+            except Exception as e:
+                logger.critical(f"Unexpected fatal error in ListenerThread: {e}", exc_info=True)
+                self._stop_event.set()
+                break
+
+        logger.info(f"{self._class_name} thread finished.")
