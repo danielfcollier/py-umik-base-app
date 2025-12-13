@@ -112,7 +112,7 @@ if __name__ == "__main__":
     logger.info("Initializing Audio Recorder Application...")
 
     parser = AudioAppArgs.get_parser()
-    
+
     # Updated default to include the folder explicitly
     parser.add_argument(
         "-o",
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
         sys.exit(1)
-        
+
     # Log the final resolved path used by the app
     final_path = app.output_file if app else args.output_file
     logger.info(f"Recording saved to: {final_path}")

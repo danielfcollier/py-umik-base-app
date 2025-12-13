@@ -63,9 +63,7 @@ class AudioAppArgs:
 
         :return: An argparse.ArgumentParser object with standard flags configured.
         """
-        parser = argparse.ArgumentParser(
-            description="Run the Digital Decibel Meter / Audio Monitor application."
-        )
+        parser = argparse.ArgumentParser(description="Run the Digital Decibel Meter / Audio Monitor application.")
         parser.add_argument(
             "--device-id",
             type=int,
@@ -132,7 +130,7 @@ class AudioAppArgs:
     def validate_args(args: argparse.Namespace) -> AudioAppConfig:
         """
         Validates the parsed command-line arguments and creates the final AudioAppConfig object.
- 
+
         Performs checks and adjustments:
         - Ensures buffer_seconds meets the minimum and is a multiple of the LUFS window.
         - Selects the audio device (default or specified ID).

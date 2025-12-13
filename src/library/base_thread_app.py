@@ -116,10 +116,10 @@ class BaseThreadApp(ABC):
         """
         # Ensure shutdown signal is sent if close is called directly
         self.shutdown()
-        # Wait for threads if they are still running? 
-        # Usually join_threads is called in run(), but strictly speaking close() 
+        # Wait for threads if they are still running?
+        # Usually join_threads is called in run(), but strictly speaking close()
         # is for resource release.
-        pass 
+        pass
 
     def run(self):
         """
@@ -144,5 +144,5 @@ class BaseThreadApp(ABC):
 
         self._stop_event.wait()
         self._join_threads()
-        self.close() 
+        self.close()
         logger.info("Application has exited.")
