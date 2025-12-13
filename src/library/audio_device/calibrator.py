@@ -91,7 +91,7 @@ class AudioDeviceCalibrator:
 
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-        logger.info(f"✅ AudioDeviceCalibrator initialized. Filter is ready.")
+        logger.info("✅ AudioDeviceCalibrator initialized. Filter is ready.")
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -204,7 +204,7 @@ class AudioDeviceCalibrator:
 
         # Design the FIR filter coefficients using the specified number of taps.
         logger.info(f"Designing FIR filter with {num_taps} taps...")
-        filter_taps = firwin2(num_taps -1, full_freqs, extrapolated_gains)
+        filter_taps = firwin2(num_taps - 1, full_freqs, extrapolated_gains)
         logger.info("Filter design complete.")
 
         return filter_taps
@@ -264,7 +264,10 @@ class AudioDeviceCalibrator:
 
                             calculated_sensitivity_dbfs = nominal_sensitivity_dbfs + sens_factor_db
 
-                            logger.info(f"✅ Found 'Sens Factor': {sens_factor_db:.3f} dB for reference {reference_dbspl:.2f} dBSPL")
+                            logger.info(
+                                f"✅ Found 'Sens Factor': {sens_factor_db:.3f} dB for reference"
+                                f" {reference_dbspl:.2f} dBSPL"
+                            )
                             return calculated_sensitivity_dbfs, reference_dbspl
 
                         except (ValueError, IndexError, TypeError) as parse_error:
