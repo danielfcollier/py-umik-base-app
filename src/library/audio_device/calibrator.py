@@ -16,6 +16,8 @@ import os
 import numpy as np
 from scipy.signal import firwin2, lfilter
 
+from src.settings import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,9 @@ class AudioDeviceCalibrator:
     filter taps for faster subsequent initializations.
     """
 
-    def __init__(self, calibration_file_path: str, sample_rate: float, num_taps: int = 1024, force_write: bool = False):
+    def __init__(
+        self, calibration_file_path: str, sample_rate: float, num_taps: int | None = None, force_write: bool = False
+    ):
         """
         Initializes the Calibrator.
 
@@ -49,9 +53,11 @@ class AudioDeviceCalibrator:
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
 
+        taps_count = num_taps if num_taps is not None else settings.audio.num_taps
+
         calibration_dir = os.path.dirname(calibration_file_path)
         calibration_basename = os.path.splitext(os.path.basename(calibration_file_path))[0]
-        taps_filename = f"{calibration_basename}_fir_{num_taps}taps_{int(sample_rate)}hz.npy"
+        taps_filename = f"{calibration_basename}_fir_{taps_count}taps_{int(sample_rate)}hz.npy"
         taps_file = os.path.join(calibration_dir, taps_filename)
         logger.debug(f"Using cache file path: {taps_file}")
 
@@ -61,10 +67,10 @@ class AudioDeviceCalibrator:
             logger.info(f"Found cached filter at '{taps_file}'. Loading...")
             try:
                 self._filter_taps = np.load(taps_file)
-                if len(self._filter_taps) != (num_taps - 1):
+                if len(self._filter_taps) != (taps_count - 1):
                     logger.warning(
                         f"Cached filter length ({len(self._filter_taps)}) does not match "
-                        f"requested length ({num_taps} - 1). Will redesign."
+                        f"requested length ({taps_count} - 1). Will redesign."
                     )
                     cache_exists = False
                 else:
@@ -79,9 +85,9 @@ class AudioDeviceCalibrator:
             else:
                 logger.info(f"No valid cached filter found at '{taps_file}'.")
 
-            logger.info(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
+            logger.info(f"Designing new {taps_count}-tap filter from '{calibration_file_path}'...")
             freqs, gains = self._parse_frequency_response(calibration_file_path)
-            self._filter_taps = self._design_fir_filter(freqs, gains, num_taps)
+            self._filter_taps = self._design_fir_filter(freqs, gains, taps_count)
             logger.info(f"Saving new filter to cache at '{taps_file}'...")
 
             try:
@@ -245,11 +251,10 @@ class AudioDeviceCalibrator:
         :raises FileNotFoundError: If the file_path does not exist.
         """
         logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
-        # Assume a nominal sensitivity for the UMIK-1 microphone.
-        nominal_sensitivity_dbfs = -18.0
 
-        # Assume the standard reference pressure level used during calibration.
-        reference_dbspl = 94.0
+        # Load defaults from settings
+        nominal_sensitivity_dbfs = settings.hardware.nominal_sensitivity_dbfs
+        reference_dbspl = settings.hardware.reference_dbspl
 
         try:
             with open(file_path, encoding="utf-8") as f:

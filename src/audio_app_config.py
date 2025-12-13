@@ -17,14 +17,9 @@ import sys
 
 from src.library.audio_device.calibrator import AudioDeviceCalibrator
 from src.library.audio_device.selector import AudioDeviceNotFound, AudioDeviceSelector
+from src.settings import settings
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_BUFFER_SECONDS = 6
-MINIMUM_BUFFER_SECONDS = 3
-DEFAULT_SAMPLE_RATE = 48000
-DEFAULT_NUM_TAPS = 1024
-LUFS_AGGREGATION_SECONDS = 3  # Standard window for short-term LUFS calculation
 
 
 class AudioAppConfig:
@@ -74,20 +69,21 @@ class AudioAppArgs:
             "-b",
             "--buffer-seconds",
             type=float,
-            default=DEFAULT_BUFFER_SECONDS,
+            default=settings.audio.buffer_seconds,
             help=(
                 f"Duration of audio buffers in seconds. "
-                f"Minimum: {MINIMUM_BUFFER_SECONDS}s. Will be rounded up to a multiple "
-                f"of LUFS window ({LUFS_AGGREGATION_SECONDS}s). Default: {DEFAULT_BUFFER_SECONDS}s."
+                f"Minimum: {settings.audio.min_buffer_seconds}s. Will be rounded up to a multiple "
+                f"of LUFS window ({settings.audio.lufs_window_seconds}s). "
+                f"Default: {settings.audio.buffer_seconds}s."
             ),
         )
         parser.add_argument(
             "-r",
             "--sample-rate",
             type=float,
-            default=DEFAULT_SAMPLE_RATE,
+            default=settings.audio.sample_rate,
             help=(
-                f"Target sample rate (Hz) for default device. Default: {DEFAULT_SAMPLE_RATE} Hz. "
+                f"Target sample rate (Hz) for default device. Default: {settings.audio.sample_rate} Hz. "
                 "This is IGNORED if --calibration-file is used, as the device's native rate takes precedence."
             ),
         )
@@ -106,10 +102,10 @@ class AudioAppArgs:
             "-t",
             "--num-taps",
             type=int,
-            default=DEFAULT_NUM_TAPS,
+            default=settings.audio.num_taps,
             help=(
                 "Number of FIR filter taps for calibration filter design (only used with --calibration-file). "
-                f"Affects accuracy vs CPU load. Default: {DEFAULT_NUM_TAPS}."
+                f"Affects accuracy vs CPU load. Default: {settings.audio.num_taps}."
             ),
         )
         return parser
@@ -147,17 +143,20 @@ class AudioAppArgs:
         logger.info("Validating command-line arguments...")
 
         buffer_seconds = float(args.buffer_seconds)
-        if buffer_seconds < MINIMUM_BUFFER_SECONDS:
+        min_buf = settings.audio.min_buffer_seconds
+        lufs_window = settings.audio.lufs_window_seconds
+
+        if buffer_seconds < min_buf:
             logger.warning(
-                f"Requested buffer size ({buffer_seconds:.2f}s) is below minimum ({MINIMUM_BUFFER_SECONDS:.1f}s). "
-                f"Adjusting buffer size to {MINIMUM_BUFFER_SECONDS:.1f}s."
+                f"Requested buffer size ({buffer_seconds:.2f}s) is below minimum ({min_buf:.1f}s). "
+                f"Adjusting buffer size to {min_buf:.1f}s."
             )
-            buffer_seconds = MINIMUM_BUFFER_SECONDS
-        elif buffer_seconds % LUFS_AGGREGATION_SECONDS != 0:
-            new_buffer = math.ceil(buffer_seconds / LUFS_AGGREGATION_SECONDS) * LUFS_AGGREGATION_SECONDS
+            buffer_seconds = min_buf
+        elif buffer_seconds % lufs_window != 0:
+            new_buffer = math.ceil(buffer_seconds / lufs_window) * lufs_window
             logger.warning(
                 f"Adjusting buffer size from {buffer_seconds:.2f}s to {new_buffer:.1f}s to be an even multiple of "
-                f"the LUFS window ({LUFS_AGGREGATION_SECONDS:.1f}s)."
+                f"the LUFS window ({lufs_window:.1f}s)."
             )
             buffer_seconds = new_buffer
 

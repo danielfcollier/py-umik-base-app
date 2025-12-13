@@ -16,22 +16,16 @@ import os
 import sys
 
 from src import AudioDeviceCalibrator
+from src.settings import settings
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
-
-# --- Configuration (Default Values) ---
-DEFAULT_SAMPLE_RATE = 48000
-DEFAULT_NUM_TAPS = 1024
 
 
 def get_sensitivity(calibration_file_path: str):
     """
     Extracts sensitivity values (dBFS and reference dBSPL) using the static
     method from the AudioDeviceCalibrator class.
-
-    :param calibration_file_path: Path to the UMIK-1 calibration file.
-    :raises SystemExit: If sensitivity extraction fails.
     """
     try:
         sensitivity_dbfs, reference_dbspl = AudioDeviceCalibrator.get_sensitivity_values(calibration_file_path)
@@ -93,16 +87,16 @@ def main():
         "-r",
         "--sample-rate",
         type=int,
-        default=DEFAULT_SAMPLE_RATE,
-        help=f"Sample rate (Hz) to use for filter design (default: {DEFAULT_SAMPLE_RATE}).",
+        default=settings.audio.sample_rate,
+        help=f"Sample rate (Hz) to use for filter design (default: {settings.audio.sample_rate}).",
     )
 
     parser.add_argument(
         "-t",
         "--num-taps",
         type=int,
-        default=DEFAULT_NUM_TAPS,
-        help=f"Number of FIR filter taps (coefficients) to design (default: {DEFAULT_NUM_TAPS}). "
+        default=settings.audio.num_taps,
+        help=f"Number of FIR filter taps (coefficients) to design (default: {settings.audio.num_taps}). "
         "Affects accuracy vs. CPU load. Common values: 256, 512, 1024.",
     )
 

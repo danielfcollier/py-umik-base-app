@@ -14,19 +14,9 @@ import librosa
 import numpy as np
 import pyloudnorm as pyln
 
+from src.settings import settings
+
 logger = logging.getLogger(__name__)
-
-
-# --- Constants for Metric Calculation ---
-
-# The duration in seconds for a single Short-Term LUFS measurement window, aligning with industry standards.
-LUFS_METER_DURATION_SECONDS = 3
-
-# A lower bound for dBFS calculations to prevent extremely small numbers and represent practical silence.
-DBFS_LOWER_BOUND = -120
-
-# A lower bound for LUFS calculations to represent practical silence.
-LUFS_LOWER_BOUND = -120
 
 
 class AudioMetrics:
@@ -40,7 +30,7 @@ class AudioMetrics:
         """
         self._lufs_meter = pyln.Meter(sample_rate)
         self._lufs_chunks: list[np.ndarray] = []
-        self._lufs_block_size = int(LUFS_METER_DURATION_SECONDS * sample_rate)
+        self._lufs_block_size = int(settings.audio.lufs_window_seconds * sample_rate)
 
     @staticmethod
     def rms(audio_chunk: np.ndarray) -> float:
@@ -92,7 +82,7 @@ class AudioMetrics:
         epsilon = 1e-10
         dbfs = 20 * np.log10(rms + epsilon)
 
-        return dbfs if dbfs > DBFS_LOWER_BOUND else DBFS_LOWER_BOUND
+        return dbfs if dbfs > settings.metrics.dbfs_lower_bound else settings.metrics.dbfs_lower_bound
 
     @staticmethod
     def dBSPL(dbfs_level: float, sensitivity_dbfs: float, reference_dbspl: float) -> float:
@@ -153,7 +143,7 @@ class AudioMetrics:
         :return: The calculated loudness in LUFS.
         """
         loudness = self._lufs_meter.integrated_loudness(audio_chunk)
-        return loudness if loudness > LUFS_LOWER_BOUND else LUFS_LOWER_BOUND
+        return loudness if loudness > settings.metrics.lufs_lower_bound else settings.metrics.lufs_lower_bound
 
     @staticmethod
     def show_metrics(**metrics: float):
@@ -165,6 +155,7 @@ class AudioMetrics:
 
         :param metrics: A variable number of keyword arguments (e.g., rms=0.1, dbfs=-25.3).
         """
+
         formatted_metrics = {key: f"{value:.4f}" for key, value in metrics.items() if key != "measured_at"}
         measured_at = metrics["measured_at"]
 

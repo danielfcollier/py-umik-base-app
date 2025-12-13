@@ -15,13 +15,9 @@ import wave
 from pathlib import Path
 
 from src.library.datetime_stamp import DatetimeStamp
+from src.settings import settings
 
 logger = logging.getLogger(__name__)
-
-
-ROTATION_DEFAULT_SECONDS = 3600  # 1 hour
-DEFAULT_SAMPLE_RATE = 48000
-DEFAULT_RECORDING_PATH = Path("recordings")
 
 
 class AudioStreamsRecorder:
@@ -31,25 +27,27 @@ class AudioStreamsRecorder:
 
     def __init__(
         self,
-        base_path: Path = Path(DEFAULT_RECORDING_PATH),
-        sample_rate: int = DEFAULT_SAMPLE_RATE,
+        base_path: Path | None = None,
+        sample_rate: int | None = None,
         channels: int = 1,
         sample_width: int = 2,
-        rotation_duration_seconds: int = ROTATION_DEFAULT_SECONDS,
+        rotation_duration_seconds: int | None = None,
     ):
         """
         Initializes the recording manager.
 
-        :param base_path: The directory or base name for files. Files will be named
-                          using this base + timestamp (e.g., "recordings/audio_2025-01-01_120000.wav").
-        :param rotation_duration_seconds: How many seconds of audio to record before
-                                          starting a new file.
+        :param base_path: The directory or base name for files. Defaults to settings.recorder.default_recording_path.
+        :param sample_rate: Sample rate. Defaults to settings.audio.sample_rate.
+        :param rotation_duration_seconds: Rotation interval. Defaults to settings.recorder.rotation_seconds.
         """
-        self._base_path = base_path
-        self._sample_rate = sample_rate
+        self._base_path = base_path if base_path is not None else settings.recorder.default_recording_path
+        self._sample_rate = sample_rate if sample_rate is not None else settings.audio.sample_rate
+        self._rotation_frames = (
+            rotation_duration_seconds if rotation_duration_seconds is not None else settings.recorder.rotation_seconds
+        ) * self._sample_rate
+
         self._channels = channels
         self._sample_width = sample_width
-        self._rotation_frames = rotation_duration_seconds * sample_rate
 
         self._wave_file: wave.Wave_write | None = None
         self._current_file_frames = 0
