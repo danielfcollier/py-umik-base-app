@@ -12,6 +12,7 @@ Year: 2025
 import logging
 
 from src.library.audio_device.selector import AudioDeviceSelector
+from src.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,8 @@ class AudioDeviceConfig:
         target_audio_device: AudioDeviceSelector,
         sample_rate: float,
         buffer_seconds: float,
-        dtype: str = "float32",
-        high_priority: bool = False,
+        dtype: str | None = None,
+        high_priority: bool | None = None,
     ):
         """
         Initializes the audio device configuration object.
@@ -56,8 +57,9 @@ class AudioDeviceConfig:
         self.sample_rate = sample_rate
         self.buffer_seconds = buffer_seconds
         self.block_size = int(sample_rate * buffer_seconds)
-        self.dtype = dtype
-        self.high_priority = high_priority
+
+        self.dtype = dtype if dtype is not None else settings.audio.dtype
+        self.high_priority = high_priority if high_priority is not None else settings.audio.high_priority
 
         logger.debug(
             f"AudioDeviceConfig initialized: Device ID={self.id}, SR={self.sample_rate}Hz,"
