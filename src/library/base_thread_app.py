@@ -35,6 +35,7 @@ class BaseThreadApp(ABC):
         self._queue = queue.Queue()
         self._data_lock = threading.Lock()
         self._threads: list[threading.Thread] = []
+        self._error_queue = queue.Queue()
 
     def _handle_signal(self, signum, frame):
         """
@@ -42,7 +43,7 @@ class BaseThreadApp(ABC):
         It initiates the graceful shutdown process.
 
         :param signum: The signal number received.
-        :param
+        :param frame: The current stack frame (provided by the signal module).
         """
         logger.info(f"\nSignal {signal.Signals(signum).name} received, initiating graceful shutdown.")
         self.shutdown()
@@ -66,7 +67,9 @@ class BaseThreadApp(ABC):
         appended to the `self._threads` list here.
 
         Example in a child class:
-            input_thread = threading.Thread(target=self._my_worker)
+            input_thread = threading.Thread(
+                target=self._thread_guard(self._my_worker)
+            )
             self._threads.append(input_thread)
         """
         pass
@@ -81,6 +84,31 @@ class BaseThreadApp(ABC):
         for thread in self._threads:
             thread.join()
         logger.info("✅ All threads have been stopped.")
+
+    def _thread_guard(self, target_function):
+        """
+        A wrapper function that adds error handling around thread target functions.
+
+        This method ensures that if a thread encounters an unhandled exception,
+        it logs the error and triggers the shutdown sequence.
+
+        :param target_function: The original target function for the thread.
+        :return: A wrapped function with error handling.
+        """
+
+        def guarded_function(*args, **kwargs):
+            try:
+                target_function(*args, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"Unhandled exception in thread {threading.current_thread().name}: {e}",
+                    exc_info=True,
+                )
+                self._error_queue.put(e)
+                # CRITICAL: Trigger shutdown so the main loop stops waiting
+                self.shutdown()
+
+        return guarded_function
 
     def run(self):
         """
@@ -105,3 +133,4 @@ class BaseThreadApp(ABC):
 
         self._stop_event.wait()
         self._join_threads()
+        logger.info("Application has exited.")
