@@ -82,7 +82,8 @@ class BaseThreadApp(ABC):
         """
         logger.debug("Waiting for threads to finish...")
         for thread in self._threads:
-            thread.join()
+            if thread.is_alive():
+                thread.join()
         logger.info("✅ All threads have been stopped.")
 
     def _thread_guard(self, target_function):
@@ -100,15 +101,25 @@ class BaseThreadApp(ABC):
             try:
                 target_function(*args, **kwargs)
             except Exception as e:
-                logger.error(
-                    f"Unhandled exception in thread {threading.current_thread().name}: {e}",
-                    exc_info=True,
-                )
+                logger.error(f"Unhandled exception in thread {threading.current_thread().name}: {e}", exc_info=True)
                 self._error_queue.put(e)
-                # CRITICAL: Trigger shutdown so the main loop stops waiting
                 self.shutdown()
 
         return guarded_function
+
+    def close(self):
+        """
+        Performs final cleanup operations.
+        Child classes can override this to close their own resources (files, DBs),
+        but should generally call super().close() to ensure base cleanup occurs.
+        Currently, specific base cleanup is minimal but this provides the hook.
+        """
+        # Ensure shutdown signal is sent if close is called directly
+        self.shutdown()
+        # Wait for threads if they are still running? 
+        # Usually join_threads is called in run(), but strictly speaking close() 
+        # is for resource release.
+        pass 
 
     def run(self):
         """
@@ -133,4 +144,5 @@ class BaseThreadApp(ABC):
 
         self._stop_event.wait()
         self._join_threads()
+        self.close() 
         logger.info("Application has exited.")
