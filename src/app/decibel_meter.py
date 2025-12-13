@@ -11,9 +11,9 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from datetime import datetime
 import logging
 import sys
-from datetime import datetime
 
 import numpy as np
 
@@ -29,61 +29,106 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(m
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_METRIC_INTERVAL_SECONDS = 3
+
+
 class AudioMetricsSink(AudioSink):
     """
-    A sink component that calculates and logs audio metrics for the pipeline.
+    A sink component that accumulates audio and calculates metrics
+    over a specified time interval.
     """
 
     def __init__(self, config: AudioAppConfig):
         """
-        Initializes the metrics sink.
-
-        :param config: Application configuration containing sample rate and
-                       calibration sensitivity values.
+        Initializes the metrics sink with buffering logic.
         """
         self._config = config
         self._audio_metrics = AudioMetrics(sample_rate=config.sample_rate)
 
+        # --- Buffering Configuration ---
+        self._interval_seconds = DEFAULT_METRIC_INTERVAL_SECONDS
+
+        if self._interval_seconds > 0:
+            # Calculate how many samples we need to collect before processing
+            self._target_samples = int(self._interval_seconds * config.sample_rate)
+            self._accumulated_samples = 0
+            self._audio_buffer = []  # List to hold numpy arrays
+            logger.info(
+                f"Metrics Sink initialized with {self._interval_seconds}s interval ({self._target_samples} samples)."
+            )
+        else:
+            self._target_samples = 0
+            logger.info("Metrics Sink initialized in immediate mode (per-chunk).")
+
     def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
         """
-        Calculates and logs metrics for the received audio chunk.
-
-        Note: The 'audio_chunk' received here has already been processed (calibrated)
-        by the pipeline if a calibrator was configured.
+        Buffers audio chunks. When the buffer is full, calculates and logs metrics
+        for the entire interval.
         """
         try:
-            # --- Calculate Core Metrics ---
-            rms_value = self._audio_metrics.rms(audio_chunk)
-            dbfs_value = self._audio_metrics.dBFS(audio_chunk)
-            flux_value = self._audio_metrics.flux(audio_chunk, self._config.sample_rate)
-            lufs_value = self._audio_metrics.lufs(audio_chunk)
+            # 1. Immediate Mode (Legacy behavior if interval is 0)
+            if self._target_samples <= 0:
+                self._process_and_log(audio_chunk, timestamp)
+                return
 
-            # --- Prepare Metrics Dictionary for Logging ---
-            metrics_to_log = {
-                "measured_at": timestamp,
-                "rms": rms_value,
-                "flux": flux_value,
-                "dBFS": dbfs_value,
-                "LUFS_M": lufs_value,
-            }
+            # 2. Windowed Mode
+            self._audio_buffer.append(audio_chunk)
+            self._accumulated_samples += len(audio_chunk)
 
-            # --- Calculate dBSPL (Conditionally) ---
-            if self._config.audio_calibrator and self._config.sensitivity_dbfs is not None:
-                dbspl_value = self._audio_metrics.dBSPL(
-                    dbfs_level=dbfs_value,
-                    sensitivity_dbfs=self._config.sensitivity_dbfs,
-                    reference_dbspl=self._config.reference_dbspl,
-                )
-                metrics_to_log["dBSPL"] = dbspl_value
+            # Check if we have enough data
+            if self._accumulated_samples >= self._target_samples:
+                # Combine all buffered chunks into one continuous array
+                full_block = np.concatenate(self._audio_buffer)
 
-            # --- Log the Metrics ---
-            self._audio_metrics.show_metrics(**metrics_to_log)
+                # Process the full block
+                # Use the timestamp of the *end* of the block (roughly now)
+                self._process_and_log(full_block, datetime.now())
+
+                # Reset Buffer
+                self._audio_buffer = []
+                self._accumulated_samples = 0
 
         except Exception as e:
-            logger.error(
-                f"Error calculating metrics for chunk captured around {timestamp}: {e}",
-                exc_info=True,
+            logger.error(f"Error in AudioMetricsSink: {e}", exc_info=True)
+
+    def _process_and_log(self, audio_data: np.ndarray, timestamp: datetime):
+        """
+        Helper method to calculate and log metrics for a specific block of audio.
+        """
+        # --- Calculate Core Metrics on the aggregated block ---
+        # RMS: Effective power over the whole interval
+        rms_value = self._audio_metrics.rms(audio_data)
+
+        # dBFS: Average level over the interval
+        dbfs_value = self._audio_metrics.dBFS(audio_data)
+
+        # Flux: Max spectral change detected within this interval
+        flux_value = self._audio_metrics.flux(audio_data, self._config.sample_rate)
+
+        # LUFS: Integrated loudness over this interval
+        lufs_value = self._audio_metrics.lufs(audio_data)
+
+        # --- Prepare Metrics Dictionary ---
+        metrics_to_log = {
+            "measured_at": timestamp,
+            "interval_s": (len(audio_data) / self._config.sample_rate),
+            "rms": rms_value,
+            "flux": flux_value,
+            "dBFS": dbfs_value,
+            "LUFS": lufs_value,
+        }
+
+        # --- Calculate dBSPL (Conditionally) ---
+        if self._config.audio_calibrator and self._config.sensitivity_dbfs is not None:
+            dbspl_value = self._audio_metrics.dBSPL(
+                dbfs_level=dbfs_value,
+                sensitivity_dbfs=self._config.sensitivity_dbfs,
+                reference_dbspl=self._config.reference_dbspl,
             )
+            metrics_to_log["dBSPL"] = dbspl_value
+
+        # --- Log the Metrics ---
+        self._audio_metrics.show_metrics(**metrics_to_log)
 
 
 class DecibelMeterApp(BaseAudioApp):
