@@ -1,31 +1,38 @@
-[tool.poetry]
-name = "src"
+[project]
+name = "python-umik-1-base-apps"
 version = "1.0.0"
-description = "Umik-1 Base App Microphone Utilities"
-authors = ["Daniel Collier <danielfcollier@gmail.com>"]
+description = "Base utilities for working with the Umik-1 microphone in Python applications."
+authors = [
+    {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
+]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "~=3.12"
-numpy = "^2.3.3"
-ruff = "^0.14.1"
-scipy = "^1.16.2"
-mypy = "^1.18.2"
-pydantic = "^2.12.3"
-sounddevice = "^0.5.3"
-librosa = "^0.11.0"
-pyloudnorm = "^0.1.1"
-logging = "^0.4.9.6"
+requires-python = "~=3.12" 
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+# Production Dependencies
+dependencies = [
+    "numpy~=2.3.3",
+    "scipy~=1.16.2",
+    "pydantic~=2.12.3",
+    "sounddevice~=0.5.3",
+    "librosa~=0.11.0",
+    "pyloudnorm~=0.1.1",
+    "logging~=0.4.9.6",
+    "pydantic-settings>=2.12.0",
+]
+
+# Development Dependencies (used for linting/testing)
+[project.optional-dependencies]
+dev = [
+    "ruff~=0.14.1",
+    "mypy~=1.18.2",
+    "pytest",
+    "pytest-cov",
+]
 
 [tool.ruff]
 line-length = 120
-
 target-version = "py313"
-
 exclude = [
     ".venv",
     ".git",
@@ -34,21 +41,9 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Select the rule sets you want to enable. This is a great starting point:
-# E: pycodestyle errors
-# F: Pyflakes (unused imports, undefined names)
-# W: pycodestyle warnings
-# I: isort (import sorting)
-# C90: mccabe complexity checks
-# UP: pyupgrade (modernize syntax)
 select = ["E", "F", "W", "I", "C90", "UP"]
 
-# You can ignore specific rules if you disagree with them.
-# For example, to ignore the "line too long" error (though it's better to fix it).
-# ignore = ["E501"]
-
 [tool.ruff.lint.mccabe]
-# This requires "C90" to be in the 'select' list above.
 max-complexity = 30
 
 [tool.ruff.lint.isort]
