@@ -15,6 +15,7 @@ APP_DIR         := $(SRC_DIR)/app
 # Calibration file path (MUST be set when calling relevant targets)
 # Example: make calibrate-umik F="path/to/cal.txt"
 F ?=
+OUT ?= recording.wav
 
 SILENT ?=
 HELP   ?=
@@ -29,7 +30,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check decibel-meter decibel-meter-default-mic decibel-meter-umik-1
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check decibel-meter decibel-meter-default-mic decibel-meter-umik-1 record record-default-mic record-umik-1
 
 default: help
 
@@ -150,4 +151,40 @@ else
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/decibel_meter.py $(HELP) --buffer-seconds $(BUFFER_SECONDS)
 endif
 
-# record --metrics
+record: record-umik-1 ## Record audio using the UMIK-1 (Default alias)
+
+record-umik-1: ## Record audio using the UMIK-1. Requires F=<cal_file>. Optional: OUT=<path>.
+ifeq ($(HELP),--help)
+	@echo -e "$(YELLOW)>>> Showing help for record.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py --help
+else
+	@echo -e "$(YELLOW)>>> Attempting to record with UMIK-1...$(NC)"
+	$(eval ID := $(shell $(MAKE) get-umik-id SILENT=1))
+	@if [ -z "$(ID)" ]; then \
+		echo -e "$(RED)>>> ERROR: Could not automatically find UMIK-1 device ID.$(NC)"; \
+		echo -e "$(YELLOW)    Please check 'make list-audio-devices' and ensure the microphone is connected.$(NC)"; \
+		exit 1; \
+	fi
+ifndef F
+	$(error Calibration file path not set. Use 'make record-umik-1 F="<path/to/calibration_file.txt>"')
+endif
+	@echo -e "$(GREEN)>>> Recording to $(OUT)...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
+		--device-id $(ID) \
+		--buffer-seconds $(BUFFER_SECONDS) \
+		--calibration-file "$(F)" \
+		--num-taps ${NUM_TAPS} \
+		--output-file "$(OUT)"
+endif
+
+record-default-mic: ## Record audio using the system default microphone. Optional: OUT=<path>.
+ifeq ($(HELP),--help)
+	@echo -e "$(YELLOW)>>> Showing help for record.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py --help
+else
+	@echo -e "$(YELLOW)>>> Recording with default system microphone...$(NC)"
+	@echo -e "$(GREEN)>>> Recording to $(OUT)...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
+		--buffer-seconds $(BUFFER_SECONDS) \
+		--output-file "$(OUT)"
+endif

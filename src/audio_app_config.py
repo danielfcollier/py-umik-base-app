@@ -55,16 +55,17 @@ class AudioAppArgs:
     """
 
     @staticmethod
-    def get_args() -> argparse.Namespace:
+    def get_parser() -> argparse.ArgumentParser:
         """
-        Defines and parses command-line arguments using argparse.
+        Creates and returns the ArgumentParser with standard arguments.
+        Does NOT parse arguments immediately. Use this if you need to add custom
+        arguments in your specific application (like --output-file).
 
-        Sets up arguments for selecting the audio device, buffer duration, sample rate,
-        calibration file, and filter taps, along with default values and help messages.
-
-        :return: An argparse.Namespace object containing the parsed arguments.
+        :return: An argparse.ArgumentParser object with standard flags configured.
         """
-        parser = argparse.ArgumentParser(description="Run the Digital Decibel Meter / Audio Monitor application.")
+        parser = argparse.ArgumentParser(
+            description="Run the Digital Decibel Meter / Audio Monitor application."
+        )
         parser.add_argument(
             "--device-id",
             type=int,
@@ -113,6 +114,17 @@ class AudioAppArgs:
                 f"Affects accuracy vs CPU load. Default: {DEFAULT_NUM_TAPS}."
             ),
         )
+        return parser
+
+    @staticmethod
+    def get_args() -> argparse.Namespace:
+        """
+        Defines and parses command-line arguments using argparse.
+        This remains for backward compatibility with apps that don't need custom args.
+
+        :return: An argparse.Namespace object containing the parsed arguments.
+        """
+        parser = AudioAppArgs.get_parser()
         args = parser.parse_args()
         return args
 
@@ -120,7 +132,7 @@ class AudioAppArgs:
     def validate_args(args: argparse.Namespace) -> AudioAppConfig:
         """
         Validates the parsed command-line arguments and creates the final AudioAppConfig object.
-
+ 
         Performs checks and adjustments:
         - Ensures buffer_seconds meets the minimum and is a multiple of the LUFS window.
         - Selects the audio device (default or specified ID).
@@ -158,7 +170,6 @@ class AudioAppArgs:
             logger.error(f"Failed to select audio device: {e}")
             sys.exit(1)
 
-        # Start assuming the default/specified rate, override if calibrating
         final_sample_rate = float(args.sample_rate)
 
         config = AudioAppConfig(
