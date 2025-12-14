@@ -119,12 +119,34 @@ python src/app/list_audio_devices.py
 
 _Note the ID of your UMIK-1._
 
-2. Run Decibel Meter:
+2. Get Umik-1 Device ID:
 
 ```powershell
 # Replace ID and PATH with your specific values
 python src/app/decibel_meter.py --device-id <ID> --calibration-file "C:\path\to\calib.txt"
 ```
+
+3. Calibrate Umik-1:
+
+```powershell
+# filter taps (defaults to 1024)
+python -m src.app.calibrate "<path_to_calibration_file>" --num-taps 512
+```
+
+4. Run Decibel Meter:
+
+```powershell
+# Replace ID and PATH with your specific values
+python src/app/decibel_meter.py --device-id <ID> --calibration-file "C:\path\to\calib.txt"
+```
+
+5. Run Audio Recorder:
+
+```powershell
+# Replace ID and PATH with your specific values
+python src/app/record.py --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-file "recordings\umik_test.wav"
+```
+
 
 ## 🏗️ Under the Hood: The Base App
 
@@ -135,7 +157,6 @@ Curious how it works? This project isn't just a script; it's a multi-threaded fr
 1. **The Ear (Producer)**: One thread does nothing but listen to the hardware and put audio into a queue.
 
 2. **The Brain (Consumer)**: Another thread takes audio from the queue and processes it (calculates metrics, saves to disk, etc.).
-
 
 ```mermaid
 graph LR
