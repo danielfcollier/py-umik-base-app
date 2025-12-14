@@ -4,7 +4,7 @@ This document provides a comprehensive overview of the miniDSP UMIK-1 USB measur
 
 *Disclaimer: This guide was prepared with the assistance of Google Gemini 2.5 Pro.*
 
----
+
 
 ## 1. What is the UMIK-1?
 
@@ -22,7 +22,7 @@ The **miniDSP UMIK-1** is a specialized omnidirectional USB measurement micropho
 * **Official Product Page:** [miniDSP UMIK-1](https://www.minidsp.com/products/acoustic-measurement/umik-1)
 * **Calibration File Download:** [miniDSP UMIK-1 Calibration Tool](https://www.minidsp.com/products/acoustic-measurement/umik-1/umik-1-calibration-tool)
 
----
+
 
 ## 2. Relevance for Your Sound Monitoring Application
 
@@ -41,7 +41,7 @@ The principle is simple: **Garbage In, Garbage Out.** The quality of your analys
 
 In short, for your application to produce trustworthy data, a calibrated input is not just a feature—it's a requirement.
 
----
+
 
 ## 3. The Real-Time Calibration Process
 
@@ -89,7 +89,7 @@ If you find that the real-time correction (`audio_device_calibrator.apply()`) is
 
 **Trade-off:** Reducing `num_taps` saves CPU but sacrifices the accuracy of your low-frequency measurements, which is one of the primary benefits of using a calibrated microphone. Use this optimization only if absolutely necessary due to performance limitations.
 
----
+
 
 ## 4. Other Related Applications
 
