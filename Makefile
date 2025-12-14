@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 PYTHON 	:= .venv/bin/python3
 PIP 	:= .venv/bin/pip
-UV 		:= .venv/bin/uv
+UV 		:= uv
 
 CSPELL_VERSION = "latest"
 
@@ -64,8 +64,6 @@ venv: ## Create a virtual environment.
 
 install: venv ## Install project dependencies from pyproject.toml
 	@echo -e "$(GREEN)>>> Installing production dependencies...$(NC)"
-	@$(PIP) install --upgrade pip
-	@$(PIP) install uv
 	# Change the line below to include the dev group
 	@$(UV) sync --extra dev
 	@echo -e "$(GREEN)>>> All dependencies installed.$(NC)"
