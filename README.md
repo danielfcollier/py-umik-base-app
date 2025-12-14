@@ -4,7 +4,21 @@
 
 Welcome! Whether you are an audio engineer, a hobbyist, or a developer looking to integrate high-quality audio measurement into your Python projects, this toolkit is for you. It provides a solid foundation (the "Base App") and a suite of ready-to-run tools to record, measure, and calibrate your microphone.
 
-## 🍓 Hardware Compatibility
+## 🚀 Getting Started
+
+### Prerequisites
+* **Python 3.12+**
+* **uv** (A fast Python tool manager. Install it via `curl -LsSf https://astral.sh/uv/install.sh | sh` or see their [docs](https://github.com/astral-sh/uv)).
+* **Make** (Standard on Linux/Mac).
+
+### Installation
+Use `make` to automate the setup. This command creates a virtual environment and installs all necessary libraries.
+
+```bash
+make install
+```
+
+### 🍓 Hardware Compatibility
 
 This project is lightweight and efficient, making it perfect for embedded devices.
 
@@ -55,19 +69,32 @@ A real-time digital meter that displays various loudness metrics:
 * **dBSPL:** Real-world sound pressure level (requires calibration).
 * *Make Target:* `make decibel-meeter F="path/to/calibration_file.txt"`
 
-## 🚀 Getting Started
 
-### Prerequisites
-* **Python 3.12+**
-* **uv** (A fast Python tool manager. Install it via `curl -LsSf https://astral.sh/uv/install.sh | sh` or see their [docs](https://github.com/astral-sh/uv)).
-* **Make** (Standard on Linux/Mac).
+## 🏗️ Under the Hood: The Base App
 
-### Installation
-Use `make` to automate the setup. This command creates a virtual environment and installs all necessary libraries.
+Curious how it works? This project isn't just a script; it's a multi-threaded framework designed for stability.
 
-```bash
-make install
+**The "Producer-Consumer" Model**: Instead of doing everything in one loop (which can cause audio glitches), the work has been split:
+
+1. **The Ear (Producer)**: One thread does nothing but listen to the hardware and put audio into a queue.
+
+2. **The Brain (Consumer)**: Another thread takes audio from the queue and processes it (calculates metrics, saves to disk, etc.).
+
+```mermaid
+graph LR
+    Mic((🎤 UMIK-1)) -->|Raw Audio| Producer[Listener Thread]
+    Producer -->|Buffer| Queue[Queue]
+    Queue -->|Audio| Consumer[Consumer Thread]
+    
+    subgraph "The Pipeline"
+        Consumer -->|Execute| Pipe{Pipeline}
+        Pipe -->|Filter| Calibrator[Calibrator]
+        Calibrator -->|Clean Audio| Meter[Decibel Meter]
+        Calibrator -->|Clean Audio| Recorder[Recorder]
+    end
 ```
+
+_Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTURE.md)._
 
 ## 💻 How to Run
 
@@ -147,39 +174,13 @@ python src/app/decibel_meter.py --device-id <ID> --calibration-file "C:\path\to\
 python src/app/record.py --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-file "recordings\umik_test.wav"
 ```
 
-
-## 🏗️ Under the Hood: The Base App
-
-Curious how it works? This project isn't just a script; it's a multi-threaded framework designed for stability.
-
-**The "Producer-Consumer" Model**: Instead of doing everything in one loop (which can cause audio glitches), the work has been split:
-
-1. **The Ear (Producer)**: One thread does nothing but listen to the hardware and put audio into a queue.
-
-2. **The Brain (Consumer)**: Another thread takes audio from the queue and processes it (calculates metrics, saves to disk, etc.).
-
-```mermaid
-graph LR
-    Mic((🎤 UMIK-1)) -->|Raw Audio| Producer[Listener Thread]
-    Producer -->|Buffer| Queue[Queue]
-    Queue -->|Audio| Consumer[Consumer Thread]
-    
-    subgraph "The Pipeline"
-        Consumer -->|Execute| Pipe{Pipeline}
-        Pipe -->|Filter| Calibrator[Calibrator]
-        Calibrator -->|Clean Audio| Meter[Decibel Meter]
-        Calibrator -->|Clean Audio| Recorder[Recorder]
-    end
-```
-
-_Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTURE.md)._
-
 ## 📚 Documentation & Resources
 
 There are detailed guides to help you understand the science and tech:
 - [Architecture Overview](docs/ARCHITECTURE.md): Deep dive into the threading, pipeline pattern, and code structure.
 - [Understanding Audio Metrics](docs/METRICS.md): Learn the math behind RMS, LUFS, and dBSPL. Great for students!
 - [The UMIK-1 Guide](docs/UMIK-1.md): Specific details about handling the UMIK-1 hardware.
+
 
 ## 🔗 Related Projects
 
