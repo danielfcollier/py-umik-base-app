@@ -17,9 +17,7 @@ import numpy as np
 from scipy.signal import firwin2, lfilter
 
 from src.library.cache_strategy import FileFilterCache, FilterCacheStrategy
-
 from src.settings import settings
-
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +230,10 @@ class AudioDeviceCalibrator:
         # `zi` provides the initial state from the previous chunk.
         # `zo` (returned as the second element) becomes the state for the *next* chunk.
         calibrated_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, audio_chunk, zi=self._filter_state)
+
+        if calibrated_chunk.dtype != audio_chunk.dtype:
+            calibrated_chunk = calibrated_chunk.astype(audio_chunk.dtype)
+
         return calibrated_chunk
 
     @staticmethod

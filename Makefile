@@ -30,7 +30,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check decibel-meter decibel-meter-default-mic decibel-meter-umik-1 record record-default-mic record-umik-1
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check decibel-meter decibel-meter-default-mic decibel-meter-umik-1 record record-default-mic record-umik-1 test coverage
 
 default: help
 
@@ -86,12 +86,16 @@ format: ## Format code with Ruff formatter.
 	@$(PYTHON) -m ruff format $(SRC_DIR)
 	@$(PYTHON) -m ruff check $(SRC_DIR) --fix
 
-check: lint ## Run all checks (currently just linting).
+check: lint test ## Run all checks.
 	@echo -e "$(GREEN)>>> All checks passed.$(NC)"
 
-# test:
-# 	@echo ">>> Running tests (placeholder)..."
-# 	# @$(PYTHON) -m pytest $(TEST_DIR)
+test: ## Run unit tests with pytest.
+	@echo -e "$(GREEN)>>> Running tests...$(NC)"
+	@$(PYTHON) -m pytest
+
+coverage: ## Run tests and generate coverage report.
+	@echo -e "$(GREEN)>>> Running tests with coverage...$(NC)"
+	@$(PYTHON) -m pytest --cov=src --cov-report=term-missing --cov-report=html
 
 list-audio-devices: ## List available audio input devices.
 ifeq ($(SILENT),)

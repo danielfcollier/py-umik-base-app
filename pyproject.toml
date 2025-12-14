@@ -30,6 +30,14 @@ dev = [
     "pytest-cov",
 ]
 
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+pythonpath = "."
+
 [tool.ruff]
 line-length = 120
 target-version = "py313"
