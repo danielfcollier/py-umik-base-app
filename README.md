@@ -4,6 +4,19 @@
 
 Welcome! Whether you are an audio engineer, a hobbyist, or a developer looking to integrate high-quality audio measurement into your Python projects, this toolkit is for you. It provides a solid foundation (the "Base App") and a suite of ready-to-run tools to record, measure, and calibrate your microphone.
 
+## 🌟 What's Inside?
+
+It's included several ready-made applications to get you started immediately:
+
+* **📋 List Audio Devices:** Scans your computer and lists all connected audio input devices to help you find the specific "Device ID".
+* **🔍 Get UMIK-1 ID:** A helper utility that specifically hunts for a device named "UMIK-1" and prints its ID automatically.
+* **📏 Calibrate:** Reads the UMIK-1 unique calibration file and creates a digital filter to ensure your measurements are scientifically accurate.
+* **🎙️ Recorder:** A robust audio recorder that handles file names, directory creation, and buffering to save high-quality WAV files.
+* **📊 Decibel Meter:** A real-time digital meter that displays RMS, dBFS, LUFS (Loudness), and dBSPL (Sound Pressure Level).
+    ```text
+    INFO AudioConsumerThread [measured_at: 2025-12-14 10:59:17.672282] {'interval_s': '3.0000', 'rms': '0.0180', 'flux': '45.8031', 'dBFS': '-34.9183', 'LUFS': '-30.4443', 'dBSPL': '77.6267'} [audio-metrics]
+    ```
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -11,7 +24,30 @@ Welcome! Whether you are an audio engineer, a hobbyist, or a developer looking t
 * **uv** (A fast Python tool manager. Install it via `curl -LsSf https://astral.sh/uv/install.sh | sh` or see their [docs](https://github.com/astral-sh/uv)).
 * **Make** (Standard on Linux/Mac).
 
+### 📦 System Requirements (Audio Libraries)
+
+Depending on your OS, you may need to install low-level audio drivers for `pyaudio`/`sounddevice` and `soundfile` to work.
+
+**🐧 Linux (Ubuntu/Debian)**
+
+You must install `PortAudio` and `LibSndFile` headers:
+```bash
+sudo apt update && sudo apt install libportaudio2 libsndfile1 -y
+```
+
+**🍎 macOS**
+
+If you encounter issues, install these libraries via Homebrew:
+```bash
+brew install portaudio libsndfile
+```
+
+**🪟 Windows** 
+
+Generally, Python wheels include the necessary binaries. If you have issues, ensure you have the latest Visual C++ Redistributable installed. For the UMIK-1, no special driver is needed (it uses standard USB Audio Class), but ASIO4ALL is an optional recommendation if you need low-latency exclusive access.
+
 ### Installation
+
 Use `make` to automate the setup. This command creates a virtual environment and installs all necessary libraries.
 
 ```bash
@@ -24,51 +60,6 @@ This project is lightweight and efficient, making it perfect for embedded device
 
 * **Raspberry Pi 4 Model B:** ✅ Verified.
     This toolkit is fully compatible with the Raspberry Pi 4 B. It serves as an excellent platform for building standalone, headless acoustic monitoring stations or portable measurement rigs.
-
-## 🌟 What's Inside?
-
-It's included several ready-made applications to get you started immediately. Here is what they do in plain English:
-
-### 1. 📋 List Audio Devices
-
-**"Where is my microphone?"**
-
-This simple tool scans your computer and lists all connected audio input devices. It helps you find the specific "Device ID" needed to tell Python which microphone to listen to.
-
-* *Make target:* `make list-audio-devices`
-
-### 2. 🔍 Get UMIK-1 ID
-
-**"Find my UMIK-1 automatically."**
-
-A helper utility that specifically hunts for a device named "UMIK-1" and prints its ID. It saves you from searching through the full list manually.
-* *Make Target:* `make get-umik-id`
-
-### 3. 📏 Calibrate
-
-**"Make my microphone accurate."**
-
-The UMIK-1 comes with a unique calibration file (a text file) that describes its specific sensitivity and frequency quirks. This tool reads that file and creates a digital filter (math magic!) to correct the audio signal, ensuring your measurements are scientifically accurate.
-
-* *Make Target:* `make calibrate-umik F=path-to-my-calibration-file.txt`
-
-### 4. 🎙️ Recorder
-
-**"Capture high-quality audio."**
-
-A robust audio recorder that saves sound from your UMIK-1 (or any mic) to WAV files. It handles the boring stuff like file names, directory creation, and preventing files from getting too big.
-
-* *Make Target:* `make record F="path/to/calibration_file.txt`
-
-### 5. 📊 Decibel Meter
-
-**"How loud is it right now?"**
-A real-time digital meter that displays various loudness metrics:
-* **RMS & dBFS:** Digital signal levels.
-* **LUFS:** Perceived loudness (how loud it *feels* to a human).
-* **dBSPL:** Real-world sound pressure level (requires calibration).
-* *Make Target:* `make decibel-meeter F="path/to/calibration_file.txt"`
-
 
 ## 🏗️ Under the Hood: The Base App
 
@@ -86,15 +77,32 @@ graph LR
     Producer -->|Buffer| Queue[Queue]
     Queue -->|Audio| Consumer[Consumer Thread]
     
-    subgraph "The Pipeline"
-        Consumer -->|Execute| Pipe{Pipeline}
-        Pipe -->|Filter| Calibrator[Calibrator]
-        Calibrator -->|Clean Audio| Meter[Decibel Meter]
-        Calibrator -->|Clean Audio| Recorder[Recorder]
-    end
+    Consumer -->|Execute| Calibrator[Calibrator]
+    Calibrator -->|Clean Audio| Meter[Decibel Meter]
+    Calibrator -->|Clean Audio| Recorder[Recorder]
 ```
 
 _Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTURE.md)._
+
+## 📂 Understanding Calibration Files
+
+The UMIK-1 is a measurement microphone, meaning it relies on a software file to correct its frequency response.
+
+When you download your unique files from MiniDSP (using your serial number, e.g., `7175488`), you will get `.txt` files. When you run this app, it calculates a digital filter and saves a "Cache" file (`.npy`) so it starts up instantly next time.
+
+Here is what the file structure looks like:
+```
+./umik-1/
+├── 7175488.txt                     <-- Standard Calibration (0° / On-Axis). Use this for pointing at speakers.
+├── 7175488_90deg.txt               <-- 90° Calibration. Use this for ambient room measurement (mic pointing at ceiling).
+├── 7175488_fir_1024taps_48000hz.npy <-- [GENERATED] The calculated Filter Cache.
+├── 7175488_fir_128taps_48000hz.npy  <-- [GENERATED] Cache for a smaller filter size.
+└── ...
+```
+
+- `.txt` Files: These are the Source of Truth. Never delete them.
+- `.npy` Files: These are generated by the app for speed. You can safely delete them; the app will just regenerate them from the `.txt` file on the next run.
+
 
 ## 💻 How to Run
 
@@ -102,25 +110,31 @@ _Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTU
 
 There are easy-to-use commands in the Makefile.
 
-1. List Devices:
+1. **List Devices:**
 
 ```bash
 make list-audio-devices
 ```
 
-2. Run the Decibel Meter (Default Mic):
+_Or specifically find the UMIK-1 ID:_ `make get-umik-id`
+
+2. **Calibrate:**
 
 ```bash
-make decibel-meter-default-mic
+make calibrate-umik F="path/to/calibration_file.txt"
 ```
 
-3. Run with UMIK-1 (Calibrated): You need your calibration file (e.g., 700xxxx.txt).
+3. **Run Decibel Meter:**
 
 ```bash
+# Default Mic
+make decibel-meter-default-mic
+
+# UMIK-1 (Requires calibration file)
 make decibel-meter-umik-1 F="path/to/calibration_file.txt"
 ```
 
-4. Record Audio:
+4. **Record Audio:**
 
 ```bash
 make record-umik-1 F="path/to/calibration_file.txt" OUT="my_recording.wav"
@@ -130,48 +144,36 @@ make record-umik-1 F="path/to/calibration_file.txt" OUT="my_recording.wav"
 
 The Makefile is designed for Unix-like systems. For Windows, you have two options:
 
-**Option A: Use WSL (Recommended)**
+**Option A: Use WSL (Recommended)** Install the **Windows Subsystem for Linux (WSL)**. This allows you to run the `make` commands exactly as shown above in a Linux environment on your Windows machine.
 
-> Install the **Windows Subsystem for Linux (WSL)**. This allows you to run the commands exactly as shown above in a Linux environment on your Windows machine.
+**Option B: Manual Python Commands** If you prefer running native Windows Python, you can run the scripts directly using the `-m` (module) flag. _First, ensure your virtual environment is activated._
 
-**Option B: Manual Python Commands**
-
-> If you prefer running native Windows Python, you can run the scripts directly. First, ensure your virtual environment is activated.
-
-1. List Devices:
+1. **List Devices:**
 
 ```powershell
-python src/app/list_audio_devices.py
+python -m src.app.list_audio_devices
 ```
 
-_Note the ID of your UMIK-1._
+_Note the ID of your UMIK-1 from this list._
 
-2. Get Umik-1 Device ID:
+2. **Calibrate:**
 
 ```powershell
-# Replace ID and PATH with your specific values
-python src/app/decibel_meter.py --device-id <ID> --calibration-file "C:\path\to\calib.txt"
+# Defaults to 1024 taps. Example using 512:
+python -m src.app.calibrate "C:\path\to\calib.txt" --num-taps 512
 ```
 
-3. Calibrate Umik-1:
+3. **Run Decibel Meter:**
 
 ```powershell
-# filter taps (defaults to 1024)
-python -m src.app.calibrate "<path_to_calibration_file>" --num-taps 512
+# Replace <ID> with the number found in step 1
+python -m src.app.decibel_meter --device-id <ID> --calibration-file "C:\path\to\calib.txt"
 ```
 
-4. Run Decibel Meter:
+4. **Run Audio Recorder:**
 
 ```powershell
-# Replace ID and PATH with your specific values
-python src/app/decibel_meter.py --device-id <ID> --calibration-file "C:\path\to\calib.txt"
-```
-
-5. Run Audio Recorder:
-
-```powershell
-# Replace ID and PATH with your specific values
-python src/app/record.py --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-file "recordings\umik_test.wav"
+python -m src.app.record --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-file "recordings\test.wav"
 ```
 
 ## 📚 Documentation & Resources
@@ -180,7 +182,6 @@ There are detailed guides to help you understand the science and tech:
 - [Architecture Overview](docs/ARCHITECTURE.md): Deep dive into the threading, pipeline pattern, and code structure.
 - [Understanding Audio Metrics](docs/METRICS.md): Learn the math behind RMS, LUFS, and dBSPL. Great for students!
 - [The UMIK-1 Guide](docs/UMIK-1.md): Specific details about handling the UMIK-1 hardware.
-
 
 ## 🔗 Related Projects
 
