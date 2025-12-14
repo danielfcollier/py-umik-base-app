@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -31,6 +34,10 @@ jobs:
 
       - name: Run Linting
         run: make lint
+
+      - name: Run Spell Check
+        run: make spell-check
+        continue-on-error: true
 
       - name: Run Tests with Coverage
         run: make coverage
