@@ -29,6 +29,11 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libportaudio2 libsndfile1
+
       - name: Install dependencies
         run: make install
 
