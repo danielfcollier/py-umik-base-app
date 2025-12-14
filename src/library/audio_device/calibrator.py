@@ -285,11 +285,11 @@ class AudioDeviceCalibrator:
                                 f"Could not parse 'Sens Factor' line (line {line_num + 1}): '{line}'. "
                                 f"Expected format like 'Sens Factor =-X.Xd B,...'. Error: {parse_error}"
                             )
-
-            raise ValueError(f"'Sens Factor' header line not found in the first few lines of file: {file_path}.")
-
+        except FileNotFoundError:
+            logger.error(f"Calibration file not found: {file_path}")
+            raise
         except Exception as e:
-            logger.critical(
-                f"Unexpected error reading calibration file '{file_path}' for sensitivity: {e}", exc_info=True
-            )
-            exit(1)
+            logger.error(f"Error reading calibration file '{file_path}': {e}")
+            raise
+
+        raise ValueError(f"'Sens Factor' header line not found in the first few lines of file: {file_path}.")
