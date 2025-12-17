@@ -39,7 +39,7 @@ The principle is simple: **Garbage In, Garbage Out.** The quality of your analys
     * This allows metrics like **LUFS** and **dBSPL** to be calculated with scientific accuracy, making your alerts and historical data meaningful and comparable.
     * It provides the machine learning model with a clean, unbiased signal, leading to more reliable classification.
 
-In short, for your application to produce trustworthy data, a calibrated input is not just a feature—it's a requirement.
+In short, for your application to produce trustworthy data, a calibrated input is not just a feature - it's a requirement.
 
 
 
@@ -72,7 +72,7 @@ This is the core of the process and happens inside your consumer thread for ever
 1.  **Receive Raw Audio:** The thread gets a raw, uncalibrated audio chunk from the input queue.
 2.  **Apply Filter:** It immediately passes this raw chunk to the `audio_device_calibrator.apply()` method. This method uses `scipy.signal.lfilter` to perform a mathematical convolution between the audio data and the filter coefficients designed at startup. This step is computationally intensive.
 3.  **Get Calibrated Audio:** The output is a new audio chunk that has been corrected. Its frequency response is now perfectly flat.
-4.  **Process Further:** **All subsequent operations**—SAD (RMS/Flux), LUFS calculation, and file recording—are performed on this clean, calibrated audio chunk.
+4.  **Process Further:** **All subsequent operations** - SAD (RMS/Flux), LUFS calculation, and file recording - are performed on this clean, calibrated audio chunk.
 
 This ensures that every piece of data your application analyzes and saves is a scientifically accurate representation of the acoustic environment.
 
