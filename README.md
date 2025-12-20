@@ -214,7 +214,7 @@ python -m src.app.decibel_meter --device-id <ID> --calibration-file "C:\path\to\
 4. **Run Audio Recorder:**
 
 ```powershell
-python -m src.app.record --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-file "recordings\test.wav"
+python -m src.app.record --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-dir "recordings\"
 ```
 
 5. **Analyze Audio (Single File):**

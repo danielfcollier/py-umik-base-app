@@ -15,9 +15,10 @@ APP_DIR         := $(SRC_DIR)/app
 # Calibration file path (MUST be set when calling relevant targets)
 # Example: make calibrate-umik F="path/to/cal.txt"
 F ?= "umik-1/7175488.txt"
-OUT ?= "recording.wav"
+OUT ?= "recordings/"
 CSV_OUT ?= 
 PLOT_OUT ?=
+MP3_OUT ?=
 
 SILENT ?=
 HELP   ?=
@@ -184,13 +185,13 @@ else
 ifndef F
 	$(error Calibration file path not set. Use 'make record-umik-1 F="<path/to/calibration_file.txt>"')
 endif
-	@echo -e "$(GREEN)>>> Recording to $(OUT)...$(NC)"
+	@echo -e "$(GREEN)>>> Recording to path $(OUT)...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
 		--device-id $(ID) \
 		--buffer-seconds $(BUFFER_SECONDS) \
 		--calibration-file "$(F)" \
 		--num-taps ${NUM_TAPS} \
-		--output-file "$(OUT)"
+		--output-dir "$(OUT)"
 endif
 
 record-default-mic: ## Record audio using the system default microphone. Optional: OUT=<path>.
@@ -202,7 +203,7 @@ else
 	@echo -e "$(GREEN)>>> Recording to $(OUT)...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
 		--buffer-seconds $(BUFFER_SECONDS) \
-		--output-file "$(OUT)"
+		--output-dir "$(OUT)"
 endif
 
 # ==============================================================================
@@ -278,7 +279,7 @@ endif
 # Audio Enhancement
 # ==============================================================================
 
-enhance-audio: ## Filter audio to enhance voice and save as MP3. Requires IN=<path>. Optional: OUT=<mp3_path>, LOW=<hz>, HIGH=<hz>.
+enhance-audio: ## Filter audio to enhance voice and save as MP3. Requires IN=<path>. Optional: MP3_OUT=<mp3_path>, LOW=<hz>, HIGH=<hz>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for enhance_voice.py...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.enhance_voice --help
@@ -289,7 +290,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Enhancing audio file: $(IN)...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.enhance_voice "$(IN)" \
-		$(if $(OUT),--out "$(OUT)") \
+		$(if $(MP3_OUT),--output-file "$(MP3_OUT)") \
 		$(if $(LOW),--low $(LOW)) \
 		$(if $(HIGH),--high $(HIGH))
 endif

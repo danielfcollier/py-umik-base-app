@@ -54,7 +54,7 @@ class AudioAppArgs:
         """
         Creates and returns the ArgumentParser with standard arguments.
         Does NOT parse arguments immediately. Use this if you need to add custom
-        arguments in your specific application (like --output-file).
+        arguments in your specific application (like --output-dir).
 
         :return: An argparse.ArgumentParser object with standard flags configured.
         """

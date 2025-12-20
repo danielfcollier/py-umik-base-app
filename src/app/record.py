@@ -2,8 +2,8 @@
 Application script for recording audio to a WAV file.
 
 This script sets up a recording pipeline that captures audio (optionally calibrated)
-and writes it to disk using the Recorder library. It ensures the destination
-folder exists before starting the recording.
+and writes it to disk using the Recorder library. It treats the output path as a
+directory and automatically generates a timestamped filename.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -12,6 +12,7 @@ Year: 2025
 
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from src.audio_app_config import AudioAppArgs, AudioAppConfig
@@ -31,37 +32,28 @@ class RecorderApp(BaseAudioApp):
     A concrete application for recording audio streams to a WAV file.
     """
 
-    def __init__(self, app_config: AudioAppConfig, output_path: str):
+    def __init__(self, app_config: AudioAppConfig, output_dir: str):
         """
         Initializes the RecorderApp by composing the pipeline components.
-        Checks and creates the output directory if it does not exist.
+        Checks and creates the output directory if it does not exist, then
+        generates a unique filename based on the current timestamp.
         """
-        logger.debug(f"Initializing RecorderApp with output path: {output_path}")
+        logger.debug(f"Initializing RecorderApp with output directory: {output_dir}")
 
-        # --- 0. Directory Setup ---
-        path_obj = Path(output_path)
-
-        # Check if the path is just a filename (no parents)
-        if len(path_obj.parts) == 1:
-            output_path = Path("recordings") / path_obj
-        else:
-            output_path = path_obj
-
-        # Resolve to absolute path
-        output_path = output_path.resolve()
-
-        # Determine target directory
-        if output_path.suffix:
-            # It's a file path (e.g., recordings/rec.wav) -> ensure parent dir exists
-            target_dir = output_path.parent
-        else:
-            # It's a directory path -> ensure it exists
-            target_dir = output_path
+        # --- 0. Directory & Filename Setup ---
+        dir_path = Path(output_dir).resolve()
 
         # Create the folder if it doesn't exist
-        if not target_dir.exists():
-            logger.info(f"Output directory does not exist. Creating: {target_dir}")
-            target_dir.mkdir(parents=True, exist_ok=True)
+        if not dir_path.exists():
+            logger.info(f"Output directory does not exist. Creating: {dir_path}")
+            dir_path.mkdir(parents=True, exist_ok=True)
+
+        # Generate Timestamped Filename
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        filename = f"recording_{timestamp}.wav"
+        self.final_file_path = dir_path / filename
+
+        logger.info(f"Target recording file: {self.final_file_path}")
 
         # --- 1. Configuration Bridge ---
         device_config = AudioDeviceConfig(
@@ -73,7 +65,7 @@ class RecorderApp(BaseAudioApp):
 
         # --- 2. Instantiate Library (Manager) ---
         self._recorder = AudioStreamsRecorder(
-            base_path=output_path,
+            base_path=self.final_file_path,
             sample_rate=int(device_config.sample_rate),
             channels=1,
             sample_width=2,
@@ -112,20 +104,20 @@ if __name__ == "__main__":
 
     parser = AudioAppArgs.get_parser()
 
-    # Updated default to include the folder explicitly
+    # Updated argument to reflect directory input
     parser.add_argument(
         "-o",
-        "--output-file",
+        "--output-dir",
         type=str,
-        default="recordings/recording.wav",
-        help="Path to the output WAV file (or directory). Default: recordings/recording.wav",
+        default="recordings",
+        help="Directory to save the recording. Default: recordings",
     )
     args = parser.parse_args()
 
     app: RecorderApp | None = None
     try:
         config = AudioAppArgs.validate_args(args)
-        app = RecorderApp(app_config=config, output_path=args.output_path)
+        app = RecorderApp(app_config=config, output_dir=args.output_dir)
         app.run()
     except (ValueError, SystemExit) as e:
         logger.error(f"Configuration or Device Error: {e}")
@@ -134,7 +126,7 @@ if __name__ == "__main__":
         logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
         sys.exit(1)
 
-    # Log the final resolved path used by the app
-    final_path = app.output_path if app else args.output_path
-    logger.info(f"Recording saved to path: {final_path}")
+    # Log the final file path for the user
+    if app:
+        logger.info(f"Recording saved to: {app.final_file_path}")
     logger.info("Audio Recorder Application has shut down.")
