@@ -32,7 +32,7 @@ Depending on your OS, you may need to install low-level audio drivers for `pyaud
 
 You must install `PortAudio` and `LibSndFile` headers:
 ```bash
-sudo apt update && sudo apt install libportaudio2 libsndfile1 -y
+sudo apt update && sudo apt install libportaudio2 libsndfile1 ffmpeg -y
 ```
 
 **🍎 macOS**

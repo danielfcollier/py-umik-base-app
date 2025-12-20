@@ -31,15 +31,15 @@ class RecorderApp(BaseAudioApp):
     A concrete application for recording audio streams to a WAV file.
     """
 
-    def __init__(self, app_config: AudioAppConfig, output_file: str):
+    def __init__(self, app_config: AudioAppConfig, output_path: str):
         """
         Initializes the RecorderApp by composing the pipeline components.
         Checks and creates the output directory if it does not exist.
         """
-        logger.debug(f"Initializing RecorderApp with output: {output_file}")
+        logger.debug(f"Initializing RecorderApp with output path: {output_path}")
 
         # --- 0. Directory Setup ---
-        path_obj = Path(output_file)
+        path_obj = Path(output_path)
 
         # Check if the path is just a filename (no parents)
         if len(path_obj.parts) == 1:
@@ -97,7 +97,6 @@ class RecorderApp(BaseAudioApp):
 
         # --- 5. Initialize Base Application ---
         super().__init__(audio_config=device_config, pipeline=pipeline)
-        self.output_file = str(output_path)
 
     def close(self):
         """Overrides close to ensure the WAV file is properly closed."""
@@ -126,7 +125,7 @@ if __name__ == "__main__":
     app: RecorderApp | None = None
     try:
         config = AudioAppArgs.validate_args(args)
-        app = RecorderApp(app_config=config, output_file=args.output_file)
+        app = RecorderApp(app_config=config, output_path=args.output_path)
         app.run()
     except (ValueError, SystemExit) as e:
         logger.error(f"Configuration or Device Error: {e}")
@@ -136,6 +135,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Log the final resolved path used by the app
-    final_path = app.output_file if app else args.output_file
-    logger.info(f"Recording saved to: {final_path}")
+    final_path = app.output_path if app else args.output_path
+    logger.info(f"Recording saved to path: {final_path}")
     logger.info("Audio Recorder Application has shut down.")
