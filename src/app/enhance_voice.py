@@ -1,7 +1,6 @@
 """
-Voice Enhancer & Compressor.
-Applies a Bandpass Filter (300Hz-3400Hz) to isolate human speech,
-applies Dynamic Range Compression to boost quiet voices, and exports to MP3.
+Voice Enhancer & Compressor (Chunked).
+Applies filters and compression in 10-minute chunks to handle large files.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -10,6 +9,7 @@ Year: 2025
 
 import argparse
 import logging
+import math
 import os
 import sys
 
@@ -27,11 +27,15 @@ def butter_bandpass(lowcut, highcut, fs, order=6):
     """
     Generates the filter coefficients for a Butterworth bandpass filter.
 
-    :param lowcut: The low frequency cutoff (e.g., 300 Hz).
-    :param highcut: The high frequency cutoff (e.g., 3400 Hz).
-    :param fs: The sample rate of the audio (e.g., 48000 Hz).
-    :param order: The order of the filter (higher means steeper roll-off).
-    :return: Second-Order Sections (SOS) filter coefficients.
+    This function calculates the Second-Order Sections (SOS) for a bandpass filter,
+    which are numerically more stable than standard numerator/denominator coefficients
+    for high-order filtering.
+
+    :param lowcut: The low frequency cutoff in Hz (e.g., 300 Hz).
+    :param highcut: The high frequency cutoff in Hz (e.g., 3400 Hz).
+    :param fs: The sample rate of the audio in Hz (e.g., 48000 Hz).
+    :param order: The order of the filter (higher means steeper roll-off). Default is 6.
+    :return: A numpy array containing the SOS filter coefficients.
     """
     nyq = 0.5 * fs  # Nyquist Frequency (half the sample rate)
     low = lowcut / nyq
@@ -45,117 +49,143 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=6):
     """
     Applies the Butterworth bandpass filter to the audio data.
 
-    It uses 'sosfiltfilt', which applies the filter forward and backward.
-    This results in zero phase distortion, meaning the timing of the audio
-    peaks (transients) remains aligned with the original signal.
+    It uses `sosfiltfilt` to apply the filter forward and backward.
+    This results in zero phase distortion, meaning the timing of audio
+    peaks (transients) remains aligned with the original signal, which is critical
+    for maintaining voice clarity.
 
     :param data: The input audio array (normalized float).
     :param lowcut: Low cutoff frequency in Hz.
     :param highcut: High cutoff frequency in Hz.
     :param fs: Sample rate in Hz.
-    :param order: Filter order.
-    :return: Filtered audio data array.
+    :param order: Filter order. Default is 6.
+    :return: A numpy array containing the filtered audio data.
     """
     sos = butter_bandpass(lowcut, highcut, fs, order=order)
     # sosfiltfilt is a zero-phase filter (doesn't shift the timing of the sound)
     return sosfiltfilt(sos, data)
 
 
-def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400):
+def process_chunk(data_chunk, sample_rate, low_freq, high_freq):
     """
-    Main processing pipeline:
-    1. Loads WAV.
-    2. Converts to Mono.
-    3. Bandpass Filter (Scipy): Removes rumble and hiss.
-    4. Dynamic Range Compression (Pydub): Boosts quiet speech, limits loud noises.
-    5. Normalization (Pydub): Maximizes final volume.
-    6. Encodes to MP3.
-    :param input_path: Path to the source WAV file.
-    :param output_path: Path for the destination MP3. Auto-generated if None.
-    :param low_freq: Low frequency cutoff in Hz.
-    :param high_freq: High frequency cutoff in Hz.
+    Processes a specific segment (chunk) of audio data.
+
+    This function performs the core signal processing chain on a subset of the
+    original file to conserve memory:
+    1. Bandpass Filtering (Scipy): Isolates the voice frequency range.
+    2. Format Conversion: Converts float data back to int16 for Pydub compatibility.
+    3. Dynamic Range Compression (Pydub): Boosts quiet parts without clipping loud parts.
+    4. Normalization (Pydub): Maximizes the final volume headroom.
+
+    :param data_chunk: A numpy array containing the audio samples for this chunk.
+    :param sample_rate: The sample rate of the audio in Hz.
+    :param low_freq: The low frequency cutoff for the filter in Hz.
+    :param high_freq: The high frequency cutoff for the filter in Hz.
+    :return: A Pydub AudioSegment object containing the processed and encoded audio.
     """
-    if not os.path.exists(input_path):
-        logger.info(f"Error: File {input_path} not found.")
-        sys.exit(1)
+    # 1. Filter
+    filtered = butter_bandpass_filter(data_chunk, low_freq, high_freq, sample_rate, order=6)
 
-    logger.info("Progress: 0%")
-    logger.info(f"Loading {input_path}...")
-    sample_rate, data = wavfile.read(input_path)
+    # 2. Convert to Int16 for Pydub
+    filtered_int16 = (filtered * 32767).astype(np.int16)
 
-    # 1. Convert to Float Normalized (-1.0 to 1.0)
-    if data.dtype == np.int16:
-        data = data.astype(np.float32) / 32768.0
-    elif data.dtype == np.int32:
-        data = data.astype(np.float32) / 2147483648.0
-
-    logger.info("Progress: 10%")
-
-    # 2. Mix to Mono
-    if len(data.shape) > 1:
-        logger.info("Mixing stereo to mono for better voice isolation...")
-        data = np.mean(data, axis=1)
-
-    logger.info("Progress: 20%")
-
-    # 3. Apply Filter (Scipy)
-    # Standard "Telephony" bandwidth is approx 300Hz-3400Hz.
-    # This cuts out low-end rumble (AC, traffic) and high-end hiss.
-    logger.info(f"Applying Bandpass Filter ({low_freq}Hz - {high_freq}Hz)...")
-    filtered_data = butter_bandpass_filter(data, low_freq, high_freq, sample_rate, order=6)
-
-    logger.info("Progress: 40%")
-
-    # Convert back to Int16 for Pydub processing
-    # We do this here because Pydub's effects work best on standard audio segments
-    filtered_int16 = (filtered_data * 32767).astype(np.int16)
-
-    # Create AudioSegment
-    audio_segment = AudioSegment(
+    # 3. Create AudioSegment
+    seg = AudioSegment(
         filtered_int16.tobytes(),
         frame_rate=sample_rate,
         sample_width=2,
         channels=1,
     )
 
-    logger.info("Progress: 50%")
+    # 4. Compress & Normalize
+    compressed = compress_dynamic_range(seg, threshold=-20.0, ratio=4.0, attack=5.0, release=50.0)
+    final = normalize(compressed, headroom=1.0)
+    return final
 
-    # 4. Apply Dynamic Range Compression (The "Voice Boost")
-    # Threshold -20dB: Sounds louder than this get squashed.
-    # Ratio 4.0: For every 4dB over the limit, it only goes up 1dB.
-    # Attack 5ms: Reacts instantly to sudden shouts.
-    logger.info("Applying Dynamic Range Compression (Voice Boost)...")
-    compressed_segment = compress_dynamic_range(audio_segment, threshold=-20.0, ratio=4.0, attack=5.0, release=50.0)
 
-    logger.info("Progress: 75%")
+def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400, chunk_minutes=10):
+    """
+    Main processing pipeline that orchestrates the loading, splitting, and saving of audio.
 
-    # 5. Normalize (Make-up Gain)
-    # Now that peaks are squashed, we can raise the WHOLE volume to -1dB
-    logger.info("Maximizing Volume (Normalization)...")
-    final_segment = normalize(compressed_segment, headroom=1.0)
+    Steps:
+    1. Loads the WAV file and converts it to normalized mono float32.
+    2. Calculates the number of chunks based on `chunk_minutes` to avoid high RAM usage.
+    3. Iterates through the data, processing one chunk at a time.
+    4. Saves each processed chunk as a separate MP3 file (e.g., file_part001.mp3).
 
-    logger.info("Progress: 85%")
+    :param input_path: Path to the source WAV file.
+    :param output_path: Base path for the destination files. If None, uses input filename.
+                        Actual outputs will append '_partXXX' to this name.
+    :param low_freq: Low frequency cutoff for voice isolation in Hz. Default 300.
+    :param high_freq: High frequency cutoff for voice isolation in Hz. Default 3400.
+    :param chunk_minutes: The duration of each split file in minutes. Default 10.
+    """
+    if not os.path.exists(input_path):
+        logger.error(f"Error: File {input_path} not found.")
+        sys.exit(1)
 
-    # 6. Save as MP3
-    if not output_path:
-        base_name = os.path.splitext(input_path)[0]
-        output_path = f"{base_name}_voice_enhanced.mp3"
+    logger.info(f"Loading {input_path}...")
+    try:
+        sample_rate, data = wavfile.read(input_path)
+    except ValueError:
+        logger.error("Error: Could not read WAV file. Ensure it is a standard PCM WAV.")
+        sys.exit(1)
 
-    logger.info(f"Encoding to MP3: {output_path}...")
-    logger.info("Progress: 90%")
+    # Convert to Float Normalized
+    if data.dtype == np.int16:
+        data = data.astype(np.float32) / 32768.0
+    elif data.dtype == np.int32:
+        data = data.astype(np.float32) / 2147483648.0
 
-    final_segment.export(output_path, format="mp3", bitrate="192k")
+    # Mix to Mono
+    if len(data.shape) > 1:
+        logger.info("Mixing stereo to mono...")
+        data = np.mean(data, axis=1)
 
-    logger.info("Progress: 100%")
-    logger.info(f"✅ Success! File saved: {output_path}")
+    # --- CHUNK PROCESSING ---
+    total_samples = len(data)
+    chunk_samples = int(chunk_minutes * 60 * sample_rate)
+    total_chunks = math.ceil(total_samples / chunk_samples)
+
+    logger.info(f"Audio Duration: {total_samples / sample_rate / 60:.2f} minutes")
+    logger.info(f"Splitting into {total_chunks} chunk(s) of ~{chunk_minutes} mins each.")
+
+    base_name = os.path.splitext(input_path)[0]
+
+    for i in range(total_chunks):
+        start = i * chunk_samples
+        end = min(start + chunk_samples, total_samples)
+
+        logger.info(f"--- Processing Chunk {i + 1}/{total_chunks} ---")
+
+        # Slicing the numpy array (Fast)
+        chunk_data = data[start:end]
+
+        # Process
+        processed_seg = process_chunk(chunk_data, sample_rate, low_freq, high_freq)
+
+        # Generate Filename
+        if output_path:
+            # If user gave a specific name, append part number: "output_part1.mp3"
+            out_root, out_ext = os.path.splitext(output_path)
+            chunk_out = f"{out_root}_part{i + 1:03d}{out_ext}"
+        else:
+            # Default name
+            chunk_out = f"{base_name}_enhanced_part{i + 1:03d}.mp3"
+
+        logger.info(f"Encoding {chunk_out}...")
+        processed_seg.export(chunk_out, format="mp3", bitrate="192k")
+
+    logger.info("✅ All chunks processed successfully!")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Enhance voice in WAV and convert to MP3.")
+    parser = argparse.ArgumentParser(description="Enhance voice in WAV and convert to MP3 (Chunked).")
     parser.add_argument("input_file", help="Path to input WAV file")
     parser.add_argument("--out", help="Path to output MP3 file (optional)")
-    parser.add_argument("--low", type=int, default=300, help="Low cutoff Hz (default: 300)")
-    parser.add_argument("--high", type=int, default=3400, help="High cutoff Hz (default: 3400)")
+    parser.add_argument("--low", type=int, default=300, help="Low cutoff Hz")
+    parser.add_argument("--high", type=int, default=3400, help="High cutoff Hz")
+    parser.add_argument("--split", type=int, default=10, help="Split size in minutes (default: 10)")
 
     args = parser.parse_args()
-    process_audio(args.input_file, args.out, args.low, args.high)
+    process_audio(args.input_file, args.out, args.low, args.high, args.split)
