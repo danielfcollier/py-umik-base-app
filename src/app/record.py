@@ -12,7 +12,6 @@ Year: 2025
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from src.audio_app_config import AudioAppArgs, AudioAppConfig
@@ -48,12 +47,7 @@ class RecorderApp(BaseAudioApp):
             logger.info(f"Output directory does not exist. Creating: {dir_path}")
             dir_path.mkdir(parents=True, exist_ok=True)
 
-        # Generate Timestamped Filename
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"recording_{timestamp}.wav"
-        self.final_file_path = dir_path / filename
-
-        logger.info(f"Target recording file: {self.final_file_path}")
+        self.dir_path = dir_path
 
         # --- 1. Configuration Bridge ---
         device_config = AudioDeviceConfig(
@@ -65,7 +59,7 @@ class RecorderApp(BaseAudioApp):
 
         # --- 2. Instantiate Library (Manager) ---
         self._recorder = AudioStreamsRecorder(
-            base_path=self.final_file_path,
+            base_path=self.dir_path,
             sample_rate=int(device_config.sample_rate),
             channels=1,
             sample_width=2,
@@ -128,5 +122,5 @@ if __name__ == "__main__":
 
     # Log the final file path for the user
     if app:
-        logger.info(f"Recording saved to: {app.final_file_path}")
+        logger.info(f"Recording saved to: {app.dir_path}")
     logger.info("Audio Recorder Application has shut down.")
