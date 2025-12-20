@@ -123,7 +123,7 @@ def process_chunk(data_chunk, sample_rate, low_freq, high_freq, reduce_noise_fla
     return final
 
 
-def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400, chunk_minutes=10, reduce_noise=True):
+def process_audio(input_path, output_path=None, low_freq=600, high_freq=3400, chunk_minutes=10, reduce_noise=False):
     """
     Main orchestration function.
 
@@ -166,10 +166,11 @@ def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400, ch
     total_chunks = math.ceil(total_samples / chunk_samples)
 
     logger.info(f"Audio Duration: {total_samples / sample_rate / 60:.2f} minutes")
-    logger.info(f"Splitting into {total_chunks} chunk(s) of ~{chunk_minutes} mins.")
-
     if reduce_noise:
         logger.info("ℹ️  Noise Reduction is ENABLED (This may take longer)")
+
+    if total_chunks > 1:
+        logger.info(f"Splitting into {total_chunks} chunk(s) of ~{chunk_minutes} mins.")
 
     base_name = os.path.splitext(input_path)[0]
 
@@ -177,7 +178,8 @@ def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400, ch
         start = i * chunk_samples
         end = min(start + chunk_samples, total_samples)
 
-        logger.info(f"--- Processing Chunk {i + 1}/{total_chunks} ---")
+        if total_chunks > 1:
+            logger.info(f"--- Processing Chunk {i + 1}/{total_chunks} ---")
 
         chunk_data = data[start:end]
 
@@ -189,7 +191,7 @@ def process_audio(input_path, output_path=None, low_freq=300, high_freq=3400, ch
             out_root, out_ext = os.path.splitext(output_path)
             chunk_out = f"{out_root}_part{i + 1:03d}{out_ext}"
         else:
-            chunk_out = f"{base_name}_enhanced_part{i + 1:03d}.mp3"
+            chunk_out = f"{base_name}_enhanced_part{i + 1:03d}.mp3" if total_chunks > 1 else f"{base_name}_enhanced.mp3"
 
         logger.info(f"Encoding {chunk_out}...")
         processed_seg.export(chunk_out, format="mp3", bitrate="192k")
@@ -205,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--high", type=int, default=3400, help="High cutoff Hz")
     parser.add_argument("--split", type=int, default=10, help="Split size in minutes")
     # New flag to disable noise reduction if needed
-    parser.add_argument("--no-denoise", action="store_true", help="Disable spectral noise reduction (faster)")
+    parser.add_argument("--no-denoise", action="store_false", help="Disable spectral noise reduction (faster)")
 
     args = parser.parse_args()
 
