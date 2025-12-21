@@ -66,13 +66,13 @@ Use `pytest` for unit testing.
     make coverage
     ```
 
-### Running the Applications
+### Running the Basic Applications
 You can run the built-in applications directly using `make` targets.
 
 * **Decibel Meter:** Runs the real-time decibel meter app.
     ```bash
     # Run with default settings (uses default mic)
-    make decibel-meter
+    make decibel-meter-default-mic
     
     # Run specifically with a UMIK-1 (requires calibration file path in F variable)
     make decibel-meter-umik-1 F="path/to/calib.txt"
@@ -81,7 +81,7 @@ You can run the built-in applications directly using `make` targets.
 * **Audio Recorder:** Runs the recording utility.
     ```bash
     # Record with default mic
-    make record
+    make record-default-mic
     
     # Record with UMIK-1 (requires calibration file)
     make record-umik-1 F="path/to/calib.txt"

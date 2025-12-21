@@ -42,7 +42,6 @@ jobs:
 
       - name: Run Spell Check
         run: make spell-check
-        continue-on-error: true
 
       - name: Run Tests with Coverage
         run: make coverage
