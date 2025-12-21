@@ -69,7 +69,12 @@ venv: ## Create a virtual environment.
 	@echo -e "$(GREEN)>>> Virtual environment created. Activate with 'source .venv/bin/activate'$(NC)"
 	@echo -e "$(GREEN)>>> Now run 'make install'$(NC)"
 
-install: venv ## Install project dependencies from pyproject.toml
+setup: ## Install system dependencies.
+	@echo -e "$(GREEN)>>> Installing system dependencies...$(NC)"
+	@sudo apt update && sudo apt install -y libportaudio2 libsndfile1 ffmpeg -y
+	@echo -e "$(GREEN)>>> System dependencies installed.$(NC)"
+
+install: setup venv ## Install project dependencies from pyproject.toml
 	@echo -e "$(GREEN)>>> Installing production dependencies...$(NC)"
 	# Change the line below to include the dev group
 	@$(UV) sync --extra dev
@@ -102,6 +107,16 @@ coverage: ## Run tests and generate coverage report.
 	@echo -e "$(GREEN)>>> Running tests with coverage...$(NC)"
 	@$(PYTHON) -m pytest --cov=src --cov-report=term-missing --cov-report=html
 
+spell-check: ## Spell check project.
+	@echo -e "$(GREEN)*** Checking project for miss spellings... ***$(NC)"
+	@grep . cspell.txt | sort -u > .cspell.txt && mv .cspell.txt cspell.txt
+	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) *.md
+	@echo -e "$(GREEN)*** Project is correctly written! ***$(NC)"
+
+# ==============================================================================
+# Audio Device Management
+# ==============================================================================
+
 list-audio-devices: ## List available audio input devices.
 ifeq ($(SILENT),)
 	@echo -e "$(GREEN)>>> Listing audio input devices...$(NC)"
@@ -112,7 +127,12 @@ get-umik-id: ## Attempt to find and print the ID of the UMIK-1 microphone. Use S
 ifeq ($(SILENT),)
 	@echo -e "$(GREEN)>>> Searching for UMIK-1 device ID...$(NC)"
 endif
-	@$(MAKE) --no-print-directory list-audio-devices SILENT=$(SILENT) | grep -i "UMIK-1" | awk '{ print $$2 }'
+	@id=$$($(MAKE) --no-print-directory list-audio-devices SILENT=$(SILENT) | grep -i "UMIK-1" | awk '{ print $$2 }' || true); \
+	if [ -z "$$id" ]; then \
+		echo "Error: UMIK-1 device not found!" >&2; \
+		exit 1; \
+	fi; \
+	echo -n "$$id"
 
 calibrate-umik:  ## Run the calibration test script.
 ifndef F
@@ -124,12 +144,6 @@ endif
 	@echo "Number of Taps  : ${NUM_TAPS}"
 	@echo "--------------------------------"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/calibrate.py "${F}" -r ${SAMPLE_RATE} -t ${NUM_TAPS}
-
-spell-check: ## Spell check project.
-	@echo -e "$(GREEN)*** Checking project for miss spellings... ***$(NC)"
-	@grep . cspell.txt | sort -u > .cspell.txt && mv .cspell.txt cspell.txt
-	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) *.md
-	@echo -e "$(GREEN)*** Project is correctly written! ***$(NC)"
 
 # ==============================================================================
 # Decibel Meter
