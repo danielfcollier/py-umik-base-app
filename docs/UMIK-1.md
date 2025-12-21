@@ -58,9 +58,9 @@ The process has three phases:
 
 This happens once, every time your `noise_monitor` app starts.
 
-1.  **Check for Cache:** Your `Calibrator` class first looks for a pre-computed filter file (e.g., `audio/device/calibrator/fir_filter_taps.npy`).
+1.  **Check for Cache:** Your `HardwareCalibrator` class first looks for a pre-computed filter file (e.g., `audio/device/calibrator/fir_filter_taps.npy`).
 2.  **Load from Cache (Fast Path):** If the cache file exists, the calibrator loads the filter coefficients directly from it, skipping the expensive design step. This makes your application start almost instantly on subsequent runs.
-3.  **Design Filter (First Run):** If no cache is found, the `Calibrator` performs these steps:
+3.  **Design Filter (First Run):** If no cache is found, the `HardwareCalibrator` performs these steps:
     * It reads the frequencies and gain values from your calibration `.txt` file.
     * It uses this data to design a digital **FIR (Finite Impulse Response) filter** using `scipy.signal.firwin2`. This filter is mathematically designed to apply the *exact inverse* of your microphone's unique frequency response. The default number of coefficients ("taps") is often set high (e.g., 1023) for accuracy.
     * It saves the resulting filter coefficients (the "taps") to the cache file for future runs.
@@ -80,7 +80,7 @@ This ensures that every piece of data your application analyzes and saves is a s
 
 If you find that the real-time correction (`audio_device_calibrator.apply()`) is consuming too much CPU, especially on a resource-constrained device like a Raspberry Pi, you can reduce its computational load by adjusting the **number of filter taps** used during the design phase (Phase 2).
 
-* **Locate:** Find the `_design_filter` method within your `AudioDeviceCalibrator` class.
+* **Locate:** Find the `_design_filter` method within your `HardwareCalibrator` class.
 * **Modify `num_taps`:** Change the value passed to `scipy.signal.firwin2`.
     * `num_taps=1024` (Default): High accuracy across all frequencies, high CPU load.
     * `num_taps=512`: Nearly half the CPU load, but with reduced accuracy, **especially in the critical low-frequency range (20Hz-250Hz)**. This means your measurements of traffic rumble, HVAC hum, etc., will be less precise.

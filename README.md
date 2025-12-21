@@ -12,7 +12,7 @@ It's included several ready-made applications to get you started immediately:
 * **🔍 Get UMIK-1 ID:** A helper utility that specifically hunts for a device named "UMIK-1" and prints its ID automatically.
 * **📏 Calibrate:** Reads the UMIK-1 unique calibration file and creates a digital filter to ensure your measurements are scientifically accurate.
 * **🎙️ Recorder:** A robust audio recorder that handles file names, directory creation, and buffering to save high-quality WAV files.
-* **📊 Decibel Meter:** A real-time digital meter that displays RMS, dBFS, LUFS (Loudness), and dBSPL (Sound Pressure Level).
+* **📊 Real Time Meter:** A real-time digital meter that displays RMS, dBFS, LUFS (Loudness), and dBSPL (Sound Pressure Level).
     ```text
     INFO AudioConsumerThread [measured_at: 2025-12-14 10:59:17.672282] {'interval_s': '3.0000', 'rms': '0.0180', 'flux': '45.8031', 'dBFS': '-34.9183', 'LUFS': '-30.4443', 'dBSPL': '77.6267'} [audio-metrics]
     ```
@@ -77,9 +77,9 @@ graph LR
     Producer -->|Buffer| Queue[Queue]
     Queue -->|Audio| Consumer[Consumer Thread]
     
-    Consumer -->|Execute| Calibrator[Calibrator]
-    Calibrator -->|Clean Audio| Meter[Decibel Meter]
-    Calibrator -->|Clean Audio| Recorder[Recorder]
+    Consumer -->|Execute| HardwareCalibrator[HardwareCalibrator]
+    HardwareCalibrator -->|Clean Audio| Meter[Real Time Meter]
+    HardwareCalibrator -->|Clean Audio| Recorder[Recorder]
 ```
 
 _Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTURE.md)._
@@ -165,14 +165,14 @@ _Or specifically find the UMIK-1 ID:_ `make get-umik-id`
 make calibrate-umik F="path/to/calibration_file.txt"
 ```
 
-3. **Run Decibel Meter:**
+3. **Run Real Time Meter:**
 
 ```bash
 # Default Mic
-make decibel-meter-default-mic
+make real-time-meter-default-mic
 
 # UMIK-1 (Requires calibration file)
-make decibel-meter-umik-1 F="path/to/calibration_file.txt"
+make real-time-meter-umik-1 F="path/to/calibration_file.txt"
 ```
 
 4. **Record Audio:**
@@ -192,7 +192,7 @@ The Makefile is designed for Unix-like systems. For Windows, you have two option
 1. **List Devices:**
 
 ```powershell
-python -m src.app.list_audio_devices
+python -m src.samples.apps.list_audio_devices
 ```
 
 _Note the ID of your UMIK-1 from this list._
@@ -201,32 +201,32 @@ _Note the ID of your UMIK-1 from this list._
 
 ```powershell
 # Defaults to 1024 taps. Example using 512:
-python -m src.app.calibrate "C:\path\to\calib.txt" --num-taps 512
+python -m src.samples.apps.umi1_calibrator "C:\path\to\calib.txt" --num-taps 512
 ```
 
-3. **Run Decibel Meter:**
+3. **Run Real Time Meter:**
 
 ```powershell
 # Replace <ID> with the number found in step 1
-python -m src.app.decibel_meter --device-id <ID> --calibration-file "C:\path\to\calib.txt"
+python -m src.samples.apps.real_time_meter --device-id <ID> --calibration-file "C:\path\to\calib.txt"
 ```
 
 4. **Run Audio Recorder:**
 
 ```powershell
-python -m src.app.record --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-dir "recordings\"
+python -m src.samples.apps.basic_recorder --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-dir "recordings\"
 ```
 
 5. **Analyze Audio (Single File):**
 
 ```powershell
-python -m src.app.calculate_file_metrics "recordings\test.wav" --calibration-file "C:\path\to\calib.txt"
+python -m src.scripts.calculate_file_metrics "recordings\test.wav" --calibration-file "C:\path\to\calib.txt"
 ```
 
 6. **Visualize (Plot):**
 
 ```powershell
-python -m src.app.plot_metrics "recordings\test.wav_metrics.csv" --save "chart.png"
+python -m src.scripts.plot_metrics "recordings\test.wav_metrics.csv" --save "chart.png"
 ```
 
 ## 📚 Documentation & Resources

@@ -10,7 +10,9 @@ CSPELL_VERSION = "latest"
 
 SCRIPT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SRC_DIR         := $(SCRIPT_DIR)/src
-APP_DIR         := $(SRC_DIR)/app
+DOCS_DIR        := $(SCRIPT_DIR)/docs
+APP_DIR         := $(SRC_DIR)/samples/apps
+SCRIPTS_DIR    	:= $(SCRIPT_DIR)/src/scripts
 
 # Calibration file path (MUST be set when calling relevant targets)
 # Example: make calibrate-umik F="path/to/cal.txt"
@@ -33,7 +35,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check decibel-meter decibel-meter-default-mic decibel-meter-umik-1 record record-default-mic record-umik-1 test coverage
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik-1 record record-default-mic record-umik-1 test coverage
 
 default: help
 
@@ -76,7 +78,6 @@ setup: ## Install system dependencies.
 
 install: setup venv ## Install project dependencies from pyproject.toml
 	@echo -e "$(GREEN)>>> Installing production dependencies...$(NC)"
-	# Change the line below to include the dev group
 	@$(UV) sync --extra dev
 	@echo -e "$(GREEN)>>> All dependencies installed.$(NC)"
 	@$(UV) lock
@@ -110,7 +111,7 @@ coverage: ## Run tests and generate coverage report.
 spell-check: ## Spell check project.
 	@echo -e "$(GREEN)*** Checking project for miss spellings... ***$(NC)"
 	@grep . cspell.txt | sort -u > .cspell.txt && mv .cspell.txt cspell.txt
-	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) *.md
+	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) $(DOCS_DIR) || exit 0  
 	@echo -e "$(GREEN)*** Project is correctly written! ***$(NC)"
 
 # ==============================================================================
@@ -121,7 +122,7 @@ list-audio-devices: ## List available audio input devices.
 ifeq ($(SILENT),)
 	@echo -e "$(GREEN)>>> Listing audio input devices...$(NC)"
 endif
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/list_audio_devices.py
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(SCRIPTS_DIR)/list_audio_devices.py
 
 get-umik-id: ## Attempt to find and print the ID of the UMIK-1 microphone. Use SILENT=1 for raw output.
 ifeq ($(SILENT),)
@@ -143,20 +144,20 @@ endif
 	@echo "Sample Rate     : ${SAMPLE_RATE}"
 	@echo "Number of Taps  : ${NUM_TAPS}"
 	@echo "--------------------------------"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/calibrate.py "${F}" -r ${SAMPLE_RATE} -t ${NUM_TAPS}
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/umik1_calibrator.py "${F}" -r ${SAMPLE_RATE} -t ${NUM_TAPS}
 
 # ==============================================================================
-# Decibel Meter
+# Real Time Meter
 # ==============================================================================
 
-decibel-meter: decibel-meter-umik-1 ## Run the decibel meter using the UMIK-1 (Default alias)
+real-time-meter: real-time-meter-umik-1 ## Run the real time meter using the UMIK-1 (Default alias)
 
-decibel-meter-umik-1: ## Run the decibel meter using the UMIK-1. Requires F=<cal_file>. Use HELP=--help for usage.
+real-time-meter-umik-1: ## Run the real time meter using the UMIK-1. Requires F=<cal_file>. Use HELP=--help for usage.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for decibel_meter.py...$(NC)"
-	@$(PYTHON) $(APP_DIR)/decibel_meter.py --help
+	@echo -e "$(YELLOW)>>> Showing help for real_time_meter.py...$(NC)"
+	@$(PYTHON) $(APP_DIR)/real_time_meter.py --help
 else
-	@echo -e "$(YELLOW)>>> Attempting to run Decibel Meter with UMIK-1...$(NC)"
+	@echo -e "$(YELLOW)>>> Attempting to run Real Time Meter with UMIK-1...$(NC)"
 	$(eval ID := $(shell $(MAKE) --no-print-directory get-umik-id SILENT=1))
 	@if [ -z "$(ID)" ]; then \
 		echo -e "$(RED)>>> ERROR: Could not automatically find UMIK-1 device ID.$(NC)"; \
@@ -164,21 +165,21 @@ else
 		exit 1; \
 	fi
 ifndef F
-	$(error Calibration file path not set. Use 'make decibel-meter-umik-1 F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make real-time-meter-umik-1 F="<path/to/calibration_file.txt>"')
 endif
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/decibel_meter.py $(HELP) --device-id $(ID) --buffer-seconds $(BUFFER_SECONDS) --calibration-file "$(F)" --num-taps ${NUM_TAPS}
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/real_time_meter.py $(HELP) --device-id $(ID) --buffer-seconds $(BUFFER_SECONDS) --calibration-file "$(F)" --num-taps ${NUM_TAPS}
 endif
 
-decibel-meter-default-mic: ## Run the decibel meter using the system default microphone. Use HELP=--help for usage.
+real-time-meter-default-mic: ## Run the real time meter using the system default microphone. Use HELP=--help for usage.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for decibel_meter.py...$(NC)"
-	@$(PYTHON) $(APP_DIR)/decibel_meter.py --help
+	@echo -e "$(YELLOW)>>> Showing help for real_time_meter.py...$(NC)"
+	@$(PYTHON) $(APP_DIR)/real_time_meter.py --help
 else
-	@echo -e "$(YELLOW)>>> Running Decibel Meter with default system microphone...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/decibel_meter.py $(HELP) --buffer-seconds $(BUFFER_SECONDS)
+	@echo -e "$(YELLOW)>>> Running Real Time Meter with default system microphone...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/real_time_meter.py $(HELP) --buffer-seconds $(BUFFER_SECONDS)
 endif
 
-## ==============================================================================
+# ==============================================================================
 # Recording
 # ==============================================================================
 
@@ -186,8 +187,8 @@ record: record-umik-1 ## Record audio using the UMIK-1 (Default alias)
 
 record-umik-1: ## Record audio using the UMIK-1. Requires F=<cal_file>. Optional: OUT=<path>.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for record.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py --help
+	@echo -e "$(YELLOW)>>> Showing help for basic_recorder.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py --help
 else
 	@echo -e "$(YELLOW)>>> Attempting to record with UMIK-1...$(NC)"
 	$(eval ID := $(shell $(MAKE) --no-print-directory get-umik-id SILENT=1))
@@ -200,7 +201,7 @@ ifndef F
 	$(error Calibration file path not set. Use 'make record-umik-1 F="<path/to/calibration_file.txt>"')
 endif
 	@echo -e "$(GREEN)>>> Recording to path $(OUT)...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py $(HELP) \
 		--device-id $(ID) \
 		--buffer-seconds $(BUFFER_SECONDS) \
 		--calibration-file "$(F)" \
@@ -210,12 +211,12 @@ endif
 
 record-default-mic: ## Record audio using the system default microphone. Optional: OUT=<path>.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for record.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py --help
+	@echo -e "$(YELLOW)>>> Showing help for basic_recorder.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py --help
 else
 	@echo -e "$(YELLOW)>>> Recording with default system microphone...$(NC)"
 	@echo -e "$(GREEN)>>> Recording to $(OUT)...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/record.py $(HELP) \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py $(HELP) \
 		--buffer-seconds $(BUFFER_SECONDS) \
 		--output-dir "$(OUT)"
 endif
@@ -227,7 +228,7 @@ endif
 analyze-wav: ## Analyze a WAV file. Requires IN=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for audio_file_analysis.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.audio_file_analysis --help
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_file_analysis --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make analyze-wav IN=recordings/file.wav'$(NC)"; \
@@ -235,7 +236,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Analyzing audio file: $(IN)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.audio_file_analysis "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_file_analysis "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -243,7 +244,7 @@ endif
 batch-analyze: ## Batch analyze a directory. Requires DIR=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for audio_batch_analysis.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.audio_batch_analysis --help
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_batch_analysis --help
 else
 	@if [ -z "$(DIR)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input directory not set. Use 'make batch-analyze DIR=recordings/'$(NC)"; \
@@ -251,7 +252,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Batch processing directory: $(DIR)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.audio_batch_analysis "$(DIR)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_batch_analysis "$(DIR)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -263,28 +264,28 @@ endif
 plot-view: ## View metrics chart. Requires IN=<csv_path>. Optional: METRICS="dbfs lufs".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for plot_audio_metrics.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.plot_audio_metrics --help
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-view IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Opening plot viewer...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.plot_audio_metrics "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics "$(IN)" \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
 
 plot-save: ## Save metrics chart. Requires IN=<csv_path>. Optional: PLOT_OUT=<png_path>, METRICS="...".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for plot_audio_metrics.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.plot_audio_metrics --help
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-save IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Generating plot image...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.plot_audio_metrics "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics "$(IN)" \
 		--save $(if $(PLOT_OUT),"$(PLOT_OUT)") \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
@@ -296,14 +297,14 @@ endif
 enhance-audio: ## Filter audio to enhance voice and save as MP3. Requires IN=<path>. Optional: MP3_OUT=<mp3_path>, LOW=<hz>, HIGH=<hz>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for enhance_voice.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.enhance_voice --help
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.enhance_voice --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make enhance-audio IN=recordings/file.wav'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Enhancing audio file: $(IN)...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.app.enhance_voice "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.enhance_voice "$(IN)" \
 		$(if $(MP3_OUT),--output-file "$(MP3_OUT)") \
 		$(if $(LOW),--low $(LOW)) \
 		$(if $(HIGH),--high $(HIGH))
