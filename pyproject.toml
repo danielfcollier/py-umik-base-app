@@ -1,12 +1,11 @@
 [project]
-name = "python-umik-1-base-apps"
+name = "py-umik-base-app"
 version = "1.0.0"
 description = "Base utilities for working with the Umik-1 microphone in Python applications."
 authors = [
     {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
 ]
 readme = "README.md"
-
 requires-python = ">=3.12, <3.14" 
 
 # Production Dependencies
@@ -28,9 +27,18 @@ dependencies = [
 dev = [
     "ruff~=0.14.1",
     "mypy~=1.18.2",
-    "pytest",
+    "pytest>=9.0.2",
     "pytest-cov",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/danielfcollier/py-umik-base-app"
+"Bug Tracker" = "https://github.com/danielfcollier/py-umik-base-app/issues"
+
+# Optional: If you want to run your app from the command line
+# e.g., typing 'my-app' in the terminal
+# [project.scripts]
+# my-app = "my_app.main:run"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
