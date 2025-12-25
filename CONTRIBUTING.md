@@ -69,13 +69,13 @@ Use `pytest` for unit testing.
 ### Running the Basic Applications
 You can run the built-in applications directly using `make` targets.
 
-* **Decibel Meter:** Runs the real-time decibel meter app.
+* **Real Time Meter:** Runs the real-time real time meter app.
     ```bash
     # Run with default settings (uses default mic)
-    make decibel-meter-default-mic
+    make real-time-meter-default-mic
     
     # Run specifically with a UMIK-1 (requires calibration file path in F variable)
-    make decibel-meter-umik-1 F="path/to/calib.txt"
+    make real-time-meter-umik-1 F="path/to/calib.txt"
     ```
 
 * **Audio Recorder:** Runs the recording utility.
