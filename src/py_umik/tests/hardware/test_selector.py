@@ -1,6 +1,10 @@
 """
 Unit tests for HardwareSelector.
 Mocks the sounddevice library to avoid hardware dependencies.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from unittest.mock import patch

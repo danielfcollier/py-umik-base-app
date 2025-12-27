@@ -1,5 +1,9 @@
 """
 Unit tests for FilterCacheStrategy implementations.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from unittest.mock import patch

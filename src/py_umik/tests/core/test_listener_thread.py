@@ -1,5 +1,9 @@
 """
 Unit tests for ListenerThread.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 import threading

@@ -1,5 +1,9 @@
 """
 Unit tests for BaseApp.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from unittest.mock import MagicMock, patch
