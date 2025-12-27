@@ -14,6 +14,7 @@ import logging
 import threading
 
 from ..hardware.config import HardwareConfig
+from ..settings import get_settings
 from .consumer_thread import ConsumerThread
 from .listener_thread import ListenerThread
 from .pipeline import AudioPipeline
@@ -21,7 +22,8 @@ from .thread_app import ThreadApp
 
 logger = logging.getLogger(__name__)
 
-CONSUMER_QUEUE_TIMEOUT_SECONDS = 1
+
+settings = get_settings()
 
 
 class BaseApp(ThreadApp):
@@ -85,7 +87,7 @@ class BaseApp(ThreadApp):
             audio_queue=self._queue,
             stop_event=self._stop_event,
             pipeline=self._pipeline,
-            consumer_queue_timeout_seconds=CONSUMER_QUEUE_TIMEOUT_SECONDS,
+            consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
         )
 
         consumer_thread = threading.Thread(

@@ -5,7 +5,7 @@ Unit tests for ThreadApp.
 import threading
 from unittest.mock import MagicMock, patch
 
-from src.py_umik.core.thread_app import ThreadApp
+from py_umik.core.thread_app import ThreadApp
 
 
 class ConcreteApp(ThreadApp):

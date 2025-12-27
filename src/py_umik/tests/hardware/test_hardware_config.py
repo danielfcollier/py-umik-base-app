@@ -4,7 +4,7 @@ Unit tests for HardwareConfig.
 
 from unittest.mock import MagicMock
 
-from src.py_umik.hardware.config import HardwareConfig
+from py_umik.hardware.config import HardwareConfig
 
 
 def test_audio_device_config_initialization():

@@ -64,6 +64,11 @@ class Settings(BaseSettings):
     RECORDER: RecorderSettings = RecorderSettings()
     HARDWARE: HardwareSettings = HardwareSettings()
 
+    RECONNECT_DELAY_SECONDS: int = 5
+    RECONNECT_MAX_RETRIES: int = 10
+    CONSUMER_QUEUE_TIMEOUT_SECONDS: int = 1
+    DEFAULT_METRIC_INTERVAL_SECONDS: int = 3
+
 
 @lru_cache
 def get_settings() -> Settings:

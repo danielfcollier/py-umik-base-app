@@ -1,7 +1,7 @@
 [project]
 name = "umik-base-app"
-version = "0.1.0"
 description = "Base utilities for working with the Umik-1 microphone in Python applications."
+dynamic = ["version"]
 authors = [
     {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
 ]
@@ -21,6 +21,13 @@ dependencies = [
     "pydub>=0.25.1",
     "noisereduce>=3.0.3",
 ]
+
+[build-system]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_file = "src/py_umik/_version.py"
 
 # Development Dependencies (used for linting/testing)
 [project.optional-dependencies]
@@ -47,9 +54,9 @@ umik-metrics-plot = "py_umik.apps.metrics_plot:main"
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = [
-    "tests",
+    "src/tests",
 ]
-pythonpath = "."
+pythonpath = "src"
 
 [tool.ruff]
 line-length = 120
@@ -59,6 +66,7 @@ exclude = [
     ".git",
     "__pycache__",
     ".github",
+    "src/py_umik/_version.py",
 ]
 
 [tool.ruff.lint]

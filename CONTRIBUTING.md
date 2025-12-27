@@ -72,19 +72,20 @@ You can run the built-in applications directly using `make` targets.
 * **Real Time Meter:** Runs the real-time real time meter app.
     ```bash
     # Run with default settings (uses default mic)
-    make real-time-meter-default-mic
+    umik-real-time-meter
     
     # Run specifically with a UMIK-1 (requires calibration file path in F variable)
-    make real-time-meter-umik-1 F="path/to/calib.txt"
+    umik-list-devices
+    umik-real-time-meter --device-id <ID> --calibration-file "umik-1/700.txt"
     ```
 
 * **Audio Recorder:** Runs the recording utility.
     ```bash
     # Record with default mic
-    make record-default-mic
+    umik-recorder
     
     # Record with UMIK-1 (requires calibration file)
-    make record-umik-1 F="path/to/calib.txt"
+    umik-recorder --device-id <ID> --calibration-file "umik-1/700.txt"
     ```
 
 *(Note: Use `make help` to see all available commands).*

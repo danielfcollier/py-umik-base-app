@@ -18,13 +18,14 @@ import threading
 
 import sounddevice as sd
 
+from py_umik.settings import get_settings
+
 from ..hardware.config import HardwareConfig
 from .datetime_stamp import DatetimeStamp
 
 logger = logging.getLogger(__name__)
 
-RECONNECT_DELAY_SECONDS = 5
-RECONNECT_MAX_RETRIES = 10
+settings = get_settings()
 
 
 class ListenerThread:
@@ -65,8 +66,8 @@ class ListenerThread:
         self._class_name = self.__class__.__name__
         logger.debug(f"{self._class_name} initialized.")
 
-        self._reconnect_delay_seconds = RECONNECT_DELAY_SECONDS
-        self._max_retries = RECONNECT_MAX_RETRIES
+        self._reconnect_delay_seconds = settings.RECONNECT_DELAY_SECONDS
+        self._max_retries = settings.RECONNECT_MAX_RETRIES
 
     def run(self):
         """
