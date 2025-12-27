@@ -52,13 +52,13 @@ The process has three phases:
 
 ### Phase 2: Application Startup (Filter Design & Caching)
 
-This happens once, every time your `noise_monitor` app starts.
+This happens once, every time your `umik-base-app` app starts.
 
 1.  **Check for Cache:** Your `HardwareCalibrator` class first looks for a pre-computed filter file (e.g., `py_umik/hardware/calibrator/fir_filter_taps.npy`).
 2.  **Load from Cache (Fast Path):** If the cache file exists, the calibrator loads the filter coefficients directly from it, skipping the expensive design step. This makes your application start almost instantly on subsequent runs.
 3.  **Design Filter (First Run):** If no cache is found, the `HardwareCalibrator` performs these steps:
     * It reads the frequencies and gain values from your calibration `.txt` file.
-    * It uses this data to design a digital **FIR (Finite Impulse Response) filter** using `scipy.signal.firwin2`. This filter is mathematically designed to apply the *exact inverse* of your microphone's unique frequency response. The default number of coefficients ("taps") is often set high (e.g., 1023) for accuracy.
+    * It uses this data to design a digital **FIR (Finite Impulse Response) filter** using `scipy.signal.firwin2`. This filter is mathematically designed to apply the *exact inverse* of your microphone's unique frequency response. The default number of coefficients ("taps") is often set high (e.g., 1024) for accuracy.
     * It saves the resulting filter coefficients (the "taps") to the cache file for future runs.
 
 ### Phase 3: Real-Time Correction (Continuous Loop)
@@ -66,7 +66,7 @@ This happens once, every time your `noise_monitor` app starts.
 This is the core of the process and happens inside your consumer thread for every single audio chunk.
 
 1.  **Receive Raw Audio:** The thread gets a raw, uncalibrated audio chunk from the input queue.
-2.  **Apply Filter:** It immediately passes this raw chunk to the `audio_device_calibrator.apply()` method. This method uses `scipy.signal.lfilter` to perform a mathematical convolution between the audio data and the filter coefficients designed at startup. This step is computationally intensive.
+2.  **Apply Filter:** It immediately passes this raw chunk to the `HardwareCalibrator.apply()` method. This method uses `scipy.signal.lfilter` to perform a mathematical convolution between the audio data and the filter coefficients designed at startup. This step is computationally intensive.
 3.  **Get Calibrated Audio:** The output is a new audio chunk that has been corrected. Its frequency response is now perfectly flat.
 4.  **Process Further:** **All subsequent operations** - SAD (RMS/Flux), LUFS calculation, and file recording - are performed on this clean, calibrated audio chunk.
 
@@ -74,7 +74,7 @@ This ensures that every piece of data your application analyzes and saves is a s
 
 ### Optional Step: Adjusting Filter Complexity for Performance
 
-If you find that the real-time correction (`audio_device_calibrator.apply()`) is consuming too much CPU, especially on a resource-constrained device like a Raspberry Pi, you can reduce its computational load by adjusting the **number of filter taps** used during the design phase (Phase 2).
+If you find that the real-time correction (`HardwareCalibrator.apply()`) is consuming too much CPU, especially on a resource-constrained device like a Raspberry Pi, you can reduce its computational load by adjusting the **number of filter taps** used during the design phase (Phase 2).
 
 * **Locate:** Find the `_design_filter` method within your `HardwareCalibrator` class.
 * **Modify `num_taps`:** Change the value passed to `scipy.signal.firwin2`.
@@ -83,7 +83,7 @@ If you find that the real-time correction (`audio_device_calibrator.apply()`) is
     * `num_taps=256`: Even lower CPU load, but significant loss of low-frequency accuracy.
 * **Delete Cache:** After changing `num_taps`, you **must delete the cache file** (`filter_cache/fir_filter_taps.npy`) so the filter is redesigned and re-cached with the new complexity on the next run.
 
-**Trade-off:** Reducing `num_taps` saves CPU but sacrifices the accuracy of your low-frequency measurements, which is one of the primary benefits of using a calibrated microphone. Use this optimization only if absolutely necessary due to performance limitations.
+> **Trade-off:** Reducing `num_taps` saves CPU but sacrifices the accuracy of your low-frequency measurements, which is one of the primary benefits of using a calibrated microphone. Use this optimization only if absolutely necessary due to performance limitations.
 
 
 

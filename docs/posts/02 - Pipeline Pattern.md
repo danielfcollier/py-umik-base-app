@@ -4,7 +4,7 @@ When building audio applications, it’s easy to end up with a "God Object" loop
 
 In my [umik-base-app](https://github.com/danielfcollier/py-umik-base-app/), I strictly avoided this by implementing the **Pipeline Pattern**.
 
-Instead of hardcoding logic, my `AudioPipeline` orchestrates the flow of data through two distinct types of components defined in `src/pyumik/core/pipeline.py`:
+Instead of hardcoding logic, my `AudioPipeline` orchestrates the flow of data through two distinct types of components defined in `src/py_umik/core/pipeline.py`:
 
 1. 🧩 **Processors (Transformers)**
     These components take raw audio, modify it, and pass it on.
