@@ -7,6 +7,7 @@ Year: 2025
 """
 
 import argparse
+import os
 from unittest.mock import patch
 
 import pytest
@@ -100,6 +101,7 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     assert config.num_taps == 512
 
 
+@patch.dict(os.environ, {"CALIBRATION_FILE": ""})
 def test_no_calibration_file_allows_uncalibrated_setup(mock_hardware_selector):
     """
     Test that no error is raised if a non-default device is used without calibration.

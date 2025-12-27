@@ -3,7 +3,8 @@ Defines classes and functions for parsing command-line arguments and setting up
 the configuration for the audio monitoring application.
 
 This module handles argument validation, device selection logic based on arguments,
-and initialization of the calibration process if specified via command line.
+and initialization of the calibration process if specified via command line
+or environment variable.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -13,6 +14,7 @@ Year: 2025
 import argparse
 import logging
 import math
+import os
 import sys
 
 from ..hardware.calibrator import HardwareCalibrator
@@ -68,6 +70,11 @@ class AppArgs:
             help="Target audio device ID (e.g., 7). Default: System default input device.",
         )
         parser.add_argument(
+            "--default",
+            action="store_true",
+            help="Force use of default microphone, ignoring CALIBRATION_FILE environment variable.",
+        )
+        parser.add_argument(
             "-b",
             "--buffer-seconds",
             type=float,
@@ -86,7 +93,8 @@ class AppArgs:
             default=settings.AUDIO.SAMPLE_RATE,
             help=(
                 f"Target sample rate (Hz) for default device. Default: {settings.AUDIO.SAMPLE_RATE} Hz. "
-                "This is IGNORED if --calibration-file is used, as the device's native rate takes precedence."
+                "This is IGNORED if --calibration-file is used (arg or env var), as the device's native rate takes "
+                "precedence."
             ),
         )
         parser.add_argument(
@@ -96,8 +104,9 @@ class AppArgs:
             default=None,
             help=(
                 "Path to the microphone calibration file (.txt, e.g., from UMIK-1). "
-                "If provided, the device's native sample rate will be used, overriding --sample-rate. "
-                "Also triggers auto-detection of 'UMIK-1' device if --device-id is not set."
+                "Can also be set via CALIBRATION_FILE environment variable. "
+                "Argument overrides env var. "
+                "Presence triggers auto-detection of 'UMIK-1' device if --device-id is not set."
             ),
         )
         parser.add_argument(
@@ -128,8 +137,8 @@ class AppArgs:
     def validate_args(args: argparse.Namespace) -> AppConfig:
         """
         Validates the parsed command-line arguments and creates the final AppConfig object.
-
         Performs checks and adjustments:
+        - Resolves calibration file from Arg or Env Var.
         - Ensures buffer_seconds meets the minimum and is a multiple of the LUFS window.
         - Auto-detects UMIK-1 if calibration file is present but device ID is missing.
         - Selects the audio device (default or specified ID).
@@ -144,9 +153,18 @@ class AppArgs:
         """
         logger.info("Validating command-line arguments...")
 
-        # --- Auto-Detect UMIK-1 if needed ---
-        if args.calibration_file and args.device_id is None:
-            logger.info("Calibration file provided. Attempting to auto-detect 'UMIK-1'...")
+        # --- 1. Resolve Calibration File (Arg > Env) ---
+        if args.calibration_file is None and not args.default:
+            env_cal_file = os.environ.get("CALIBRATION_FILE")
+            if env_cal_file:
+                logger.info(f"Found CALIBRATION_FILE env var: {env_cal_file}")
+                args.calibration_file = env_cal_file
+        elif args.default and args.calibration_file is None:
+            logger.info("Flag --default set. Ignoring CALIBRATION_FILE environment variable.")
+
+        # --- 2. Auto-Detect UMIK-1 if needed ---
+        if args.calibration_file and args.device_id is None and not args.default:
+            logger.info("Calibration file active. Attempting to auto-detect 'UMIK-1'...")
             umik_id = HardwareSelector.find_device_by_name("UMIK-1")
             if umik_id is not None:
                 logger.info(f"✨ Auto-detected UMIK-1 at Device ID {umik_id}")
@@ -154,7 +172,7 @@ class AppArgs:
             else:
                 logger.warning("⚠️ Could not find a device named 'UMIK-1'. Will attempt to use system default.")
 
-        # --- Buffer Validation ---
+        # --- 3. Buffer Validation ---
         buffer_seconds = float(args.buffer_seconds)
         min_buf = settings.AUDIO.MIN_BUFFER_SECONDS
         lufs_window = settings.AUDIO.LUFS_WINDOW_SECONDS
@@ -173,9 +191,10 @@ class AppArgs:
             )
             buffer_seconds = new_buffer
 
-        # --- Hardware Selection ---
+        # --- 4. Hardware Selection ---
         try:
-            selected_audio_device = HardwareSelector(target_id=args.device_id)
+            target_id = None if args.default else args.device_id
+            selected_audio_device = HardwareSelector(target_id=target_id)
             logger.info(f"Selected audio device: ID={selected_audio_device.id}, Name='{selected_audio_device.name}'")
         except HardwareNotFound as e:
             logger.error(f"Failed to select audio device: {e}")
@@ -189,7 +208,7 @@ class AppArgs:
             buffer_seconds=buffer_seconds,
         )
 
-        # --- Calibration Setup ---
+        # --- 5. Calibration Setup ---
         if args.calibration_file:
             logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
 
@@ -226,7 +245,7 @@ class AppArgs:
             logger.info("Calibration enabled and initialized.")
 
         else:
-            logger.info("No calibration file provided. Calibration disabled.")
+            logger.info("No calibration file provided (Arg or Env). Calibration disabled.")
             logger.info(f"Using specified/default sample rate: {config.sample_rate:.0f} Hz.")
 
         logger.info(

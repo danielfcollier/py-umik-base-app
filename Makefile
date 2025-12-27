@@ -113,11 +113,11 @@ spell-check: ## Spell check project.
 test-publish: clean ## Build package, verify content, and install locally to test
 	@echo "🚀 Building package..."
 	$(UV) build
-	@echo "\n📦 Verifying package content (sdist)..."
+	@echo -e "📦 Verifying package content (sdist)..."
 	@tar -tf dist/*.tar.gz | sort
-	@echo "\n🔧 Installing in editable mode to test entry points..."
+	@echo -e "🔧 Installing in editable mode to test entry points..."
 	@$(UV) pip install -e .
-	@echo "\n✅ Ready! Try running 'umik-real-time-meter --help' to verify it works."
+	@echo -e "✅ Ready! Try running 'umik-real-time-meter --help' to verify it works."
 
 # ==============================================================================
 # Audio Device Management
