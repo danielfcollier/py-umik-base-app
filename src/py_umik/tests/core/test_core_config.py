@@ -22,8 +22,6 @@ def mock_hardware_selector():
         hardware_instance.id = 1
         hardware_instance.name = "Dummy Device"
         hardware_instance.native_rate = 48000
-        # FIX: Default to True so tests don't fail on "missing calibration file" checks
-        # unless we explicitly set it to False for that specific test case.
         hardware_instance.is_default = True
         yield mock
 
@@ -36,7 +34,12 @@ def test_validate_args_adjusts_buffer(mock_hardware_selector):
 
     # Request too small buffer (1s)
     args = argparse.Namespace(
-        device_id=None, buffer_seconds=1.0, sample_rate=48000, calibration_file=None, num_taps=1024
+        device_id=None,
+        buffer_seconds=1.0,
+        sample_rate=48000,
+        calibration_file=None,
+        num_taps=1024,
+        default=False,  # <--- FIX: Added missing attribute
     )
 
     config = AppArgs.validate_args(args)
@@ -52,7 +55,12 @@ def test_validate_args_adjusts_buffer_rounding(mock_hardware_selector):
 
     # Request 4s buffer (not divisible by 3)
     args = argparse.Namespace(
-        device_id=None, buffer_seconds=4.0, sample_rate=48000, calibration_file=None, num_taps=1024
+        device_id=None,
+        buffer_seconds=4.0,
+        sample_rate=48000,
+        calibration_file=None,
+        num_taps=1024,
+        default=False,  # <--- FIX: Added missing attribute
     )
 
     config = AppArgs.validate_args(args)
@@ -67,15 +75,16 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     # Setup mocks
     mock_calibrator_cls.get_sensitivity_values.return_value = (-18.0, 94.0)
 
-    # FIX: Explicitly simulate a non-default device for this test
+    # Explicitly simulate a non-default device for this test
     mock_hardware_selector.return_value.is_default = False
 
     args = argparse.Namespace(
-        device_id=99,  # Non-default
+        device_id=99,
         buffer_seconds=6.0,
-        sample_rate=44100,  # Request 44.1k
+        sample_rate=44100,
         calibration_file="/path/to/cal.txt",
         num_taps=512,
+        default=False,  # <--- FIX: Added missing attribute
     )
 
     config = AppArgs.validate_args(args)
@@ -87,12 +96,26 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     assert config.num_taps == 512
 
 
-def test_missing_calibration_file_error(mock_hardware_selector):
-    """Test that error is raised if non-default device is used without calibration."""
-    # FIX: Explicitly simulate a non-default device for this test
+def test_no_calibration_file_allows_uncalibrated_setup(mock_hardware_selector):
+    """
+    Test that no error is raised if a non-default device is used without calibration.
+    It should simply proceed with calibration disabled.
+    """
+    # Explicitly simulate a non-default device for this test
     mock_hardware_selector.return_value.is_default = False
 
-    args = argparse.Namespace(device_id=99, buffer_seconds=6.0, sample_rate=48000, calibration_file=None, num_taps=1024)
+    args = argparse.Namespace(
+        device_id=99,
+        buffer_seconds=6.0,
+        sample_rate=48000,
+        calibration_file=None,
+        num_taps=1024,
+        default=False,
+    )
 
-    with pytest.raises(ValueError, match="Calibration file required"):
-        AppArgs.validate_args(args)
+    # ACTION: This should now succeed (not raise ValueError)
+    config = AppArgs.validate_args(args)
+
+    # ASSERT: Calibration is disabled (None), but the device ID is still respected
+    assert config.audio_calibrator is None
+    assert config.audio_device.id == mock_hardware_selector.return_value.id
