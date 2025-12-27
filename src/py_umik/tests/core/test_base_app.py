@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.py_umik.core.base_app import BaseApp
+from py_umik.core.base_app import BaseApp
 
 
 @pytest.fixture
@@ -17,8 +17,8 @@ def mock_dependencies():
     return config, pipeline
 
 
-@patch("src.py_umik.core.base_app.ConsumerThread")
-@patch("src.py_umik.core.base_app.ListenerThread")
+@patch("py_umik.core.base_app.ConsumerThread")
+@patch("py_umik.core.base_app.ListenerThread")
 def test_app_initialization_and_thread_setup(mock_listener_cls, mock_consumer_cls, mock_dependencies):
     """
     Test that BaseApp initializes correctly and sets up the

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from src.py_umik.hardware.cache_strategy import FileFilterCache, NoOpFilterCache
+from py_umik.hardware.cache_strategy import FileFilterCache, NoOpFilterCache
 
 
 def test_file_cache_load_success():

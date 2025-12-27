@@ -84,7 +84,7 @@ class AudioMetrics:
         epsilon = 1e-10
         dbfs = 20 * np.log10(rms + epsilon)
 
-        return dbfs if dbfs > settings.METRICS.DBFS_LOWER_NOUND else settings.METRICS.DBFS_LOWER_NOUND
+        return dbfs if dbfs > settings.METRICS.DBFS_LOWER_BOUND else settings.METRICS.DBFS_LOWER_BOUND
 
     @staticmethod
     def dBSPL(dbfs_level: float, sensitivity_dbfs: float, reference_dbspl: float) -> float:

@@ -24,12 +24,13 @@ from py_umik.core.interfaces import AudioSink
 from py_umik.core.pipeline import AudioPipeline
 from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
 from py_umik.hardware.config import HardwareConfig
+from py_umik.settings import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_METRIC_INTERVAL_SECONDS = 3
+settings = get_settings()
 
 
 class AudioMetricsAudioSink(AudioSink):
@@ -46,7 +47,7 @@ class AudioMetricsAudioSink(AudioSink):
         self._audio_metrics = AudioMetrics(sample_rate=config.sample_rate)
 
         # --- Buffering Configuration ---
-        self._interval_seconds = DEFAULT_METRIC_INTERVAL_SECONDS
+        self._interval_seconds = settings.DEFAULT_METRIC_INTERVAL_SECONDS
 
         if self._interval_seconds > 0:
             # Calculate how many samples we need to collect before processing

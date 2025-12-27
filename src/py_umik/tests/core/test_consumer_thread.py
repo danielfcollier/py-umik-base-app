@@ -6,7 +6,7 @@ import queue
 import threading
 from unittest.mock import MagicMock
 
-from src.py_umik.core.consumer_thread import ConsumerThread
+from py_umik.core.consumer_thread import ConsumerThread
 
 
 def test_consumer_processes_queue():

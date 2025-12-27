@@ -9,6 +9,8 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .core.consumer_thread import ConsumerThread
 from .core.listener_thread import ListenerThread
 from .hardware.calibrator import HardwareCalibrator
@@ -24,3 +26,10 @@ __all__ = [
     "ConsumerThread",
     "ListenerThread",
 ]
+
+
+try:
+    __version__ = version("umik-base-app")
+except PackageNotFoundError:
+    # Package is not installed
+    __version__ = "unknown"
