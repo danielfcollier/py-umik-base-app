@@ -1,6 +1,10 @@
 """
 Unit tests for the HardwareCalibrator class.
 Uses mocking to avoid file I/O and verify filter design logic.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from unittest.mock import mock_open, patch

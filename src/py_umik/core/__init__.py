@@ -1,5 +1,9 @@
 """
 Exposes core components of the py_umik framework.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from .base_app import BaseApp

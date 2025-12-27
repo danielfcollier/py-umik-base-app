@@ -1,5 +1,9 @@
 """
 Unit tests for DatetimeStamp.
+
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from datetime import datetime
