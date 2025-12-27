@@ -8,7 +8,7 @@ It has been quickly found that RMS has a critical flaw in real-world application
 
 ## The Shift to LUFS (Psychoacoustics)
 
-To fix this, it has been integrated **LUFS (Loudness Units Full Scale)** into `src/pyumik/processing/audio_metrics.py`.
+To fix this, it has been integrated **LUFS (Loudness Units Full Scale)** into `src/py_umik/processing/audio_metrics.py`.
 
 Unlike RMS, LUFS is designed to model the non-linear way humans hear. It applies **K-weighting** - a filter curve that mimics the human ear’s sensitivity. It rolls off low frequencies (which we are less sensitive to) and boosts the high-mids (where speech intelligibility lives).
 
@@ -18,7 +18,7 @@ This isn't just a volume tweak; it’s an implementation of the **ITU-R BS.1770-
 
 It is not just a quick filter; it has been integrated the `pyloudnorm` library directly into the analysis pipeline.
 
-In `src/pyumik/processing/audio_metrics.py`, now it's being perform a gated loudness analysis. This means the meter doesn't just average the noise floor with the signal; it intelligently ignores silence to give a "loudness" reading that reflects the active parts of the audio track.
+In `src/py_umik/processing/audio_metrics.py`, now it's being perform a gated loudness analysis. This means the meter doesn't just average the noise floor with the signal; it intelligently ignores silence to give a "loudness" reading that reflects the active parts of the audio track.
 
 ## The Comparison:
 
@@ -27,6 +27,6 @@ In `src/pyumik/processing/audio_metrics.py`, now it's being perform a gated loud
 | **Measures**  | Physical Signal Power (Voltage) | Perceived Loudness (Psychoacoustics)                |
 | **Frequency Bias** | None (Flat response)        | K-Weighted (Models human hearing) |
 | **Use Case**  | Protecting equipment (speakers/amps) | Normalizing audio for human listeners |
-| **Project Integration** | Legacy / Raw Data    | Active (`src/pyumik/processing/audio_metrics.py`) |
+| **Project Integration** | Legacy / Raw Data    | Active (`src/py_umik/processing/audio_metrics.py`) |
 
 By switching to LUFS, this project doesn't just tell you how much energy is on the wire - it tells you how loud the world actually sounds. It’s a small detail that marks the difference between a code experiment and a piece of audio engineering.

@@ -17,7 +17,7 @@ Before you begin, ensure you have the following installed on your system:
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/danielfcollier/py-umik-base-app.git](https://github.com/danielfcollier/py-umik-base-app.git)
+    git clone https://github.com/danielfcollier/py-umik-base-app.git
     cd py-umik-base-app
     ```
 
@@ -72,23 +72,20 @@ You can run the built-in applications directly using `make` targets.
 * **Real Time Meter:** Runs the real-time real time meter app.
     ```bash
     # Run with default settings (uses default mic)
-    umik-real-time-meter
+    make real-time-meter-default-mic
     
     # Run specifically with a UMIK-1 (requires calibration file path in F variable)
-    umik-list-devices
-    umik-real-time-meter --device-id <ID> --calibration-file "umik-1/700.txt"
+    make real-time-meter-umik-1 F="path/to/calib.txt"
     ```
 
 * **Audio Recorder:** Runs the recording utility.
     ```bash
     # Record with default mic
-    umik-recorder
+    make record-default-mic
     
     # Record with UMIK-1 (requires calibration file)
-    umik-recorder --device-id <ID> --calibration-file "umik-1/700.txt"
+    make record-umik-1 F="path/to/calib.txt"
     ```
-
-*(Note: Use `make help` to see all available commands).*
 
 ## 🏗️ Project Structure & Standards
 
