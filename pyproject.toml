@@ -29,6 +29,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 version_file = "src/py_umik/_version.py"
+local_scheme = "no-local-version"
 
 # Development Dependencies (used for linting/testing)
 [project.optional-dependencies]
