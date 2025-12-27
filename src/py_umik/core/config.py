@@ -97,7 +97,7 @@ class AppArgs:
             help=(
                 "Path to the microphone calibration file (.txt, e.g., from UMIK-1). "
                 "If provided, the device's native sample rate will be used, overriding --sample-rate. "
-                "Required if specifying a non-default --device-id."
+                "Also triggers auto-detection of 'UMIK-1' device if --device-id is not set."
             ),
         )
         parser.add_argument(
@@ -131,6 +131,7 @@ class AppArgs:
 
         Performs checks and adjustments:
         - Ensures buffer_seconds meets the minimum and is a multiple of the LUFS window.
+        - Auto-detects UMIK-1 if calibration file is present but device ID is missing.
         - Selects the audio device (default or specified ID).
         - Determines the final sample rate (uses native rate if calibrating).
         - Initializes the HardwareCalibrator and extracts sensitivity if a calibration file is provided.
@@ -138,11 +139,22 @@ class AppArgs:
 
         :param args: The argparse.Namespace object containing parsed arguments from get_args().
         :return: A populated and validated AppConfig object.
-        :raises ValueError: If configuration is invalid (e.g., missing calibration file).
-        :raises SystemExit: If the specified device ID cannot be found, or if calibration file parsing fails.
+        :raises ValueError: If configuration is invalid.
+        :raises SystemExit: If the specified device ID cannot be found.
         """
         logger.info("Validating command-line arguments...")
 
+        # --- Auto-Detect UMIK-1 if needed ---
+        if args.calibration_file and args.device_id is None:
+            logger.info("Calibration file provided. Attempting to auto-detect 'UMIK-1'...")
+            umik_id = HardwareSelector.find_device_by_name("UMIK-1")
+            if umik_id is not None:
+                logger.info(f"✨ Auto-detected UMIK-1 at Device ID {umik_id}")
+                args.device_id = umik_id
+            else:
+                logger.warning("⚠️ Could not find a device named 'UMIK-1'. Will attempt to use system default.")
+
+        # --- Buffer Validation ---
         buffer_seconds = float(args.buffer_seconds)
         min_buf = settings.AUDIO.MIN_BUFFER_SECONDS
         lufs_window = settings.AUDIO.LUFS_WINDOW_SECONDS
@@ -161,6 +173,7 @@ class AppArgs:
             )
             buffer_seconds = new_buffer
 
+        # --- Hardware Selection ---
         try:
             selected_audio_device = HardwareSelector(target_id=args.device_id)
             logger.info(f"Selected audio device: ID={selected_audio_device.id}, Name='{selected_audio_device.name}'")
@@ -176,13 +189,8 @@ class AppArgs:
             buffer_seconds=buffer_seconds,
         )
 
-        if not config.audio_device.is_default:
-            if not args.calibration_file:
-                logger.error(
-                    "A calibration file (--calibration-file) is required when specifying a non-default device ID."
-                )
-                raise ValueError("Calibration file required for specified device.")
-
+        # --- Calibration Setup ---
+        if args.calibration_file:
             logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
 
             try:
@@ -203,7 +211,7 @@ class AppArgs:
                     f"Falling back to specified/default sample rate: {final_sample_rate:.0f} Hz."
                     f" Calibration accuracy may be affected."
                 )
-                config.sample_rate = final_sample_rate  # Fallback
+                config.sample_rate = final_sample_rate
 
             sensitivity_dbfs, reference_dbspl = HardwareCalibrator.get_sensitivity_values(args.calibration_file)
             config.audio_calibrator = HardwareCalibrator(
@@ -218,7 +226,7 @@ class AppArgs:
             logger.info("Calibration enabled and initialized.")
 
         else:
-            logger.info("No calibration file provided and default device selected. Calibration disabled.")
+            logger.info("No calibration file provided. Calibration disabled.")
             logger.info(f"Using specified/default sample rate: {config.sample_rate:.0f} Hz.")
 
         logger.info(
