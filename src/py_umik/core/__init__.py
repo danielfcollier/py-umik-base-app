@@ -1,5 +1,5 @@
 """
-Exposes core components of the pyumik framework.
+Exposes core components of the py_umik framework.
 """
 
 from .base_app import BaseApp
