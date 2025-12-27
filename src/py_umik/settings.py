@@ -6,7 +6,7 @@ overridden via environment variables or a .env file.
 
 Usage:
     from src.settings import settings
-    print(settings.audio.sample_rate)
+    print(settings.AUDIO.SAMPLE_RATE)
 """
 
 from functools import lru_cache
@@ -19,34 +19,34 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AudioSettings(BaseModel):
     """General audio application settings."""
 
-    buffer_seconds: float = 6.0
-    min_buffer_seconds: float = 3.0
-    sample_rate: int = 48000
-    num_taps: int = 1024
-    lufs_window_seconds: int = 3
-    dtype: str = "float32"
-    high_priority: bool = False
+    BUFFER_SECONDS: float = 6.0
+    MIN_BUFFER_SECONDS: float = 3.0
+    SAMPLE_RATE: int = 48000
+    NUM_TAPS: int = 1024
+    LUFS_WINDOW_SECONDS: int = 3
+    DTYPE: str = "float32"
+    HIGH_PRIORITY: bool = False
 
 
 class MetricsSettings(BaseModel):
     """Audio metrics calculation thresholds."""
 
-    dbfs_lower_bound: float = -120.0
-    lufs_lower_bound: float = -120.0
+    DBFS_LOWER_BOUND: float = -120.0
+    LUFS_LOWER_BOUND: float = -120.0
 
 
 class RecorderSettings(BaseModel):
     """File recording settings."""
 
-    rotation_seconds: int = 3600
-    default_recording_path: Path = Path("recordings")
+    ROTATION_SECONDS: int = 3600
+    DEFAULT_RECORDING_PATH: Path = Path("recordings")
 
 
 class HardwareSettings(BaseModel):
     """Hardware-specific defaults (e.g., Microphone sensitivity)."""
 
-    nominal_sensitivity_dbfs: float = -18.0
-    reference_dbspl: float = 94.0
+    NOMINAL_SENSITIVITY_DBFS: float = -18.0
+    REFERENCE_DBSPL: float = 94.0
 
 
 class Settings(BaseSettings):
@@ -59,10 +59,10 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="APP__", env_nested_delimiter="__", env_file=".env", extra="ignore")
 
-    audio: AudioSettings = AudioSettings()
-    metrics: MetricsSettings = MetricsSettings()
-    recorder: RecorderSettings = RecorderSettings()
-    hardware: HardwareSettings = HardwareSettings()
+    AUDIO: AudioSettings = AudioSettings()
+    METRICS: MetricsSettings = MetricsSettings()
+    RECORDER: RecorderSettings = RecorderSettings()
+    HARDWARE: HardwareSettings = HardwareSettings()
 
 
 @lru_cache

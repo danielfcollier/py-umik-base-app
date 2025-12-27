@@ -60,9 +60,10 @@ class BaseApp(ThreadApp):
         """
         logger.info("Setting up audio listener and consumer threads...")
 
-        # --- Create Listener Thread ---
-        # Responsible for reading audio from the hardware device configured in
-        # self._audio_config and putting (audio_chunk, timestamp) tuples onto self._queue.
+        # --- Create Listener Thread (The "Ear") ---
+        # Instantiates the ListenerThread, which captures raw audio from the hardware device.
+        # It pushes data to self._queue and monitors self._stop_event to ensure
+        # it releases hardware resources and exits the recording loop cleanly on shutdown.
         listener = ListenerThread(
             audio_device_config=self._audio_config,
             audio_queue=self._queue,
@@ -75,9 +76,11 @@ class BaseApp(ThreadApp):
         )
         self._threads.append(listener_thread)
 
-        # --- Create Consumer Thread ---
-        # Responsible for getting (audio_chunk, timestamp) tuples from self._queue
-        # and delegating processing to the self._pipeline.
+        # --- Create Consumer Thread (The "Brain") ---
+        # Instantiates the ConsumerThread, which retrieves audio from self._queue.
+        # It passes data through the pipeline (executing components like the HardwareCalibrator).
+        # The consumer_queue_timeout_seconds prevents blocking forever on an empty queue,
+        # allowing the thread to periodically check self._stop_event and shut down gracefully.
         consumer = ConsumerThread(
             audio_queue=self._queue,
             stop_event=self._stop_event,

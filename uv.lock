@@ -746,7 +746,7 @@ wheels = [
 ]
 
 [[package]]
-name = "py-umik-base-app"
+name = "umik-base-app"
 version = "1.0.0"
 source = { virtual = "." }
 dependencies = [

@@ -1,5 +1,5 @@
 [project]
-name = "py-umik-base-app"
+name = "umik-base-app"
 version = "1.0.0"
 description = "Base utilities for working with the Umik-1 microphone in Python applications."
 authors = [
@@ -35,10 +35,13 @@ dev = [
 "Homepage" = "https://github.com/danielfcollier/py-umik-base-app"
 "Bug Tracker" = "https://github.com/danielfcollier/py-umik-base-app/issues"
 
-# Optional: If you want to run your app from the command line
-# e.g., typing 'my-app' in the terminal
-# [project.scripts]
-# my-app = "my_app.main:run"
+[project.scripts]
+umik-calibrate = "py_umik.apps.umik1_calibrator:main"
+umik-list-devices = "py_umik.apps.list_audio_devices:main"
+umik-real-time-meter = "py_umik.apps.real_time_meter:main"
+umik-recorder = "py_umik.apps.basic_recorder:main"
+umik-metrics-analyzer = "py_umik.apps.metrics_analyzer:main"
+umik-metrics-plot = "py_umik.apps.metrics_plot:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

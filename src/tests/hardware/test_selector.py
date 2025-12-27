@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.py_umik.hardware.selector import HardwareSelector
+# Ensure both the class and the exception are imported
+from src.py_umik.hardware.selector import HardwareNotFound, HardwareSelector
 
 # Mock device list returned by sd.query_devices()
 MOCK_DEVICES = [
@@ -61,13 +62,14 @@ def test_select_specific_device(mock_sounddevice):
     assert selector.native_rate == 48000.0
 
 
-def test_device_not_found_exits(mock_sounddevice):
-    """Test that selecting a non-existent device raises SystemExit (via exit(1))."""
+def test_device_not_found_raises_exception(mock_sounddevice):
+    """
+    Test that selecting a non-existent device raises HardwareNotFound.
+    (Updated from SystemExit to Exception based on recent refactor).
+    """
     # ID 99 does not exist in MOCK_DEVICES
-    with pytest.raises(SystemExit) as excinfo:
+    with pytest.raises(HardwareNotFound, match="Device with ID 99 not found"):
         HardwareSelector(target_id=99)
-
-    assert excinfo.value.code == 1
 
 
 def test_show_audio_devices(mock_sounddevice):

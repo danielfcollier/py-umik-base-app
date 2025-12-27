@@ -14,13 +14,13 @@ import logging
 import sys
 from pathlib import Path
 
-from src.py_umik.core.base_app import BaseApp
-from src.py_umik.core.config import AppArgs, AppConfig
-from src.py_umik.core.pipeline import AudioPipeline
-from src.py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from src.py_umik.hardware.config import HardwareConfig
-from src.py_umik.io.recorder import IORecorder
-from src.py_umik.io.recorder_adapter import IORecorderAdapter
+from py_umik.core.base_app import BaseApp
+from py_umik.core.config import AppArgs, AppConfig
+from py_umik.core.pipeline import AudioPipeline
+from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
+from py_umik.hardware.config import HardwareConfig
+from py_umik.io.recorder import IORecorder
+from py_umik.io.recorder_adapter import IORecorderAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class RecorderApp(BaseApp):
         super().close()
 
 
-if __name__ == "__main__":
+def main():
     logger.info("Initializing Audio Recorder Application...")
 
     parser = AppArgs.get_parser()
@@ -124,3 +124,7 @@ if __name__ == "__main__":
     if app:
         logger.info(f"Recording saved to: {app.dir_path}")
     logger.info("Audio Recorder Application has shut down.")
+
+
+if __name__ == "__main__":
+    main()

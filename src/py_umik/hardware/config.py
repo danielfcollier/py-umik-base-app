@@ -60,8 +60,8 @@ class HardwareConfig:
         self.buffer_seconds = buffer_seconds
         self.block_size = int(sample_rate * buffer_seconds)
 
-        self.dtype = dtype if dtype is not None else settings.audio.dtype
-        self.high_priority = high_priority if high_priority is not None else settings.audio.high_priority
+        self.dtype = dtype if dtype is not None else settings.AUDIO.DTYPE
+        self.high_priority = high_priority if high_priority is not None else settings.AUDIO.HIGH_PRIORITY
 
         logger.debug(
             f"HardwareConfig initialized: Device ID={self.id}, SR={self.sample_rate}Hz,"

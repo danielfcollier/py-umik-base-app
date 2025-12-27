@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 import numpy as np
 from scipy.io import wavfile
 
-from src.py_umik.hardware.calibrator import HardwareCalibrator
-from src.py_umik.processing.audio_metrics import AudioMetrics
+from py_umik.hardware.calibrator import HardwareCalibrator
+from py_umik.processing.audio_metrics import AudioMetrics
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -219,7 +219,7 @@ def analyze_file(file_path, output_csv, chunk_ms, sensitivity, reference, manual
     logger.info(f"✅ Data saved to: {output_csv}")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Calculate full metrics for a WAV file.")
     parser.add_argument("file", help="Path to WAV file")
     parser.add_argument("--window", type=int, default=100, help="Analysis window in ms (default: 100)")
@@ -247,3 +247,7 @@ if __name__ == "__main__":
         out_path = f"{base_name}.csv"
 
     analyze_file(args.file, out_path, args.window, sens, ref, args.start_time)
+
+
+if __name__ == "__main__":
+    main()

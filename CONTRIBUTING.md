@@ -1,6 +1,6 @@
-# Contributing to py-umik-base-app
+# Contributing to umik-base-app
 
-Thank you for your interest in contributing to the **py-umik-base-app**! I welcome contributions to help improve this audio analysis framework.
+Thank you for your interest in contributing to the **umik-base-app**! I welcome contributions to help improve this audio analysis framework.
 
 This guide will help you set up your development environment and understand the workflows.
 

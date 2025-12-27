@@ -143,7 +143,7 @@ def plot_csv(csv_path, save_arg=None, selected_metrics=None):
         plt.show()
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Visualize audio metrics from CSV.")
     parser.add_argument("csv_file", help="Path to the .csv file")
     parser.add_argument("--save", nargs="?", const=True, default=None, help="Save plot to image.")
@@ -151,3 +151,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     plot_csv(args.csv_file, args.save, args.metrics)
+
+
+if __name__ == "__main__":
+    main()

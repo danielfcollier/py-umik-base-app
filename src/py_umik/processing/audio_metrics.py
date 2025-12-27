@@ -32,7 +32,7 @@ class AudioMetrics:
         """
         self._lufs_meter = pyln.Meter(sample_rate)
         self._lufs_chunks: list[np.ndarray] = []
-        self._lufs_block_size = int(settings.audio.lufs_window_seconds * sample_rate)
+        self._lufs_block_size = int(settings.AUDIO.LUFS_WINDOW_SECONDS * sample_rate)
 
     @staticmethod
     def rms(audio_chunk: np.ndarray) -> float:
@@ -84,7 +84,7 @@ class AudioMetrics:
         epsilon = 1e-10
         dbfs = 20 * np.log10(rms + epsilon)
 
-        return dbfs if dbfs > settings.metrics.dbfs_lower_bound else settings.metrics.dbfs_lower_bound
+        return dbfs if dbfs > settings.METRICS.DBFS_LOWER_NOUND else settings.METRICS.DBFS_LOWER_NOUND
 
     @staticmethod
     def dBSPL(dbfs_level: float, sensitivity_dbfs: float, reference_dbspl: float) -> float:
@@ -145,7 +145,7 @@ class AudioMetrics:
         :return: The calculated loudness in LUFS.
         """
         loudness = self._lufs_meter.integrated_loudness(audio_chunk)
-        return loudness if loudness > settings.metrics.lufs_lower_bound else settings.metrics.lufs_lower_bound
+        return loudness if loudness > settings.METRICS.LUFS_LOWER_NOUND else settings.METRICS.LUFS_LOWER_NOUND
 
     @staticmethod
     def show_metrics(**metrics: float):
