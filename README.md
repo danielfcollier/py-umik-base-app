@@ -62,7 +62,6 @@ make install
 pip install umik-base-app
 ```
 
-
 ### 🍓 Hardware Compatibility
 
 This project is lightweight and efficient, making it perfect for embedded devices.
@@ -163,7 +162,7 @@ There are easy-to-use commands in the Makefile.
 1. **List Devices:**
 
 ```bash
-make list-audio-devices
+umik-list-devices
 ```
 
 _Or specifically find the UMIK-1 ID:_ `make get-umik-id`
@@ -178,7 +177,7 @@ make calibrate-umik F="path/to/calibration_file.txt"
 
 ```bash
 # Default Mic
-make real-time-meter-default-mic
+umik-real-time-meter --device-id <ID>
 
 # UMIK-1 (Requires calibration file)
 make real-time-meter-umik-1 F="path/to/calibration_file.txt"
