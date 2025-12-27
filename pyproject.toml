@@ -1,6 +1,6 @@
 [project]
 name = "umik-base-app"
-version = "1.0.0"
+version = "0.1.0"
 description = "Base utilities for working with the Umik-1 microphone in Python applications."
 authors = [
     {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
