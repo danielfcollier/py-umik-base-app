@@ -15,8 +15,8 @@ import logging
 import os
 import sys
 
-from src.py_umik.hardware.calibrator import HardwareCalibrator
-from src.py_umik.settings import get_settings
+from py_umik.hardware.calibrator import HardwareCalibrator
+from py_umik.settings import get_settings
 
 settings = get_settings()
 
@@ -89,16 +89,16 @@ def main():
         "-r",
         "--sample-rate",
         type=int,
-        default=settings.audio.sample_rate,
-        help=f"Sample rate (Hz) to use for filter design (default: {settings.audio.sample_rate}).",
+        default=settings.AUDIO.SAMPLE_RATE,
+        help=f"Sample rate (Hz) to use for filter design (default: {settings.AUDIO.SAMPLE_RATE}).",
     )
 
     parser.add_argument(
         "-t",
         "--num-taps",
         type=int,
-        default=settings.audio.num_taps,
-        help=f"Number of FIR filter taps (coefficients) to design (default: {settings.audio.num_taps}). "
+        default=settings.AUDIO.NUM_TAPS,
+        help=f"Number of FIR filter taps (coefficients) to design (default: {settings.AUDIO.NUM_TAPS}). "
         "Affects accuracy vs. CPU load. Common values: 256, 512, 1024.",
     )
 

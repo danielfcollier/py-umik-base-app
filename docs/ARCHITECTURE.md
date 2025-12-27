@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document describes the high-level software architecture of the `py-umik-base-app`. The application is designed for real-time audio processing using a **Producer-Consumer** concurrency model and a modular **Pipeline** pattern for audio handling.
+This document describes the high-level software architecture of the `umik-base-app`. The application is designed for real-time audio processing using a **Producer-Consumer** concurrency model and a modular **Pipeline** pattern for audio handling.
 
 
 ## 1. Concurrency Model (Producer-Consumer)
@@ -56,13 +56,13 @@ graph LR
     Input([Raw Audio Chunk]) --> Pipeline{AudioPipeline}
     
     subgraph "Processing Stage (Sequential)"
-        Pipeline --> Proc1[Transformer 1<br/>e.g., Calibrator]
+        Pipeline --> Proc1[Transformer 1<br/>e.g., HardwareCalibrator]
         Proc1 -->|Calibrated Audio| Proc2[Transformer N...]
     end
     
     subgraph "Fan-Out Stage (Parallel Execution)"
         Proc2 -->|Final Audio| Sink1[Sink 1<br/>e.g., Recorder]
-        Proc2 -->|Final Audio| ink2[Sink 2<br/>e.g., Real Time Meter]
+        Proc2 -->|Final Audio| Sink2[Sink 2<br/>e.g., Real Time Meter]
     end
 ```
 
@@ -86,15 +86,14 @@ The lifecycle of a single audio chunk flows as follows:
 
 The project structure separates reusable library code from specific application logic:
 - `src/py_umik/` **(Core Framework)**:
-  - Contains generic, reusable components.
-  - `audio_device/`: Hardware selection, configuration, and calibration logic.
-  - `audio_streams/`: Threading logic (`Listener`, `Consumer`), `Recorder`, and `Queue` management.
-  - `audio_pipeline.py`, `audio_metrics.py`: Core processing logic.
-  - **_Design Rule_**: Code here should not depend on specific CLI arguments or application states.
+ - Contains generic, reusable components.
+ - `hardware/`: Hardware selection (`HardwareSelector`), configuration, and `HardwareCalibrator` logic.
+ - `core/`: Threading logic (`ListenerThread`, `ConsumerThread`), `pipeline.py`, and `Queue` management.
+ - `processing/`: Core processing logic like `audio_metrics.py`.
+ - **_Design Rule_**: Code here should not depend on specific CLI arguments or application states.
 
-- `src/samples/` **(Application Layer)**:
-  - Contains the concrete entry points (scripts) that stitch the library components together.
-  - `apps/real_time_meter.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `MetricsSink` (Sink).
-  - `apps/basic_recorder.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `Recorder` (Sink).
-  - **_Design Rule_**: These files handle `argparse`, logging configuration, and initialization.
-
+- `src/` **(Application Layer)**:
+ - Contains the concrete entry points (scripts) that stitch the library components together.
+ - `apps/real_time_meter.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `MetricsSink` (Sink).
+ - `apps/basic_recorder.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `Recorder` (Sink).
+ - **_Design Rule_**: These files handle `argparse`, logging configuration, and initialization.

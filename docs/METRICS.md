@@ -2,10 +2,6 @@
 
 This document explains the mathematical formulas and concepts behind common audio metrics used in signal processing and monitoring.
 
-*Disclaimer: This guide was prepared with the assistance of Google Gemini 2.5 Pro.*
-
-
-
 ## 1. Peak Amplitude
 
 ### Definition

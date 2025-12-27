@@ -30,10 +30,10 @@ def mock_settings():
     """
     Ensure settings are in a known state for all tests.
     """
-    settings.audio.num_taps = 1024
-    settings.audio.sample_rate = 48000
-    settings.hardware.nominal_sensitivity_dbfs = -18.0
-    settings.hardware.reference_dbspl = 94.0
+    settings.AUDIO.NUM_TAPS = 1024
+    settings.AUDIO.SAMPLE_RATE = 48000
+    settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS = -18.0
+    settings.HARDWARE.REFERENCE_DBSPL = 94.0
 
 
 @pytest.fixture
@@ -118,8 +118,8 @@ def test_get_sensitivity_values_parsing():
 
     with patch("builtins.open", mock_open(read_data=dummy_content)):
         # Ensure settings don't interfere with specific math for this test
-        settings.hardware.nominal_sensitivity_dbfs = -18.0
-        settings.hardware.reference_dbspl = 94.0
+        settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS = -18.0
+        settings.HARDWARE.REFERENCE_DBSPL = 94.0
 
         sens_dbfs, ref_spl = HardwareCalibrator.get_sensitivity_values("dummy.txt")
 
