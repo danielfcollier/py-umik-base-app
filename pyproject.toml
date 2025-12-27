@@ -16,10 +16,11 @@ dependencies = [
     "sounddevice~=0.5.3",
     "librosa~=0.11.0",
     "pyloudnorm~=0.1.1",
-    "logging~=0.4.9.6",
     "pydantic-settings>=2.12.0",
     "pydub>=0.25.1",
     "noisereduce>=3.0.3",
+    "matplotlib>=3.10.8",
+    "pandas>=2.3.3",
 ]
 
 [build-system]
@@ -89,8 +90,6 @@ namespace_packages = true
 
 [dependency-groups]
 dev = [
-    "matplotlib>=3.10.8",
     "numpy>=2.3.5",
-    "pandas>=2.3.3",
     "scipy>=1.16.3",
 ]
