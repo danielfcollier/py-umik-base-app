@@ -145,7 +145,7 @@ class AudioMetrics:
         :return: The calculated loudness in LUFS.
         """
         loudness = self._lufs_meter.integrated_loudness(audio_chunk)
-        return loudness if loudness > settings.METRICS.LUFS_LOWER_NOUND else settings.METRICS.LUFS_LOWER_NOUND
+        return loudness if loudness > settings.METRICS.LUFS_LOWER_BOUND else settings.METRICS.LUFS_LOWER_BOUND
 
     @staticmethod
     def show_metrics(**metrics: float):

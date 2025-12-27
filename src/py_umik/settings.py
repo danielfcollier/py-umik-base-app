@@ -19,7 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AudioSettings(BaseModel):
     """General audio application settings."""
 
-    BUFFER_SECONDS: float = 6.0
+    BUFFER_SECONDS: float = 5.0
     MIN_BUFFER_SECONDS: float = 3.0
     SAMPLE_RATE: int = 48000
     NUM_TAPS: int = 1024
