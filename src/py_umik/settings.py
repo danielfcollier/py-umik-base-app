@@ -4,9 +4,9 @@ Centralized configuration management using Pydantic Settings.
 This module defines the global application settings, allowing values to be
 overridden via environment variables or a .env file.
 
-Usage:
-    from src.settings import settings
-    print(settings.AUDIO.SAMPLE_RATE)
+Author: Daniel Collier
+GitHub: https://github.com/danielfcollier
+Year: 2025
 """
 
 from functools import lru_cache
@@ -33,6 +33,7 @@ class MetricsSettings(BaseModel):
 
     DBFS_LOWER_BOUND: float = -120.0
     LUFS_LOWER_BOUND: float = -120.0
+    INTERVAL_SECONDS: int = 3
 
 
 class RecorderSettings(BaseModel):
@@ -67,7 +68,6 @@ class Settings(BaseSettings):
     RECONNECT_DELAY_SECONDS: int = 5
     RECONNECT_MAX_RETRIES: int = 10
     CONSUMER_QUEUE_TIMEOUT_SECONDS: int = 1
-    DEFAULT_METRIC_INTERVAL_SECONDS: int = 3
 
 
 @lru_cache
