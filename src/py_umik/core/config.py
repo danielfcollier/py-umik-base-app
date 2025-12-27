@@ -71,21 +71,21 @@ class AppArgs:
             "-b",
             "--buffer-seconds",
             type=float,
-            default=settings.audio.buffer_seconds,
+            default=settings.AUDIO.BUFFER_SECONDS,
             help=(
                 f"Duration of audio buffers in seconds. "
-                f"Minimum: {settings.audio.min_buffer_seconds}s. Will be rounded up to a multiple "
-                f"of LUFS window ({settings.audio.lufs_window_seconds}s). "
-                f"Default: {settings.audio.buffer_seconds}s."
+                f"Minimum: {settings.AUDIO.MIN_BUFFER_SECONDS}s. Will be rounded up to a multiple "
+                f"of LUFS window ({settings.AUDIO.LUFS_WINDOW_SECONDS}s). "
+                f"Default: {settings.AUDIO.BUFFER_SECONDS}s."
             ),
         )
         parser.add_argument(
             "-r",
             "--sample-rate",
             type=float,
-            default=settings.audio.sample_rate,
+            default=settings.AUDIO.SAMPLE_RATE,
             help=(
-                f"Target sample rate (Hz) for default device. Default: {settings.audio.sample_rate} Hz. "
+                f"Target sample rate (Hz) for default device. Default: {settings.AUDIO.SAMPLE_RATE} Hz. "
                 "This is IGNORED if --calibration-file is used, as the device's native rate takes precedence."
             ),
         )
@@ -104,10 +104,10 @@ class AppArgs:
             "-t",
             "--num-taps",
             type=int,
-            default=settings.audio.num_taps,
+            default=settings.AUDIO.NUM_TAPS,
             help=(
                 "Number of FIR filter taps for calibration filter design (only used with --calibration-file). "
-                f"Affects accuracy vs CPU load. Default: {settings.audio.num_taps}."
+                f"Affects accuracy vs CPU load. Default: {settings.AUDIO.NUM_TAPS}."
             ),
         )
         return parser
@@ -134,19 +134,18 @@ class AppArgs:
         - Selects the audio device (default or specified ID).
         - Determines the final sample rate (uses native rate if calibrating).
         - Initializes the HardwareCalibrator and extracts sensitivity if a calibration file is provided.
-        - Raises exceptions for invalid configurations (e.g., missing calibration file for non-default device).
+        - Catches device selection errors (HardwareNotFound) and exits the application.
 
         :param args: The argparse.Namespace object containing parsed arguments from get_args().
         :return: A populated and validated AppConfig object.
         :raises ValueError: If configuration is invalid (e.g., missing calibration file).
-        :raises HardwareNotFound: If the specified device ID cannot be found.
-        :raises SystemExit: If calibration file parsing or filter design fails.
+        :raises SystemExit: If the specified device ID cannot be found, or if calibration file parsing fails.
         """
         logger.info("Validating command-line arguments...")
 
         buffer_seconds = float(args.buffer_seconds)
-        min_buf = settings.audio.min_buffer_seconds
-        lufs_window = settings.audio.lufs_window_seconds
+        min_buf = settings.AUDIO.MIN_BUFFER_SECONDS
+        lufs_window = settings.AUDIO.LUFS_WINDOW_SECONDS
 
         if buffer_seconds < min_buf:
             logger.warning(

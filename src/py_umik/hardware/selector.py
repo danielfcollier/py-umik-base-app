@@ -51,39 +51,42 @@ class HardwareSelector:
         :return: A dictionary containing the device's information.
         :raises HardwareNotFound: If the target_id device is not found.
         """
-
         try:
             audio_devices: list[dict] = list(sd.query_devices())
-            default_audio_device_id = sd.default.device[0]
+        except Exception as e:
+            logger.error(f"❌ An unexpected error occurred while querying audio devices: {e}")
+            raise
 
-            if not target_id:
-                logger.warning(
-                    f"No target specified. Selecting default input device (ID: {default_audio_device_id})..."
-                )
-                return next(filter(lambda device: device["index"] == default_audio_device_id, audio_devices))
+        default_audio_device_id = sd.default.device[0]
 
-            logger.debug(f"Searching for an input device index '{target_id}'...")
-            target_audio_device: dict | None = next(
-                filter(lambda device: target_id == device["index"] and device["max_input_channels"] > 0, audio_devices),
-                None,
+        if not target_id:
+            logger.warning(f"No target specified. Selecting default input device (ID: {default_audio_device_id})...")
+            # Find the default device in the list
+            default_device = next(
+                filter(lambda device: device["index"] == default_audio_device_id, audio_devices), None
             )
 
-            if target_audio_device is None:
-                logger.warning("Failed to select audio device. Exiting.", exc_info=True)
-                raise HardwareNotFound(message=f"Device not found in device list {audio_devices}")
+            if default_device is None:
+                raise HardwareNotFound(
+                    message=f"System default device (ID: {default_audio_device_id}) not found in device list."
+                )
 
-            target_name = target_audio_device["name"]
-            logger.info(f"✅ Selected audio device: ID={target_id}, Name={target_name}")
+            return default_device
 
-            return target_audio_device
+        logger.debug(f"Searching for an input device index '{target_id}'...")
+        target_audio_device: dict | None = next(
+            filter(lambda device: target_id == device["index"] and device["max_input_channels"] > 0, audio_devices),
+            None,
+        )
 
-        except HardwareNotFound as e:
-            logger.critical(f"❌ {e.message}")
-            HardwareSelector.show_audio_devices()
-            exit(1)
-        except Exception as e:
-            logger.error(f"❌ An unexpected error occurred while getting audio devices: {e}")
-            raise
+        if target_audio_device is None:
+            logger.warning("Failed to select audio device.", exc_info=True)
+            raise HardwareNotFound(message=f"Device with ID {target_id} not found.")
+
+        target_name = target_audio_device["name"]
+        logger.info(f"✅ Selected audio device: ID={target_id}, Name={target_name}")
+
+        return target_audio_device
 
     @staticmethod
     def show_audio_devices(selected_id: int | None = None):

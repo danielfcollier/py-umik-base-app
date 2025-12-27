@@ -260,8 +260,8 @@ class HardwareCalibrator:
         """
         logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
 
-        nominal_sensitivity_dbfs = settings.hardware.nominal_sensitivity_dbfs
-        reference_dbspl = settings.hardware.reference_dbspl
+        nominal_sensitivity_dbfs = settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS
+        reference_dbspl = settings.HARDWARE.REFERENCE_DBSPL
 
         try:
             with open(file_path, encoding="utf-8") as f:

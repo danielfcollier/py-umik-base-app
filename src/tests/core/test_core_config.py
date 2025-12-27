@@ -31,8 +31,8 @@ def mock_hardware_selector():
 def test_validate_args_adjusts_buffer(mock_hardware_selector):
     """Test that buffer size is adjusted to meet minimums and LUFS multiples."""
     # Force settings for predictable logic
-    settings.audio.min_buffer_seconds = 3.0
-    settings.audio.lufs_window_seconds = 3
+    settings.AUDIO.MIN_BUFFER_SECONDS = 3.0
+    settings.AUDIO.LUFS_WINDOW_SECONDS = 3
 
     # Request too small buffer (1s)
     args = argparse.Namespace(
@@ -47,8 +47,8 @@ def test_validate_args_adjusts_buffer(mock_hardware_selector):
 
 def test_validate_args_adjusts_buffer_rounding(mock_hardware_selector):
     """Test that buffer is rounded up to match LUFS window."""
-    settings.audio.min_buffer_seconds = 3.0
-    settings.audio.lufs_window_seconds = 3
+    settings.AUDIO.MIN_BUFFER_SECONDS = 3.0
+    settings.AUDIO.LUFS_WINDOW_SECONDS = 3
 
     # Request 4s buffer (not divisible by 3)
     args = argparse.Namespace(

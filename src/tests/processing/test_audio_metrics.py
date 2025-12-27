@@ -19,9 +19,9 @@ SAMPLE_RATE = 48000
 @pytest.fixture(autouse=True)
 def mock_settings():
     """Overrides settings to ensure deterministic test results."""
-    settings.metrics.dbfs_lower_bound = -120.0
-    settings.metrics.lufs_lower_bound = -120.0
-    settings.audio.lufs_window_seconds = 3
+    settings.METRICS.DBFS_LOWER_BOUND = -120.0
+    settings.METRICS.LUFS_LOWER_BOUND = -120.0
+    settings.AUDIO.LUFS_WINDOW_SECONDS = 3
 
 
 @pytest.fixture
