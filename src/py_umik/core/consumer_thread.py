@@ -73,6 +73,10 @@ class ConsumerThread:
                 # Retrieve the tuple (audio_chunk, timestamp) from the queue
                 audio_chunk, timestamp = self._queue.get(timeout=self._consumer_queue_timeout_seconds)
 
+                if self._stop_event.is_set():
+                    logger.debug("Stop event detected. Discarding remaining queue items.")
+                    break
+
                 # Execute the pipeline for this chunk
                 try:
                     self._pipeline.execute(audio_chunk, timestamp)
