@@ -113,8 +113,9 @@ dBSPL measures the actual sound pressure in the real world relative to a standar
 1.  **Calibration File:** A unique file provided by the microphone manufacturer (e.g., for a UMIK-1) lists the microphone's gain deviation (in dB) at various frequencies.
 2.  **Filter Design:** A digital filter, typically a **Finite Impulse Response (FIR) filter**, is designed based on this file. The filter's frequency response is calculated to be the *exact inverse* of the microphone's response. Its goal is to apply the opposite gain correction at each frequency, effectively flattening the microphone's inaccuracies. This design process (e.g., using `scipy.signal.firwin2`) is computationally intensive and is usually performed only once when the application starts, with the filter coefficients being cached.
 3.  **Real-Time Filtering:** The raw audio signal coming directly from the microphone, $x_{\text{raw}}[n]$, is continuously passed through this pre-designed FIR filter (e.g., using `scipy.signal.lfilter`). This produces a *calibrated* audio signal, $x_{\text{cal}}[n]$. This filtering step happens in real-time for every audio chunk.
+
 $$
-x_{\text{cal}}[n] = \text{FIR\_Filter}(x_{\text{raw}}[n])
+x_{\text{cal}}[n] = \text{FIR}_{\text{FILTER}}(x_{\text{raw}}[n])
 $$
 
 ### Formula (Using Calibrated Signal)
@@ -122,14 +123,19 @@ $$
 The dBSPL is then calculated using the dBFS value derived from the **calibrated** audio signal, combined with the microphone's overall sensitivity:
 
 1.  Calculate the RMS of the *calibrated* signal:
+
 $$
 \text{RMS}_{\text{cal}} = \sqrt{\frac{1}{N} \sum_{n=0}^{N-1} (x_{\text{cal}}[n])^2}
 $$
+
 2.  Calculate the dBFS of the *calibrated* signal:
+
 $$
 \text{dBFS}_{\text{cal}} = 20 \times \log_{10} (\text{RMS}_{\text{cal}})
 $$
+
 3.  Convert the calibrated dBFS to dBSPL:
+
 $$
 \text{dBSPL} = \text{dBFS}_{\text{cal}} - \text{Sensitivity}_{\text{dBFS}} + \text{Reference}_{\text{dBSPL}}
 $$
@@ -155,9 +161,11 @@ Spectral Flux measures the rate of change in the frequency spectrum of an audio 
 2.  For each frame $t$, compute its magnitude spectrum $S_t(k)$, typically using the Short-Time Fourier Transform (STFT). $k$ represents the frequency bin index.
 3.  Normalize the spectrum (optional but common, e.g., unit norm). Let the normalized spectrum be $\hat{S}_t(k)$.
 4.  Calculate the spectral flux $F_t$ between frame $t$ and the previous frame $t-1$:
+
 $$
 F_t = \sum_{k} \left( \hat{S}_t(k) - \hat{S}_{t-1}(k) \right)^2
 $$
+
 > *(Variations exist, sometimes using absolute difference or other distance metrics)*
 * $\hat{S}_t(k)$: Normalized spectral magnitude of frequency bin $k$ at frame $t$.
 * $\hat{S}_{t-1}(k)$: Normalized spectral magnitude of frequency bin $k$ at the previous frame $t-1$.
