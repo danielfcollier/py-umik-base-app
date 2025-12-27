@@ -43,6 +43,23 @@ class HardwareSelector:
 
         HardwareSelector.show_audio_devices(self.id)
 
+    @staticmethod
+    def find_device_by_name(name_substring: str) -> int | None:
+        """
+        Searches for the first input device that contains the given substring in its name.
+
+        :param name_substring: The string to search for (case-insensitive).
+        :return: The device ID (index) if found, otherwise None.
+        """
+        try:
+            audio_devices = list(sd.query_devices())
+            for device in audio_devices:
+                if device["max_input_channels"] > 0 and name_substring.lower() in device["name"].lower():
+                    return device["index"]
+        except Exception as e:
+            logger.error(f"Error searching for device '{name_substring}': {e}")
+        return None
+
     def _get_audio_device(self, target_id: int | None = None) -> dict:
         """
         Queries the system for available devices and returns the desired one.
