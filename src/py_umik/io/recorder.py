@@ -38,14 +38,14 @@ class IORecorder:
         """
         Initializes the recording manager.
 
-        :param base_path: The directory or base name for files. Defaults to settings.recorder.default_recording_path.
-        :param sample_rate: Sample rate. Defaults to settings.audio.sample_rate.
-        :param rotation_duration_seconds: Rotation interval. Defaults to settings.recorder.rotation_seconds.
+        :param base_path: The directory or base name for files. Defaults to settings.RECORDER.DEFAULT_RECORDING_PATH.
+        :param sample_rate: Sample rate. Defaults to settings.AUDIO.SAMPLE_RATE.
+        :param rotation_duration_seconds: Rotation interval. Defaults to settings.RECORDER.ROTATION_SECONDS.
         """
-        self._base_path = base_path if base_path is not None else settings.recorder.default_recording_path
-        self._sample_rate = sample_rate if sample_rate is not None else settings.audio.sample_rate
+        self._base_path = base_path if base_path is not None else settings.RECORDER.DEFAULT_RECORDING_PATH
+        self._sample_rate = sample_rate if sample_rate is not None else settings.AUDIO.SAMPLE_RATE
         self._rotation_frames = (
-            rotation_duration_seconds if rotation_duration_seconds is not None else settings.recorder.rotation_seconds
+            rotation_duration_seconds if rotation_duration_seconds is not None else settings.RECORDER.ROTATION_SECONDS
         ) * self._sample_rate
 
         self._channels = channels

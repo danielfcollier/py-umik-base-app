@@ -48,11 +48,20 @@ Generally, Python wheels include the necessary binaries. If you have issues, ens
 
 ### Installation
 
+#### Requirements
+
 Use `make` to automate the setup. This command creates a virtual environment and installs all necessary libraries.
 
 ```bash
 make install
 ```
+
+#### PyPI Installation
+
+```bash
+pip install umik-base-app
+```
+
 
 ### 🍓 Hardware Compatibility
 
@@ -77,9 +86,9 @@ graph LR
     Producer -->|Buffer| Queue[Queue]
     Queue -->|Audio| Consumer[Consumer Thread]
     
-    Consumer -->|Execute| HardwareCalibrator[HardwareCalibrator]
-    HardwareCalibrator -->|Clean Audio| Meter[Real Time Meter]
-    HardwareCalibrator -->|Clean Audio| Recorder[Recorder]
+    Consumer -->|Execute| Calibrator[Calibrator]
+    Calibrator -->|Clean Audio| Meter[Decibel Meter]
+    Calibrator -->|Clean Audio| Recorder[Recorder]
 ```
 
 _Want to dive deeper? Check out the [Architecture Documentation](docs/ARCHITECTURE.md)._
@@ -113,7 +122,7 @@ Calculates RMS, Flux, dBFS, LUFS, and dBSPL (if calibrated) for a specific WAV f
 - **Linux/Mac**:
 
 ```bash
-make analyze-wav IN="recordings/test.wav" F="umik-1/700xxxx.txt"
+make metrics-analyzer IN="recordings/test.wav" F="umik-1/700xxxx.txt"
 ```
 
 2. **Batch Analysis**
@@ -192,7 +201,7 @@ The Makefile is designed for Unix-like systems. For Windows, you have two option
 1. **List Devices:**
 
 ```powershell
-python -m src.samples.apps.list_audio_devices
+python -m src.apps.list_audio_devices
 ```
 
 _Note the ID of your UMIK-1 from this list._
@@ -201,26 +210,26 @@ _Note the ID of your UMIK-1 from this list._
 
 ```powershell
 # Defaults to 1024 taps. Example using 512:
-python -m src.samples.apps.umi1_calibrator "C:\path\to\calib.txt" --num-taps 512
+python -m src.apps.umi1_calibrator "C:\path\to\calib.txt" --num-taps 512
 ```
 
 3. **Run Real Time Meter:**
 
 ```powershell
 # Replace <ID> with the number found in step 1
-python -m src.samples.apps.real_time_meter --device-id <ID> --calibration-file "C:\path\to\calib.txt"
+python -m src.apps.real_time_meter --device-id <ID> --calibration-file "C:\path\to\calib.txt"
 ```
 
 4. **Run Audio Recorder:**
 
 ```powershell
-python -m src.samples.apps.basic_recorder --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-dir "recordings\"
+python -m src.apps.basic_recorder --device-id <ID> --calibration-file "C:\path\to\calib.txt" --output-dir "recordings\"
 ```
 
 5. **Analyze Audio (Single File):**
 
 ```powershell
-python -m src.scripts.calculate_file_metrics "recordings\test.wav" --calibration-file "C:\path\to\calib.txt"
+python -m src.apps.metrics_analyzer "recordings\test.wav" --calibration-file "C:\path\to\calib.txt"
 ```
 
 6. **Visualize (Plot):**

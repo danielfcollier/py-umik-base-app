@@ -10,7 +10,7 @@ Year: 2025
 import logging
 import sys
 
-from src.py_umik import HardwareSelector
+from py_umik import HardwareSelector
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)

@@ -17,13 +17,13 @@ from datetime import datetime
 
 import numpy as np
 
-from src.py_umik import AudioMetrics
-from src.py_umik.core.base_app import BaseApp
-from src.py_umik.core.config import AppArgs, AppConfig
-from src.py_umik.core.interfaces import AudioSink
-from src.py_umik.core.pipeline import AudioPipeline
-from src.py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from src.py_umik.hardware.config import HardwareConfig
+from py_umik import AudioMetrics
+from py_umik.core.base_app import BaseApp
+from py_umik.core.config import AppArgs, AppConfig
+from py_umik.core.interfaces import AudioSink
+from py_umik.core.pipeline import AudioPipeline
+from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
+from py_umik.hardware.config import HardwareConfig
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ class DecibelMeterApp(BaseApp):
         logger.info("DecibelMeterApp initialized.")
 
 
-if __name__ == "__main__":
+def main():
     logger.info("Initializing Digital Real Time Meter Application...")
 
     try:
@@ -184,3 +184,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     logger.info("Digital Real Time Meter Application has shut down.")
+
+
+if __name__ == "__main__":
+    main()

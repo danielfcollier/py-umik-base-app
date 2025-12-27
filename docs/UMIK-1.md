@@ -2,10 +2,6 @@
 
 This document provides a comprehensive overview of the miniDSP UMIK-1 USB measurement microphone, its importance for audio analysis applications, and the process for using its calibration data in a real-time monitoring script.
 
-*Disclaimer: This guide was prepared with the assistance of Google Gemini 2.5 Pro.*
-
-
-
 ## 1. What is the UMIK-1?
 
 The **miniDSP UMIK-1** is a specialized omnidirectional USB measurement microphone. Unlike microphones designed for voice or music, its primary purpose is to provide a scientifically accurate, linear, and repeatable way to capture sound.
@@ -58,7 +54,7 @@ The process has three phases:
 
 This happens once, every time your `noise_monitor` app starts.
 
-1.  **Check for Cache:** Your `HardwareCalibrator` class first looks for a pre-computed filter file (e.g., `audio/device/calibrator/fir_filter_taps.npy`).
+1.  **Check for Cache:** Your `HardwareCalibrator` class first looks for a pre-computed filter file (e.g., `py_umik/hardware/calibrator/fir_filter_taps.npy`).
 2.  **Load from Cache (Fast Path):** If the cache file exists, the calibrator loads the filter coefficients directly from it, skipping the expensive design step. This makes your application start almost instantly on subsequent runs.
 3.  **Design Filter (First Run):** If no cache is found, the `HardwareCalibrator` performs these steps:
     * It reads the frequencies and gain values from your calibration `.txt` file.

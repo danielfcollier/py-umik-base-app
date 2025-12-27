@@ -11,7 +11,7 @@ CSPELL_VERSION = "latest"
 SCRIPT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SRC_DIR         := $(SCRIPT_DIR)/src
 DOCS_DIR        := $(SCRIPT_DIR)/docs
-APP_DIR         := $(SRC_DIR)/samples/apps
+APP_DIR         := $(SRC_DIR)/apps
 SCRIPTS_DIR    	:= $(SCRIPT_DIR)/src/scripts
 
 # Calibration file path (MUST be set when calling relevant targets)
@@ -225,18 +225,18 @@ endif
 # Analysis & Metrics
 # ==============================================================================
 
-analyze-wav: ## Analyze a WAV file. Requires IN=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
+metrics-analyzer: ## Analyze a WAV file. Requires IN=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for audio_file_analysis.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_file_analysis --help
+	@echo -e "$(YELLOW)>>> Showing help for metrics_analyzer.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_analyzer --help
 else
 	@if [ -z "$(IN)" ]; then \
-		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make analyze-wav IN=recordings/file.wav'$(NC)"; \
+		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make metrics-analyzer IN=recordings/file.wav'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Analyzing audio file: $(IN)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_file_analysis "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_analyzer "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -263,29 +263,29 @@ endif
 
 plot-view: ## View metrics chart. Requires IN=<csv_path>. Optional: METRICS="dbfs lufs".
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for plot_audio_metrics.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics --help
+	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-view IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Opening plot viewer...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_plot "$(IN)" \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
 
 plot-save: ## Save metrics chart. Requires IN=<csv_path>. Optional: PLOT_OUT=<png_path>, METRICS="...".
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for plot_audio_metrics.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics --help
+	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-save IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Generating plot image...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.plot_audio_metrics "$(IN)" \
+	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.apps.metrics_plot "$(IN)" \
 		--save $(if $(PLOT_OUT),"$(PLOT_OUT)") \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
