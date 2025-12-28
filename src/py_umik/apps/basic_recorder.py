@@ -2,7 +2,7 @@
 Application script for recording audio to a WAV file.
 
 This script sets up a recording pipeline that captures audio (optionally calibrated)
-and writes it to disk using the Recorder library. It treats the output path as a
+and writes it to disk using the IORecorder library. It treats the output path as a
 directory and automatically generates a timestamped filename.
 
 Author: Daniel Collier
@@ -29,27 +29,20 @@ logger = logging.getLogger(__name__)
 class RecorderApp(BaseApp):
     """
     A concrete application for recording audio streams to a WAV file.
+    Combines the IORecorder with the BaseApp threading model.
     """
 
     def __init__(self, app_config: AppConfig, output_dir: str):
         """
         Initializes the RecorderApp by composing the pipeline components.
-        Checks and creates the output directory if it does not exist, then
-        generates a unique filename based on the current timestamp.
+
+        :param app_config: Validated application configuration.
+        :param output_dir: Path string where recordings should be saved.
         """
         logger.debug(f"Initializing RecorderApp with output directory: {output_dir}")
 
-        # --- 0. Directory & Filename Setup ---
-        dir_path = Path(output_dir).resolve()
+        self.dir_path = self._prepare_directory(output_dir)
 
-        # Create the folder if it doesn't exist
-        if not dir_path.exists():
-            logger.info(f"Output directory does not exist. Creating: {dir_path}")
-            dir_path.mkdir(parents=True, exist_ok=True)
-
-        self.dir_path = dir_path
-
-        # --- 1. Configuration Bridge ---
         device_config = HardwareConfig(
             target_audio_device=app_config.audio_device,
             sample_rate=app_config.sample_rate,
@@ -57,21 +50,14 @@ class RecorderApp(BaseApp):
             high_priority=True,
         )
 
-        # --- 2. Instantiate Library (Manager) ---
         self._recorder = IORecorder(
             base_path=self.dir_path,
             sample_rate=int(device_config.sample_rate),
             channels=1,
             sample_width=2,
         )
+        self._recorder.open()  # Open file handle immediately
 
-        # Open the file resource immediately
-        self._recorder.open()
-
-        # --- 3. Instantiate the Adapter (The AudioSink) ---
-        recorder_sink = IORecorderAdapter(self._recorder)
-
-        # --- 4. Build the AudioPipeline ---
         pipeline = AudioPipeline()
 
         if app_config.audio_calibrator:
@@ -79,17 +65,24 @@ class RecorderApp(BaseApp):
             calibrator_adapter = HardwareCalibratorAdapter(app_config.audio_calibrator)
             pipeline.add_transformer(calibrator_adapter)
 
+        recorder_sink = IORecorderAdapter(self._recorder)
         pipeline.add_sink(recorder_sink)
 
-        # --- 5. Initialize Base Application ---
         super().__init__(audio_config=device_config, pipeline=pipeline)
 
+    def _prepare_directory(self, path_str: str) -> Path:
+        """Helper to ensure output directory exists."""
+        path = Path(path_str).resolve()
+        if not path.exists():
+            logger.info(f"Creating output directory: {path}")
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def close(self):
-        """Overrides close to ensure the WAV file is properly closed."""
+        """Overrides close to ensure the WAV file is properly released."""
         if hasattr(self, "_recorder"):
             self._recorder.close()
-            logger.info("RecorderApp resources have been released.")
-
+            logger.info("RecorderApp resources released.")
         super().close()
 
 
@@ -98,14 +91,14 @@ def main():
 
     parser = AppArgs.get_parser()
 
-    # Updated argument to reflect directory input
     parser.add_argument(
         "-o",
         "--output-dir",
         type=str,
         default="recordings",
-        help="Directory to save the recording. Default: recordings",
+        help="Directory to save the recording. Default: 'recordings'",
     )
+
     args = parser.parse_args()
 
     app: RecorderApp | None = None
@@ -114,16 +107,19 @@ def main():
         app = RecorderApp(app_config=config, output_dir=args.output_dir)
         app.run()
     except (ValueError, SystemExit) as e:
-        logger.error(f"Configuration or Device Error: {e}")
+        logger.error(f"Configuration Error: {e}")
         sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("\nUser stopped recording.")
     except Exception as e:
-        logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
+        logger.critical(f"Unexpected error: {e}", exc_info=True)
         sys.exit(1)
+    finally:
+        if app:
+            logger.info(f"Recording saved to: {app.dir_path}")
+            app.close()
 
-    # Log the final file path for the user
-    if app:
-        logger.info(f"Recording saved to: {app.dir_path}")
-    logger.info("Audio Recorder Application has shut down.")
+    logger.info("Application shutdown complete.")
 
 
 if __name__ == "__main__":

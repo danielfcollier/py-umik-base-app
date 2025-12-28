@@ -54,7 +54,7 @@ Enforce strict code quality standards using **Ruff** (for linting and formatting
     ```
 
 ### Testing
-Use `pytest` for unit testing.
+Use `pytest` for unit testing and our custom shell script for end-to-end integration testing.
 
 * **Run Unit Tests:**
     ```bash
@@ -64,6 +64,11 @@ Use `pytest` for unit testing.
     This generates a coverage report to help identify untested code paths.
     ```bash
     make coverage
+    ```
+* **Run Integration Tests:**
+    Verifies the entire application pipeline (CLI entry points, audio capture simulation, and file outputs) to ensure the system works as a whole.
+    ```bash
+    make test-integration
     ```
 
 ### Running the Basic Applications
@@ -87,11 +92,13 @@ You can run the built-in applications directly using `make` targets.
     make record-umik-1 F="path/to/calib.txt"
     ```
 
+*(Note: Use `make help` to see all available commands).*
+
 ## 🏗️ Project Structure & Standards
 
 * **Strict Typing:** Enforce static typing throughout the codebase using `mypy`. Please ensure all new functions and classes have type hints.
 * **Formatting:** All code must be formatted with `ruff`. The CI pipeline will fail if code is not properly formatted.
-* **CI Pipeline:** Every Pull Request runs the `make lint` and `make coverage` targets via GitHub Actions. Ensure these pass locally before submitting your PR.
+* **CI Pipeline:** Every Pull Request runs the `make lint`, `make coverage`, `make spell-check`, and `make test-integration` targets via GitHub Actions. Ensure these pass locally before submitting your PR.
 
 ## 📝 Submitting a Pull Request
 

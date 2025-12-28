@@ -1,3 +1,9 @@
+################################################################################
+# Author: Daniel Collier
+# GitHub: https://github.com/danielfcollier
+# Year: 2025
+################################################################################
+
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
@@ -31,7 +37,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik-1 record record-default-mic record-umik-1 test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik-1 record record-default-mic record-umik-1 test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio test-integration lock setup
 
 default: help
 
@@ -109,6 +115,15 @@ spell-check: ## Spell check project.
 	@grep . cspell.txt | sort -u > .cspell.txt && mv .cspell.txt cspell.txt
 	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) $(DOCS_DIR) || exit 0  
 	@echo -e "$(GREEN)*** Project is correctly written! ***$(NC)"
+
+test-integration: ## Run the integration test shell script.
+	@echo -e "$(GREEN)>>> Running integration tests...$(NC)"
+	@if [ -f "tests_integration.sh" ]; then \
+		bash tests_integration.sh; \
+	else \
+		echo -e "$(RED)Error: tests_integration.sh not found in root directory.$(NC)"; \
+		exit 1; \
+	fi
 
 test-publish: clean ## Build package, verify content, and install locally to test
 	@echo "🚀 Building package..."
@@ -228,7 +243,7 @@ endif
 metrics-analyzer: ## Analyze a WAV file. Requires IN=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_analyzer.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_analyzer --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_analyzer --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make metrics-analyzer IN=recordings/file.wav'$(NC)"; \
@@ -236,7 +251,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Analyzing audio file: $(IN)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_analyzer "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_analyzer "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -244,7 +259,7 @@ endif
 batch-analyze: ## Batch analyze a directory. Requires DIR=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for audio_batch_analysis.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_batch_analysis --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m scripts.audio_batch_analysis --help
 else
 	@if [ -z "$(DIR)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input directory not set. Use 'make batch-analyze DIR=recordings/'$(NC)"; \
@@ -252,7 +267,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Batch processing directory: $(DIR)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.scripts.audio_batch_analysis "$(DIR)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m scripts.audio_batch_analysis "$(DIR)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -264,28 +279,28 @@ endif
 plot-view: ## View metrics chart. Requires IN=<csv_path>. Optional: METRICS="dbfs lufs".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_plot --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-view IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Opening plot viewer...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot "$(IN)" \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
 
 plot-save: ## Save metrics chart. Requires IN=<csv_path>. Optional: PLOT_OUT=<png_path>, METRICS="...".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_plot --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-save IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Generating plot image...$(NC)"
-	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) -m src.py_umik.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot "$(IN)" \
 		--save $(if $(PLOT_OUT),"$(PLOT_OUT)") \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
