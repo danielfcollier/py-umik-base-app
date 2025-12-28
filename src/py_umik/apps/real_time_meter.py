@@ -17,18 +17,17 @@ from datetime import datetime
 
 import numpy as np
 
-from py_umik import AudioMetrics
 from py_umik.core.base_app import BaseApp
 from py_umik.core.config import AppArgs, AppConfig
 from py_umik.core.interfaces import AudioSink
 from py_umik.core.pipeline import AudioPipeline
 from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
 from py_umik.hardware.config import HardwareConfig
+from py_umik.processing.audio_metrics import AudioMetrics
 from py_umik.settings import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
-
 
 settings = get_settings()
 
@@ -36,7 +35,7 @@ settings = get_settings()
 class AudioMetricsAudioSink(AudioSink):
     """
     A sink component that accumulates audio and calculates metrics
-    over a specified time interval.
+    over a specified time interval (or per chunk if interval is 0).
     """
 
     def __init__(self, config: AppConfig):
@@ -46,29 +45,27 @@ class AudioMetricsAudioSink(AudioSink):
         self._config = config
         self._audio_metrics = AudioMetrics(sample_rate=config.sample_rate)
 
-        # --- Buffering Configuration ---
-        self._interval_seconds = settings.DEFAULT_METRIC_INTERVAL_SECONDS
+        # Buffering Config
+        self._interval_seconds = settings.METRICS.INTERVAL_SECONDS if hasattr(settings, "METRICS") else 3
+        # Fallback if settings structure changed, typically defined in settings.py as DEFAULT_METRIC_INTERVAL_SECONDS
+        if hasattr(settings, "DEFAULT_METRIC_INTERVAL_SECONDS"):
+            self._interval_seconds = settings.DEFAULT_METRIC_INTERVAL_SECONDS
 
         if self._interval_seconds > 0:
-            # Calculate how many samples we need to collect before processing
             self._target_samples = int(self._interval_seconds * config.sample_rate)
             self._accumulated_samples = 0
-            self._audio_buffer = []  # List to hold numpy arrays
-            logger.info(
-                f"Metrics AudioSink initialized with {self._interval_seconds}s interval "
-                f"({self._target_samples} samples)."
-            )
+            self._audio_buffer: list[np.ndarray] = []
+            logger.info(f"Metrics Sink: Buffered Mode ({self._interval_seconds}s / {self._target_samples} samples).")
         else:
             self._target_samples = 0
-            logger.info("Metrics AudioSink initialized in immediate mode (per-chunk).")
+            logger.info("Metrics Sink: Immediate Mode (Per-Chunk).")
 
     def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
         """
-        Buffers audio chunks. When the buffer is full, calculates and logs metrics
-        for the entire interval.
+        Buffers audio chunks. When full, calculates and logs metrics.
         """
         try:
-            # 1. Immediate Mode (Legacy behavior if interval is 0)
+            # 1. Immediate Mode
             if self._target_samples <= 0:
                 self._process_and_log(audio_chunk, timestamp)
                 return
@@ -77,75 +74,56 @@ class AudioMetricsAudioSink(AudioSink):
             self._audio_buffer.append(audio_chunk)
             self._accumulated_samples += len(audio_chunk)
 
-            # Check if we have enough data
             if self._accumulated_samples >= self._target_samples:
-                # Combine all buffered chunks into one continuous array
+                # Combine & Process
                 full_block = np.concatenate(self._audio_buffer)
-
-                # Process the full block
-                # Use the timestamp of the *end* of the block (roughly now)
                 self._process_and_log(full_block, datetime.now())
 
-                # Reset Buffer
+                # Reset
                 self._audio_buffer = []
                 self._accumulated_samples = 0
 
         except Exception as e:
-            logger.error(f"Error in AudioMetricsAudioSink: {e}", exc_info=True)
+            logger.error(f"Sink Error: {e}", exc_info=True)
 
     def _process_and_log(self, audio_data: np.ndarray, timestamp: datetime):
-        """
-        Helper method to calculate and log metrics for a specific block of audio.
-        """
-        # --- Calculate Core Metrics on the aggregated block ---
-        # RMS: Effective power over the whole interval
-        rms_value = self._audio_metrics.rms(audio_data)
+        """Calculates core metrics and calls the display method."""
 
-        # dBFS: Average level over the interval
-        dbfs_value = self._audio_metrics.dBFS(audio_data)
+        # Calculate Base Metrics
+        rms = self._audio_metrics.rms(audio_data)
+        dbfs = self._audio_metrics.dBFS(audio_data)
+        flux = self._audio_metrics.flux(audio_data, self._config.sample_rate)
+        lufs = self._audio_metrics.lufs(audio_data)
 
-        # Flux: Max spectral change detected within this interval
-        flux_value = self._audio_metrics.flux(audio_data, self._config.sample_rate)
-
-        # LUFS: Integrated loudness over this interval
-        lufs_value = self._audio_metrics.lufs(audio_data)
-
-        # --- Prepare Metrics Dictionary ---
-        metrics_to_log = {
+        metrics_data = {
             "measured_at": timestamp,
             "interval_s": (len(audio_data) / self._config.sample_rate),
-            "rms": rms_value,
-            "flux": flux_value,
-            "dBFS": dbfs_value,
-            "LUFS": lufs_value,
+            "rms": rms,
+            "flux": flux,
+            "dBFS": dbfs,
+            "LUFS": lufs,
         }
 
-        # --- Calculate dBSPL (Conditionally) ---
+        # Calculate dBSPL (if calibrated)
         if self._config.audio_calibrator and self._config.sensitivity_dbfs is not None:
-            dbspl_value = self._audio_metrics.dBSPL(
-                dbfs_level=dbfs_value,
+            dbspl = self._audio_metrics.dBSPL(
+                dbfs_level=dbfs,
                 sensitivity_dbfs=self._config.sensitivity_dbfs,
                 reference_dbspl=self._config.reference_dbspl,
             )
-            metrics_to_log["dBSPL"] = dbspl_value
+            metrics_data["dBSPL"] = dbspl
 
-        # --- Log the Metrics ---
-        self._audio_metrics.show_metrics(**metrics_to_log)
+        self._audio_metrics.show_metrics(**metrics_data)
 
 
 class DecibelMeterApp(BaseApp):
     """
-    Concrete implementation of the audio monitoring application using the AudioPipeline pattern.
+    The main application class that stitches together hardware, pipeline, and sink.
     """
 
     def __init__(self, config: AppConfig):
-        """
-        Initializes the DecibelMeterApp.
-        """
         logger.debug("Initializing DecibelMeterApp...")
-        self._app_config: AppConfig = config
 
-        # --- 1. The Bridge: Convert App Config to Device Config ---
         device_config = HardwareConfig(
             target_audio_device=config.audio_device,
             sample_rate=config.sample_rate,
@@ -153,38 +131,43 @@ class DecibelMeterApp(BaseApp):
             high_priority=True,
         )
 
-        # --- 2. Build the AudioPipeline ---
         pipeline = AudioPipeline()
 
-        # Add HardwareCalibrator (Processor)
         if config.audio_calibrator:
             logger.info("Adding Calibration Processor to pipeline.")
-            calibrator_adapter = HardwareCalibratorAdapter(config.audio_calibrator)
-            pipeline.add_transformer(calibrator_adapter)
+            adapter = HardwareCalibratorAdapter(config.audio_calibrator)
+            pipeline.add_transformer(adapter)
 
-        # Add Metrics (AudioSink)
-        logger.info("Adding Audio Metrics AudioSink to pipeline.")
         metrics_sink = AudioMetricsAudioSink(config)
         pipeline.add_sink(metrics_sink)
 
-        # --- 3. Initialize Base ---
         super().__init__(audio_config=device_config, pipeline=pipeline)
         logger.info("DecibelMeterApp initialized.")
 
 
 def main():
-    logger.info("Initializing Digital Real Time Meter Application...")
+    logger.info("Initializing Real Time Meter...")
 
+    args = AppArgs.get_args()
+
+    app: DecibelMeterApp | None = None
     try:
-        args = AppArgs.get_args()
         config = AppArgs.validate_args(args)
         app = DecibelMeterApp(config)
         app.run()
-    except Exception as e:
-        logger.critical(f"Application failed to initialize or run: {e}", exc_info=True)
+    except (ValueError, SystemExit) as e:
+        logger.error(f"Configuration Error: {e}")
         sys.exit(1)
+    except KeyboardInterrupt:
+        logger.info("\nMeter stopped by user.")
+    except Exception as e:
+        logger.critical(f"Unexpected Error: {e}", exc_info=True)
+        sys.exit(1)
+    finally:
+        if app:
+            app.close()
 
-    logger.info("Digital Real Time Meter Application has shut down.")
+    logger.info("Application shutdown complete.")
 
 
 if __name__ == "__main__":

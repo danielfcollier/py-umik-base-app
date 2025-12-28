@@ -89,9 +89,3 @@ plugins = ['pydantic.mypy']
 ignore_missing_imports = true
 check_untyped_defs = true
 namespace_packages = true
-
-[dependency-groups]
-dev = [
-    "numpy>=2.3.5",
-    "scipy>=1.16.3",
-]
