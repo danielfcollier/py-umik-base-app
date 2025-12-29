@@ -22,7 +22,7 @@ However, most microphones have "bad vision." They might be nearsighted (rolling 
 If you plotted the frequency response on a graph, the correction process looks like a mirror image:
 
 1. **🔴 Raw Response (The Error):** The line is wobbly. It might drop by -10dB at 50Hz (missing the bass).
-2. **🔵 Inverse Filter (The Correction):** It is generated a curve that boosts +10dB at 50Hz.
+2. **🔵 Inverse Filter (The Correction):** It generates a curve that boosts +10dB at 50Hz.
 3. **🟢 The Result (Flat Line):** When you add them together, you get a perfectly flat line (0dB deviation). The microphone now "sees" reality.
 
 ## 💻 Code Spotlight: One Line to Fix It All
@@ -51,7 +51,7 @@ taps = scipy.signal.firwin2(
 )
 ```
 
-Once the `taps` are set, they are simply "convolve" with the incoming audio stream. It’s a fast, vectorized operation that runs in real-time on a Raspberry Pi.
+Once the `taps` are set, they are simply "convolved" with the incoming audio stream. It’s a fast, vectorized operation that runs in real-time on a Raspberry Pi.
 
 ## 🧠 The 'Why': Protecting Your Model
 
