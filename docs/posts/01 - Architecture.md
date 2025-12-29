@@ -10,7 +10,7 @@ In my latest project, [umik-base-app](https://github.com/danielfcollier/py-umik-
 
 To understand why glitches happen, you have to look at how audio hardware talks to your OS. The microphone doesn't wait for your Python code; it writes data continuously into a **Circular Ring Buffer** (a small, fixed-size memory space) at a specific rate (e.g., 48,000 samples per second).
 
-If your Python script takes too long to process a chunk—say, calculating an FFT or writing a file to a slow SD card—the hardware "head" catches up to the "tail."
+If your Python script takes too long to process a chun - say, calculating an FFT or writing a file to a slow SD card - the hardware "head" catches up to the "tail."
 
 > **The Result:** The hardware has no choice but to overwrite the old data you haven't read yet. This discontinuity in the waveform is what you hear as a "pop" or "click."
 
