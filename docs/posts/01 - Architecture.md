@@ -1,6 +1,6 @@
 # Solving the "Audio Glitch" Nightmare in Python: A Producer-Consumer Approach 🎧🐍
 
-If you have ever tried to build a real-time audio monitor in Python, you’ve likely hit the dreaded **Input Overflow**. You write a simple loop to read from the microphone, add some cool DSP (Digital Signal Processing) to analyze the sound, and suddenly it *pops, clicks, and glitches*—your audio stream is corrupted.
+If you have ever tried to build a real-time audio monitor in Python, you’ve likely hit the dreaded **Input Overflow**. You write a simple loop to read from the microphone, add some cool DSP (Digital Signal Processing) to analyze the sound, and suddenly it *pops, clicks, and glitches* - your audio stream is corrupted.
 
 **Why?** Because you are trying to do too much in the critical path.
 
