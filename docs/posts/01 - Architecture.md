@@ -26,11 +26,11 @@ Think of it like a busy restaurant kitchen:
 
 ### The Architecture Visualized
 
-By introducing a Queue, we create a "shock absorber" between the rigid timing of hardware and the variable timing of software.
+By introducing a Queue, a "shock absorber" is created between the rigid timing of hardware and the variable timing of software.
 
 ```mermaid
 graph LR
-    Hardware((🎤 UMIK-1)) -->|Raw Audio| Producer[Listener Thread]
+    Hardware((🎤 UMIK)) -->|Raw Audio| Producer[Listener Thread]
     Producer -->|put_nowait| Queue[("Thread-Safe Queue")]
     Queue -->|get| Consumer[Consumer Thread]
     
@@ -46,7 +46,7 @@ graph LR
 
 ## 💻 The Code: Decoupling in Action
 
-Here is a simplified look at how this pattern is implemented in Python. Note how the `ListenerThread` (Producer) uses `put_nowait()` to ensure it *never* blocks, even if the queue is full (though in practice, we size the queue large enough to handle bursts).
+Here is a simplified look at how this pattern is implemented in Python. Note how the `ListenerThread` (Producer) uses `put_nowait()` to ensure it *never* blocks, even if the queue is full (though in practice, the queue's size is large enough to handle bursts).
 
 ```python
 import queue

@@ -37,7 +37,7 @@ Here is the rewritten version of **Post 05: Edge Acoustic Monitoring**, refined 
 
 Right now, my audio framework is a precision instrument. It excels at the quantitative: recording high-fidelity streams, calculating **RMS** voltage, and measuring perceived loudness via **LUFS**. It answers the question: *"How much energy is in the air?"*
 
-But the future of acoustic monitoring isn't just about volume—it’s about **context**.
+But the future of acoustic monitoring isn't just about volume - it’s about **context**.
 
 We are moving toward a world where our sensors don't just measure sound; they *understand* it. And the modular architecture of this project was designed specifically to bridge that gap.
 
@@ -45,7 +45,7 @@ We are moving toward a world where our sensors don't just measure sound; they *u
 
 In traditional "Smart" devices, audio is often streamed to the cloud for processing. This is a privacy nightmare (nobody wants a microphone constantly streaming their living room to a server) and a bandwidth hog.
 
-By running Machine Learning on the **Edge** (directly on the Raspberry Pi), we flip the script:
+By running Machine Learning on the **Edge** (directly on the Raspberry Pi), the script flips:
 
 1. **Local Processing:** The audio is captured, analyzed in RAM, and immediately discarded.
 2. **Zero Leakage:** The raw audio **never leaves the room**.

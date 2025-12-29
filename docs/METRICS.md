@@ -95,7 +95,7 @@ $$
 $$
 
 * $\text{dBFS}_{\text{measured}}$: The dBFS value calculated from the microphone's digital output.
-* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified sensitivity (e.g., -18 dBFS). This is the dBFS level the microphone outputs when exposed to the reference sound pressure.
+* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified sensitivity (e.g., -18 dBFS for the UMIK-1 and -12 dBFs for the UMIK-2). This is the dBFS level the microphone outputs when exposed to the reference sound pressure.
 * $\text{Reference}_{\text{dBSPL}}$: The standard sound pressure level used for calibration (typically 94 dBSPL, which corresponds to 1 Pascal).
 
 ### Purpose
@@ -110,7 +110,7 @@ dBSPL measures the actual sound pressure in the real world relative to a standar
 
 ### Calibration Process (Using FIR Filter)
 
-1.  **Calibration File:** A unique file provided by the microphone manufacturer (e.g., for a UMIK-1) lists the microphone's gain deviation (in dB) at various frequencies.
+1.  **Calibration File:** A unique file provided by the microphone manufacturer (e.g., for a UMIK series) lists the microphone's gain deviation (in dB) at various frequencies.
 2.  **Filter Design:** A digital filter, typically a **Finite Impulse Response (FIR) filter**, is designed based on this file. The filter's frequency response is calculated to be the *exact inverse* of the microphone's response. Its goal is to apply the opposite gain correction at each frequency, effectively flattening the microphone's inaccuracies. This design process (e.g., using `scipy.signal.firwin2`) is computationally intensive and is usually performed only once when the application starts, with the filter coefficients being cached.
 3.  **Real-Time Filtering:** The raw audio signal coming directly from the microphone, $x_{\text{raw}}[n]$, is continuously passed through this pre-designed FIR filter (e.g., using `scipy.signal.lfilter`). This produces a *calibrated* audio signal, $x_{\text{cal}}[n]$. This filtering step happens in real-time for every audio chunk.
 
@@ -141,7 +141,7 @@ $$
 $$
 
 * $\text{dBFS}_{\text{cal}}$: The dBFS value calculated from the microphone's *filtered* digital output.
-* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified broadband sensitivity (e.g., -18 dBFS). This is the overall dBFS level the (now notionally flat) microphone outputs when exposed to the reference sound pressure.
+* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified broadband sensitivity (e.g., -18 dBFS for the UMIK-1 and -12 dBFS for the UMIK-2). This is the overall dBFS level the (now notionally flat) microphone outputs when exposed to the reference sound pressure.
 * $\text{Reference}_{\text{dBSPL}}$: The standard sound pressure level used for calibration (typically 94 dBSPL, which corresponds to 1 Pascal).
 
 ### Purpose

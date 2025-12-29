@@ -20,7 +20,7 @@ If our code relies on RMS, it will trigger an alert for the thunder but ignore t
 
 ## The Shift to LUFS (Psychoacoustics)
 
-To fix this, we integrated **LUFS (Loudness Units Full Scale)** into `src/py_umik/processing/audio_metrics.py`.
+To fix this, it has been integrated **LUFS (Loudness Units Full Scale)** into `src/py_umik/processing/audio_metrics.py`.
 
 Unlike RMS, LUFS is designed to model the non-linear way humans hear. It applies **K-Weighting** - a specific filter curve applied before measurement.
 
@@ -35,14 +35,14 @@ This isn't just a volume tweak; it’s an implementation of the **ITU-R BS.1770-
 
 ## ⚙️ Engineering the Solution: Gated Measurement
 
-We didn't just write a filter; we integrated the industry-standard `pyloudnorm` library directly into our analysis pipeline.
+It has not been written just a filter; the industry-standard `pyloudnorm` library has been integrated directly into the analysis pipeline.
 
-Crucially, we use **Gated Loudness**.
+Crucially, it has been used the **Gated Loudness**.
 
 * **Ungated (Simple Mean):** If you have 5 seconds of shouting and 5 seconds of silence, a simple average says the audio is "medium volume." The silence drags the score down.
 * **Gated (Smart):** The meter essentially "stops listening" when the signal drops below a silence threshold.
 
-By using gating, our meter tells us how loud the *events* are, without being skewed by the quiet pauses in between.
+By using gating, the meter tells us how loud the *events* are, without being skewed by the quiet pauses in between.
 
 ## 📊 The Comparison: RMS vs. LUFS
 
