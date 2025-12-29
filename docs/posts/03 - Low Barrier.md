@@ -2,7 +2,7 @@
 
 One of the biggest misconceptions in audio programming is that you need a lab full of expensive equipment to get started.
 
-When I released `umik-base-app`, a Python toolkit for the MiniDSP UMIK-1, I didn't want it to be a "walled garden" for audiophiles. I wanted it to be a playground for anyone curious about how sound works in code.
+When I released `umik-base-app`, a Python toolkit for miniDSP UMIK series microphones, I didn't want it to be a "walled garden" for audiophiles. I wanted it to be a playground for anyone curious about how sound works in code.
 
 *Whether you have a professional measurement microphone or just the webcam mic built into your laptop, you can start analyzing audio **today**.*
 
@@ -32,7 +32,7 @@ It is the perfect way to prototype audio apps without spending a dime.
 
 ## 🎚️ The Hardware Reality Check: dBFS vs. dBSPL
 
-So, if your laptop mic works, why does the UMIK-1 exist? The difference lies in *what* you are actually measuring.
+So, if your laptop mic works, why does the UMIK series exist? The difference lies in *what* you are actually measuring.
 
 ### The Analogy: "Volume Knob" vs. "Engine Noise"
 
@@ -51,16 +51,16 @@ It measures **Physical Pressure**. "0 dBSPL" is the threshold of human hearing.
 
 ### Comparison: Laptop Mic vs. Measurement Mic
 
-| Feature | Laptop / Webcam Mic | Measurement Mic (UMIK-1) |
+| Feature | Laptop / Webcam Mic | Measurement Mic (UMIK series) |
 | --- | --- | --- |
 | **Cost** | $0 (Included) | ~$100 |
 | **Primary Metric** | **dBFS** (Relative) | **dBSPL** (Absolute) |
 | **Accuracy** | **Low / Colored** (Boosts treble for voice clarity) | **High / Flat** (Captures raw reality) |
 | **Primary Use** | Zoom calls, Prototyping code | Room EQ, Noise Safety, Science |
 
-## 🔓 Unlocking "Pro Mode": Enter the UMIK-1
+## 🔓 Unlocking "Pro Mode": Enter the UMIK Series
 
-This is where the magic happens. The UMIK-1 is designed to be brutally honest, not "good sounding."
+This is where the magic happens. The UMIK series are designed to be brutally honest, not "good sounding."
 
 When you plug it in and tell `umik-base-app` where to find its unique calibration file, the application transforms.
 

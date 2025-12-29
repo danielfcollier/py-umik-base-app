@@ -14,11 +14,11 @@ To solve this, I optimized the "Brain" of the application using two key strategi
 
 ### 1. The Power of Numpy Vectorization
 
-In standard Python, looping is expensive. If you want to calculate the RMS (Root Mean Square) energy of a 1-second audio chunk at 48kHz, a standard loop performs 48,000 separate type-checks and operations. It chokes the CPU.
+In standard Python, looping is expensive. If you want to calculate the RMS (Root Mean Square) energy of a 1-second audio chunk at 48kHz for the UMIK-1 (it is up to 192kHz for the UMIK-2), a standard loop performs 48,000 separate type-checks and operations. It chokes the CPU.
 
 **Vectorization** changes the game. Instead of looping through 48,000 samples one by one, `umik-base-app` hands the entire array to `numpy`. Numpy passes this block of memory to a pre-compiled C function, performing the calculation in a single CPU cycle.
 
-> **The Result:** We can perform complex FFTs (Fast Fourier Transforms) on high-resolution audio using a fraction of the Raspberry Pi's processing power.
+> **The Result:** It can perform complex FFTs (Fast Fourier Transforms) on high-resolution audio using a fraction of the Raspberry Pi's processing power.
 
 ### 2. "Headless First" Architecture
 

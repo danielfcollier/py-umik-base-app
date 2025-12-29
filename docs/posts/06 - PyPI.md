@@ -2,7 +2,7 @@
 
 I am thrilled to announce a personal milestone: I have just published my very first Python package to PyPI! 🎉
 
-Meet `umik-base-app`, a modular toolkit designed to make building high-performance audio applications with the **MiniDSP UMIK-1** measurement microphone effortless.
+Meet `umik-base-app`, a modular toolkit designed to make building high-performance audio applications with the **miniDSP UMIK series** measurement microphone effortless.
 
 👉 **Get it now:** `pip install umik-base-app`
 
