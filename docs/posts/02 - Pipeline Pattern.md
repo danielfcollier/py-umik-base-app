@@ -1,12 +1,12 @@
 # Taming Complexity in Real-Time Audio with the Pipeline Pattern 🏗️🔊
 
-When building audio applications, it’s easy to end up with a "God Object" loop—one giant function that reads audio, filters it, calculates metrics, updates the UI, and writes to disk. *It’s a maintenance nightmare.*
+When building audio applications, it’s easy to end up with a "God Object" loop - one giant function that reads audio, filters it, calculates metrics, updates the UI, and writes to disk. *It’s a maintenance nightmare.*
 
 In my [umik-base-app](https://github.com/danielfcollier/py-umik-base-app/), I strictly avoided this by implementing the **Pipeline Pattern**.
 
 ## 🎸 The Metaphor: The Guitar Pedalboard
 
-Think of the application not as a script, but as a **Signal Chain**—just like a guitarist's pedalboard or a studio mixing desk.
+Think of the application not as a script, but as a **Signal Chain** - just like a guitarist's pedalboard or a studio mixing desk.
 
 An audio signal enters at one end (Input). It passes through a series of effects (Transformers) that modify the sound. Finally, it reaches the amplifiers or recorders (Sinks) at the end of the chain.
 
@@ -14,7 +14,7 @@ In `umik-base-app`, I formalized this into two distinct component types:
 
 1. **🧩 Transformers (The "Effects Pedals"):**
 These take raw audio, modify it, and pass it on.
-* *Example:* The `HardwareCalibrator`. It applies a real-time FIR filter to flatten the microphone's frequency response. The rest of the app doesn't even know it's happening—it just receives clean, "effected" audio.
+* *Example:* The `HardwareCalibrator`. It applies a real-time FIR filter to flatten the microphone's frequency response. The rest of the app doesn't even know it's happening - it just receives clean, "effected" audio.
 
 
 2. **🚰 Sinks (The "Amps" & "Recorders"):**
