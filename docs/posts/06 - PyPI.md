@@ -1,59 +1,107 @@
-# From "Script Spaghetti" to `pip install`: Open Sourcing My Audio Toolkit for the UMIK-1 🎤🐍
+# From "Script Spaghetti" to `pip install`: A Mini-Guide to Python Packaging 📦🐍
 
 I am thrilled to announce a personal milestone: I have just published my very first Python package to PyPI! 🎉
 
 Meet `umik-base-app`, a modular toolkit designed to make building high-performance audio applications with the **MiniDSP UMIK-1** measurement microphone effortless.
 
-👉 Get it now: `pip install umik-base-app
+👉 **Get it now:** `pip install umik-base-app`
 
-Here is the story of why I built it, how I packaged it, and why I’m so excited to share it with the open-source community.
+But beyond the tool itself, the journey of *packaging* it was a revelation. If you are a developer who has a folder full of "useful scripts" that you are scared to turn into a package, this post is for you.
 
-## The Problem: Great Hardware, "Raw" Data
+## 🏗️ The Transformation: Embracing Structure
 
-I bought the UMIK-1 because it is the gold standard for USB measurement microphones. But when I tried to use it in Python projects, I hit a wall.
+For a long time, this project was just a folder of loose files. I’d copy-paste `utils.py` from project to project. It was messy, hard to test, and impossible to share.
 
-While libraries like `sounddevice` make capturing audio easy, getting **scientifically accurate** data is a different beast. I found myself constantly rewriting code to:
-- Parse the manufacturer's calibration files (because raw USB audio is uncalibrated).
-- Manually calculate FIR filters to flatten the frequency response.
-- Juggle threading to prevent audio dropouts during recording.
+To fix this, I moved from a "Flat Layout" to the professional **`src` Layout**.
 
-I realized I wasn't building my app; I was just fighting with plumbing.
+### ❌ Before: Script Spaghetti
 
-## The Solution: The "Base App" Framework
+Everything is in the root. Imports break if you move files. Hard to distinguish source code from config.
 
-I decided to abstract all that pain away into a reusable core. `umik-base-app` isn't just a collection of scripts; it is a robust framework based on a **Producer-Consumer Architecture**.
-- **The "Ear" (Producer):** A dedicated thread that does nothing but listen to the hardware and buffer audio, ensuring zero dropped frames.
-- **The "Brain" (Consumer):** A separate thread that processes the audio pipeline—handling complex math like FIR filtering and metric calculation without blocking the input.
-
-Out of the box, it provides real-time metrics for **RMS**, **dBFS**, **LUFS** (Loudness), and **dBSPL** (Sound Pressure Level).
-
-## The "Aha!" Moment: Proper Packaging 📦
-
-For a long time, this project lived as a folder of loose scripts. I’d copy-paste `utils.py` from project to project. It was messy.
-
-The turning point was embracing modern Python packaging standards.
-1. **The `src` Layout**: I moved my messy root scripts into a clean `src/py_umik/` directory.
-2. `pyproject.toml`: I ditched `setup.py` and `requirements.txt` for a declarative configuration that defines dependencies and entry points like `umik-real-time-meter`.
-
-Suddenly, my "hacked together" scripts felt like professional software. I could install them anywhere with a single command.
-
-## The Tech Stack
-
-I leaned on some amazing modern tools to make this happen:
-- [uv](https://github.com/astral-sh/uv): For blazing fast dependency management and packaging.
-- **sounddevice:** For low-level PortAudio bindings.
-- **scipy:** For signal processing and filter design.
-
-## Try It Out!
-
-If you are an audio engineer, a hobbyist, or just curious about Python audio processing, please give it a spin.
-
-```bash
-pip install umik-base-app
+```text
+my_project/
+├── calibrate.py
+├── recorder.py
+├── utils.py
+├── requirements.txt
+└── .gitignore
 ```
 
-You can check out the source code, contribute, or star the repo on GitHub here: [https://github.com/danielfcollier/py-umik-base-app](https://github.com/danielfcollier/py-umik-base-app)
+### ✅ After: The `src` Layout
 
-Here is to the open-source spirit and the joy of sharing code! 🚀
+Code lives in a dedicated package directory. Explicit, clean, and ready for distribution.
 
-#Python #OpenSource #AudioProgramming #DataScience #PyPI #MiniDSP
+```text
+my_project/
+├── pyproject.toml       <-- The configuration brain
+├── src/
+│   └── py_umik/         <-- The actual package
+│       ├── __init__.py
+│       ├── core/
+│       └── apps/
+└── tests/
+```
+
+## ✨ The "Magic" Config: `pyproject.toml`
+
+The days of `setup.py` are over. The modern standard is `pyproject.toml`.
+
+The coolest part of this configuration is the `[project.scripts]` section. This block is what creates the "magic" terminal commands. When you install my package, pip looks at this list and automatically creates executables in your system path.
+
+Here is the actual snippet from my [pyproject.toml](https://www.google.com/search?q=https://github.com/danielfcollier/py-umik-base-app/blob/main/pyproject.toml):
+
+```toml
+[project.scripts]
+# Command Name           = "Python Module : Function to Run"
+umik-calibrate           = "py_umik.apps.umik1_calibrator:main"
+umik-list-devices        = "py_umik.apps.list_audio_devices:main"
+umik-real-time-meter     = "py_umik.apps.real_time_meter:main"
+umik-recorder            = "py_umik.apps.basic_recorder:main"
+umik-metrics-analyzer    = "py_umik.apps.metrics_analyzer:main"
+umik-metrics-plot        = "py_umik.apps.metrics_plot:main"
+```
+
+Because of these few lines, users don't have to type `python src/py_umik/apps/real_time_meter.py`. They just type:
+
+```bash
+umik-real-time-meter
+```
+
+## 🤖 Automating the Release (CI/CD)
+
+The scariest part of packaging is "uploading to PyPI." *What if I upload a broken build?*
+
+I solved this by never uploading manually. I use a **GitHub Actions** workflow that automates the entire process.
+
+In my `.github/workflows/publish.yml`, the process is defined as code:
+
+1. **Trigger:** It only runs when I create a new **Release** in the GitHub UI.
+2. **Build:** It uses `uv build` to create the distribution files.
+3. **Publish:** It uses `uv publish` to securely upload them to PyPI using trusted authentication (OIDC).
+
+```yaml
+# .github/workflows/publish.yml
+on:
+  release:
+    types: [published]
+
+jobs:
+  pypi-publish:
+    steps:
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish
+```
+
+I just click "Draft Release" on GitHub, and the robots handle the rest.
+
+## 🚀 Call to Action
+
+Don't let your useful code rot in a `scripts` folder. Packaging your code forces you to think about structure, dependencies, and usability.
+
+If you want a template to get started, take a look at my configuration. You can copy my `pyproject.toml` and GitHub workflows directly to jumpstart your own library.
+👉 **Check out the repo:** [github.com/danielfcollier/py-umik-base-app](https://github.com/danielfcollier/py-umik-base-app)
+
+#Python #OpenSource #PyPI #DevOps #GitHubActions #SoftwareEngineering #Packaging
