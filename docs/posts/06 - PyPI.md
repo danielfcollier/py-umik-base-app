@@ -102,6 +102,7 @@ I just click "Draft Release" on GitHub, and the robots handle the rest.
 Don't let your useful code rot in a `scripts` folder. Packaging your code forces you to think about structure, dependencies, and usability.
 
 If you want a template to get started, take a look at my configuration. You can copy my `pyproject.toml` and GitHub workflows directly to jumpstart your own library.
+
 👉 **Check out the repo:** [github.com/danielfcollier/py-umik-base-app](https://github.com/danielfcollier/py-umik-base-app)
 
 #Python #OpenSource #PyPI #DevOps #GitHubActions #SoftwareEngineering #Packaging
