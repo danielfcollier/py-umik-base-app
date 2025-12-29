@@ -2,7 +2,7 @@
 
 For a long time, the Python ecosystem felt fragmented. We juggled `pip`, `virtualenv`, `black`, `isort`, and `flake8`, often resulting in sluggish CI pipelines and "it works on my machine" fatigue.
 
-For my latest audio framework, I decided to treat the Developer Experience (DX) as a first-class citizen. I moved away from the standard `pip`/`poetry` workflow and adopted a modern, high-performance stack. Here is why—and why you should too.
+For my latest audio framework, I decided to treat the Developer Experience (DX) as a first-class citizen. I moved away from the standard `pip`/`poetry` workflow and adopted a modern, high-performance stack. Here is why - and why you should too.
 
 ## ⚡ The Benchmark: `uv` vs. `pip`
 
