@@ -89,7 +89,7 @@ graph LR
 
 ## 📂 Understanding Calibration Files
 
-The UMIK series are measurement microphones, meaning they rely on a software file to correct their frequency response.
+The microphone in the UMIK Series are measurement microphones, meaning they rely on a software file to correct their frequency response.
 
 When you download your unique files from MiniDSP (using your serial number, e.g., `7175488`), you will get `.txt` files. When you run this app, it calculates a digital filter and saves a "Cache" file (`.npy`) so it starts up instantly next time.
 
