@@ -71,7 +71,7 @@ pipeline.start()
 
 ## 🌟 Why This Approach Wins
 
-By decoupling the "What" (processing) from the "How" (execution), there is a gain of massive benefits for developer experience:
+By decoupling the "What" (processing) from the "How" (execution), you a gain massive benefits for developer experience:
 
 * **Testability:** You can test the `DecibelMeter` logic by feeding it a fake numpy array. You don't need to sing into a real microphone to run your unit tests.
 * **High Cohesion:** The Recorder only knows how to write files. The Meter only knows how to do math. They never talk to each other, so breaking one doesn't break the other.
