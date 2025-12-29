@@ -1,10 +1,10 @@
-# 🎧 Beyond Voltage: Why We Moved From RMS to LUFS
+# 🎧 Beyond Voltage: Why I Moved From RMS to LUFS
 
-In the early stages of building our audio analysis pipeline, we relied on **RMS (Root Mean Square)** to measure loudness. It’s the standard textbook approach: square the amplitude, take the mean, find the root. It’s computationally cheap and mathematically perfect for measuring **electrical power**.
+In the early stages of building the audio analysis pipeline, I relied on **RMS (Root Mean Square)** to measure loudness. It’s the standard textbook approach: square the amplitude, take the mean, find the root. It’s computationally cheap and mathematically perfect for measuring **electrical power**.
 
 But audio isn't just electricity - it's **perception**.
 
-We quickly found that RMS has a critical flaw in real-world applications: it is "ear-blind."
+I quickly found that RMS has a critical flaw in real-world applications: it is "ear-blind."
 
 ## 🌩️ The Real-World Scenario: Thunder vs. The Baby
 
@@ -16,11 +16,11 @@ Imagine two sounds:
 To an **RMS meter**, the thunder is "louder" because it has more voltage/energy.
 To a **Human**, the baby is significantly "louder" because our ears are evolved to detect distress calls, not low-frequency rumbles.
 
-If our code relies on RMS, it will trigger an alert for the thunder but ignore the baby. That is a failure of engineering.
+If the code relies on RMS, it will trigger an alert for the thunder but ignore the baby. That is a failure of engineering.
 
 ## The Shift to LUFS (Psychoacoustics)
 
-To fix this, it has been integrated **LUFS (Loudness Units Full Scale)** into `src/py_umik/processing/audio_metrics.py`.
+To fix this, I integrated **LUFS (Loudness Units Full Scale)** into `src/py_umik/processing/audio_metrics.py`.
 
 Unlike RMS, LUFS is designed to model the non-linear way humans hear. It applies **K-Weighting** - a specific filter curve applied before measurement.
 
@@ -28,21 +28,21 @@ Unlike RMS, LUFS is designed to model the non-linear way humans hear. It applies
 
 Think of K-Weighting as a "Human EQ" for the algorithm:
 
-* **Bass Cut:** It ignores the deep bass (below 100Hz), which we tend to "feel" rather than hear.
+* **Bass Cut:** It ignores the deep bass (below 100Hz), which humans tend to "feel" rather than hear.
 * **Presence Boost:** It boosts the high-mids (around 2kHz–4kHz), exactly where human speech and cries live.
 
 This isn't just a volume tweak; it’s an implementation of the **ITU-R BS.1770-4** standard, the same metric used by Netflix, Spotify, and broadcast television to ensure consistent volume levels.
 
 ## ⚙️ Engineering the Solution: Gated Measurement
 
-It has not been written just a filter; the industry-standard `pyloudnorm` library has been integrated directly into the analysis pipeline.
+I did not just write a filter; I integrated the industry-standard `pyloudnorm` library directly into the analysis pipeline.
 
-Crucially, it has been used the **Gated Loudness**.
+Crucially, the system uses **Gated Loudness**.
 
 * **Ungated (Simple Mean):** If you have 5 seconds of shouting and 5 seconds of silence, a simple average says the audio is "medium volume." The silence drags the score down.
 * **Gated (Smart):** The meter essentially "stops listening" when the signal drops below a silence threshold.
 
-By using gating, the meter tells us how loud the *events* are, without being skewed by the quiet pauses in between.
+By using gating, the meter indicates how loud the *events* are, without being skewed by the quiet pauses in between.
 
 ## 📊 The Comparison: RMS vs. LUFS
 
