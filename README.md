@@ -199,7 +199,7 @@ The following updates are planned to make the UMIK-2 "Plug-and-Play":
 
 * [Architecture Overview](./docs/ARCHITECTURE.md): Deep dive into the threading, pipeline pattern, and code structure.
 * [Understanding Audio Metrics](./docs/METRICS.md): Learn the math behind RMS, LUFS, and dBSPL.
-* [The UMIK-1 Guide](./docs/UMIK-Series.md): Specific details about handling the UMIK-1 hardware.
+* [The UMIK Series Guide](./docs/UMIK-Series.md): Specific details about handling the UMIK Series hardware.
 
 ## 🔗 Related Projects
 
