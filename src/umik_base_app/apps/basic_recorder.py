@@ -14,8 +14,9 @@ import logging
 import sys
 from pathlib import Path
 
-from umik_base_app.core.base_app import BaseApp
 from umik_base_app.core.config import AppArgs, AppConfig
+
+from umik_base_app.core.base_app import BaseApp
 from umik_base_app.core.pipeline import AudioPipeline
 from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
 from umik_base_app.hardware.config import HardwareConfig

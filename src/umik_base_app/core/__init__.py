@@ -6,8 +6,8 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from ..config import AppArgs, AppConfig
 from .base_app import BaseApp
-from .config import AppArgs, AppConfig
 from .consumer_thread import ConsumerThread
 from .interfaces import AudioSink, AudioTransformer
 from .listener_thread import ListenerThread

@@ -14,7 +14,7 @@ import logging
 import wave
 from pathlib import Path
 
-from ..core.datetime_stamp import DatetimeStamp
+from ..datetime_stamp import DatetimeStamp
 from ..settings import get_settings
 
 settings = get_settings()
