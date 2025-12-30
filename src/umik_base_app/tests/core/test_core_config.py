@@ -11,8 +11,8 @@ import os
 from unittest.mock import patch
 
 import pytest
-
 from umik_base_app.core.config import AppArgs
+
 from umik_base_app.settings import get_settings
 
 settings = get_settings()

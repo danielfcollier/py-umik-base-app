@@ -16,9 +16,9 @@ import sys
 from datetime import datetime
 
 import numpy as np
+from umik_base_app.core.config import AppArgs, AppConfig
 
 from umik_base_app.core.base_app import BaseApp
-from umik_base_app.core.config import AppArgs, AppConfig
 from umik_base_app.core.interfaces import AudioSink
 from umik_base_app.core.pipeline import AudioPipeline
 from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
