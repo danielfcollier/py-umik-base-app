@@ -14,13 +14,13 @@ import logging
 import sys
 from pathlib import Path
 
-from py_umik.core.base_app import BaseApp
-from py_umik.core.config import AppArgs, AppConfig
-from py_umik.core.pipeline import AudioPipeline
-from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from py_umik.hardware.config import HardwareConfig
-from py_umik.io.recorder import IORecorder
-from py_umik.io.recorder_adapter import IORecorderAdapter
+from umik_base_app.core.base_app import BaseApp
+from umik_base_app.core.config import AppArgs, AppConfig
+from umik_base_app.core.pipeline import AudioPipeline
+from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
+from umik_base_app.hardware.config import HardwareConfig
+from umik_base_app.io.recorder import IORecorder
+from umik_base_app.io.recorder_adapter import IORecorderAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)

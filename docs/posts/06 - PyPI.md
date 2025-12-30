@@ -35,7 +35,7 @@ Code lives in a dedicated package directory. Explicit, clean, and ready for dist
 my_project/
 ├── pyproject.toml       <-- The configuration brain
 ├── src/
-│   └── py_umik/         <-- The actual package
+│   └── umik_base_app/         <-- The actual package
 │       ├── __init__.py
 │       ├── core/
 │       └── apps/
@@ -53,15 +53,15 @@ Here is the actual snippet from my [pyproject.toml](https://www.google.com/searc
 ```toml
 [project.scripts]
 # Command Name           = "Python Module : Function to Run"
-umik-calibrate           = "py_umik.apps.umik1_calibrator:main"
-umik-list-devices        = "py_umik.apps.list_audio_devices:main"
-umik-real-time-meter     = "py_umik.apps.real_time_meter:main"
-umik-recorder            = "py_umik.apps.basic_recorder:main"
-umik-metrics-analyzer    = "py_umik.apps.metrics_analyzer:main"
-umik-metrics-plot        = "py_umik.apps.metrics_plot:main"
+umik-calibrate           = "umik_base_app.apps.umik1_calibrator:main"
+umik-list-devices        = "umik_base_app.apps.list_audio_devices:main"
+umik-real-time-meter     = "umik_base_app.apps.real_time_meter:main"
+umik-recorder            = "umik_base_app.apps.basic_recorder:main"
+umik-metrics-analyzer    = "umik_base_app.apps.metrics_analyzer:main"
+umik-metrics-plot        = "umik_base_app.apps.metrics_plot:main"
 ```
 
-Because of these few lines, users don't have to type `python src/py_umik/apps/real_time_meter.py`. They just type:
+Because of these few lines, users don't have to type `python src/umik_base_app/apps/real_time_meter.py`. They just type:
 
 ```bash
 umik-real-time-meter

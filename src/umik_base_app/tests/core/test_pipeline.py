@@ -11,8 +11,8 @@ from unittest.mock import Mock
 
 import numpy as np
 
-from py_umik.core.interfaces import AudioSink, AudioTransformer
-from py_umik.core.pipeline import AudioPipeline
+from umik_base_app.core.interfaces import AudioSink, AudioTransformer
+from umik_base_app.core.pipeline import AudioPipeline
 
 
 def test_pipeline_execution():

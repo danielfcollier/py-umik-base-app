@@ -29,7 +29,7 @@ requires = ["setuptools>=64", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-version_file = "src/py_umik/_version.py"
+version_file = "src/umik_base_app/_version.py"
 local_scheme = "no-local-version"
 
 # Development Dependencies (used for linting/testing)
@@ -46,18 +46,18 @@ dev = [
 "Bug Tracker" = "https://github.com/danielfcollier/py-umik-base-app/issues"
 
 [project.scripts]
-umik-calibrate = "py_umik.apps.umik1_calibrator:main"
-umik-list-devices = "py_umik.apps.list_audio_devices:main"
-umik-real-time-meter = "py_umik.apps.real_time_meter:main"
-umik-recorder = "py_umik.apps.basic_recorder:main"
-umik-metrics-analyzer = "py_umik.apps.metrics_analyzer:main"
-umik-metrics-plot = "py_umik.apps.metrics_plot:main"
+umik-calibrate = "umik_base_app.apps.umik1_calibrator:main"
+umik-list-devices = "umik_base_app.apps.list_audio_devices:main"
+umik-real-time-meter = "umik_base_app.apps.real_time_meter:main"
+umik-recorder = "umik_base_app.apps.basic_recorder:main"
+umik-metrics-analyzer = "umik_base_app.apps.metrics_analyzer:main"
+umik-metrics-plot = "umik_base_app.apps.metrics_plot:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = [
-    "src/py_umik/tests",
+    "src/umik_base_app/tests",
 ]
 pythonpath = "src"
 
@@ -69,7 +69,7 @@ exclude = [
     ".git",
     "__pycache__",
     ".github",
-    "src/py_umik/_version.py",
+    "src/umik_base_app/_version.py",
 ]
 
 [tool.ruff.lint]

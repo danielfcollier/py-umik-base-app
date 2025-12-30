@@ -11,8 +11,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from py_umik.processing.audio_metrics import AudioMetrics
-from py_umik.settings import get_settings
+from umik_base_app.processing.audio_metrics import AudioMetrics
+from umik_base_app.settings import get_settings
 
 settings = get_settings()
 
@@ -34,13 +34,10 @@ def metrics():
     return AudioMetrics(sample_rate=SAMPLE_RATE)
 
 
-# ... (Existing tests for RMS, dBFS, dBSPL remain here) ...
-
-
 def test_flux(metrics):
     """Test that flux calls librosa and returns the max value."""
     # Mock librosa to avoid actual DSP calculation
-    with patch("py_umik.processing.audio_metrics.librosa.onset.onset_strength") as mock_onset:
+    with patch("umik_base_app.processing.audio_metrics.librosa.onset.onset_strength") as mock_onset:
         # Return a dummy envelope with a known max
         mock_onset.return_value = np.array([0.1, 0.5, 0.2])
 
@@ -75,7 +72,7 @@ def test_lufs_aggregation(metrics):
 
 def test_show_metrics(metrics):
     """Test that show_metrics logs the correct formatted string."""
-    with patch("py_umik.processing.audio_metrics.logger") as mock_logger:
+    with patch("umik_base_app.processing.audio_metrics.logger") as mock_logger:
         # Pass arbitrary metrics
         metrics.show_metrics(measured_at="12:00:00", rms=0.123456, dbfs=-20.5)
 

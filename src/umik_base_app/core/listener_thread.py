@@ -18,9 +18,8 @@ import threading
 
 import sounddevice as sd
 
-from py_umik.settings import get_settings
-
 from ..hardware.config import HardwareConfig
+from ..settings import get_settings
 from .datetime_stamp import DatetimeStamp
 
 logger = logging.getLogger(__name__)

@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 
 # Ensure both the class and the exception are imported
-from py_umik.hardware.selector import HardwareNotFound, HardwareSelector
+from umik_base_app.hardware.selector import HardwareNotFound, HardwareSelector
 
 # Mock device list returned by sd.query_devices()
 MOCK_DEVICES = [
@@ -40,7 +40,7 @@ MOCK_DEVICES = [
 @pytest.fixture
 def mock_sounddevice():
     """Mock sounddevice query_devices and default attribute."""
-    with patch("py_umik.hardware.selector.sd") as mock_sd:
+    with patch("umik_base_app.hardware.selector.sd") as mock_sd:
         mock_sd.query_devices.return_value = MOCK_DEVICES
         # Mock sd.default.device = [input_id, output_id]
         mock_sd.default.device = [0, 2]
@@ -78,7 +78,7 @@ def test_device_not_found_raises_exception(mock_sounddevice):
 
 def test_show_audio_devices(mock_sounddevice):
     """Test the utility method that logs available devices."""
-    with patch("py_umik.hardware.selector.logger") as mock_logger:
+    with patch("umik_base_app.hardware.selector.logger") as mock_logger:
         HardwareSelector.show_audio_devices(selected_id=1)
 
         # Verify it logged the devices
