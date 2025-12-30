@@ -9,7 +9,7 @@ Year: 2025
 from datetime import datetime
 from unittest.mock import patch
 
-from py_umik.core.datetime_stamp import DatetimeStamp
+from umik_base_app.core.datetime_stamp import DatetimeStamp
 
 
 def test_get_timestamp_format():
@@ -17,7 +17,7 @@ def test_get_timestamp_format():
     # Mock a fixed datetime
     fixed_date = datetime(2025, 1, 1, 12, 0, 0)
 
-    with patch("py_umik.core.datetime_stamp.datetime") as mock_datetime:
+    with patch("umik_base_app.core.datetime_stamp.datetime") as mock_datetime:
         mock_datetime.now.return_value = fixed_date
 
         timestamp = DatetimeStamp.get()

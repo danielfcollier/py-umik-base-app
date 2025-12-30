@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-from py_umik.core.config import AppArgs
-from py_umik.settings import get_settings
+from umik_base_app.core.config import AppArgs
+from umik_base_app.settings import get_settings
 
 settings = get_settings()
 
@@ -21,7 +21,7 @@ settings = get_settings()
 @pytest.fixture
 def mock_hardware_selector():
     """Mock the HardwareSelector to prevent hardware calls."""
-    with patch("py_umik.core.config.HardwareSelector") as mock:
+    with patch("umik_base_app.core.config.HardwareSelector") as mock:
         # Setup a default dummy device
         hardware_instance = mock.return_value
         hardware_instance.id = 1
@@ -74,7 +74,7 @@ def test_validate_args_adjusts_buffer_rounding(mock_hardware_selector):
     assert config.buffer_seconds == 6.0
 
 
-@patch("py_umik.core.config.HardwareCalibrator")
+@patch("umik_base_app.core.config.HardwareCalibrator")
 def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selector):
     """Test valid configuration with a non-default device and calibration file."""
     # Setup mocks

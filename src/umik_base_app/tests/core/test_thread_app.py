@@ -9,7 +9,7 @@ Year: 2025
 import threading
 from unittest.mock import MagicMock, patch
 
-from py_umik.core.thread_app import ThreadApp
+from umik_base_app.core.thread_app import ThreadApp
 
 
 class ConcreteApp(ThreadApp):

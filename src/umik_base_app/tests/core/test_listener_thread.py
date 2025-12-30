@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sounddevice as sd
 
-from py_umik.core.listener_thread import ListenerThread
+from umik_base_app.core.listener_thread import ListenerThread
 
 
 @pytest.fixture

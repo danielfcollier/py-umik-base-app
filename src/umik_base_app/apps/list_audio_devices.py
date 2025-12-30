@@ -11,7 +11,7 @@ import argparse
 import logging
 import sys
 
-from py_umik import HardwareSelector
+from umik_base_app import HardwareSelector
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)

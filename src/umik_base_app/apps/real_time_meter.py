@@ -17,14 +17,14 @@ from datetime import datetime
 
 import numpy as np
 
-from py_umik.core.base_app import BaseApp
-from py_umik.core.config import AppArgs, AppConfig
-from py_umik.core.interfaces import AudioSink
-from py_umik.core.pipeline import AudioPipeline
-from py_umik.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from py_umik.hardware.config import HardwareConfig
-from py_umik.processing.audio_metrics import AudioMetrics
-from py_umik.settings import get_settings
+from umik_base_app.core.base_app import BaseApp
+from umik_base_app.core.config import AppArgs, AppConfig
+from umik_base_app.core.interfaces import AudioSink
+from umik_base_app.core.pipeline import AudioPipeline
+from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
+from umik_base_app.hardware.config import HardwareConfig
+from umik_base_app.processing.audio_metrics import AudioMetrics
+from umik_base_app.settings import get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)

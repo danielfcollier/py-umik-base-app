@@ -1,5 +1,5 @@
 """
-Exposes core components of the py_umik framework.
+Exposes core components of the umik_base_app framework.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
