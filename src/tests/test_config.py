@@ -45,6 +45,10 @@ def test_validate_args_adjusts_buffer(mock_hardware_selector):
         calibration_file=None,
         num_taps=1024,
         default=False,
+        producer=False,
+        consumer=False,
+        zmq_host="127.0.0.1",
+        zmq_port=5555,
     )
 
     config = AppArgs.validate_args(args)
@@ -66,6 +70,10 @@ def test_validate_args_adjusts_buffer_rounding(mock_hardware_selector):
         calibration_file=None,
         num_taps=1024,
         default=False,
+        producer=False,
+        consumer=False,
+        zmq_host="127.0.0.1",
+        zmq_port=5555,
     )
 
     config = AppArgs.validate_args(args)
@@ -90,6 +98,10 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
         calibration_file="/path/to/cal.txt",
         num_taps=512,
         default=False,
+        producer=False,
+        consumer=False,
+        zmq_host="127.0.0.1",
+        zmq_port=5555,
     )
 
     config = AppArgs.validate_args(args)
@@ -105,9 +117,7 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
 def test_no_calibration_file_allows_uncalibrated_setup(mock_hardware_selector):
     """
     Test that no error is raised if a non-default device is used without calibration.
-    It should simply proceed with calibration disabled.
     """
-    # Explicitly simulate a non-default device for this test
     mock_hardware_selector.return_value.is_default = False
 
     args = argparse.Namespace(
@@ -117,11 +127,13 @@ def test_no_calibration_file_allows_uncalibrated_setup(mock_hardware_selector):
         calibration_file=None,
         num_taps=1024,
         default=False,
+        producer=False,
+        consumer=False,
+        zmq_host="127.0.0.1",
+        zmq_port=5555,
     )
 
-    # ACTION: This should now succeed (not raise ValueError)
     config = AppArgs.validate_args(args)
 
-    # ASSERT: Calibration is disabled (None), but the device ID is still respected
     assert config.audio_calibrator is None
     assert config.audio_device.id == mock_hardware_selector.return_value.id

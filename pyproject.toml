@@ -58,7 +58,7 @@ umik-metrics-plot = "umik_base_app.apps.metrics_plot:main"
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = [
-    "src/umik_base_app/tests",
+    "src/tests",
 ]
 pythonpath = "src"
 
