@@ -18,9 +18,10 @@ import threading
 
 import sounddevice as sd
 
+from ..datetime_stamp import DatetimeStamp
 from ..hardware.config import HardwareConfig
 from ..settings import get_settings
-from .datetime_stamp import DatetimeStamp
+from ..transport.transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class ListenerThread:
     def __init__(
         self,
         audio_device_config: HardwareConfig,
-        audio_queue: queue.Queue,
+        transport: AudioTransport,
         stop_event: threading.Event,
     ):
         """
@@ -51,15 +52,15 @@ class ListenerThread:
                                     audio stream (e.g., sample rate, block size,
                                     device ID, dtype). This configuration dictates how
                                     the audio stream will be opened.
-        :param audio_queue: A thread-safe `queue.Queue` instance. Raw audio chunks
-                                    captured from the microphone will be put onto this queue.
+        :param transport: A thread-safe `AudioTransport` instance. Raw audio chunks
+                          captured from the microphone will be put onto this transport.
         :param stop_event: A `threading.Event` object used to signal the thread
                            to terminate its loop and exit gracefully. This event
                            is typically set by the main application thread upon
                            receiving a shutdown signal (SIGINT/SIGTERM).
         """
         self._audio_device_config = audio_device_config
-        self._queue = audio_queue
+        self._transport = transport
         self._stop_event = stop_event
 
         self._class_name = self.__class__.__name__
@@ -121,7 +122,7 @@ class ListenerThread:
                             if audio_chunk.ndim > 1:
                                 audio_chunk = audio_chunk.flatten()
 
-                            self._queue.put_nowait((audio_chunk, timestamp))
+                            self._transport.send((audio_chunk, timestamp))
 
                         except queue.Full:
                             logger.warning(

@@ -13,6 +13,7 @@ import logging
 import queue
 import threading
 
+from ..transport.transport import AudioTransport
 from .pipeline import AudioPipeline
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class ConsumerThread:
 
     def __init__(
         self,
-        audio_queue: queue.Queue,
+        transport: AudioTransport,
         stop_event: threading.Event,
         pipeline: AudioPipeline,
         consumer_queue_timeout_seconds: int,
@@ -40,7 +41,7 @@ class ConsumerThread:
         """
         Initializes the audio consumer thread.
 
-        :param audio_queue: The thread-safe `queue.Queue` instance from which
+        :param transport: The `AudioTransport` instance from which
                             audio data tuples (audio_chunk, timestamp) will be fetched.
         :param stop_event: A `threading.Event` object used to signal the thread
                            to terminate its loop and exit gracefully.
@@ -48,7 +49,7 @@ class ConsumerThread:
                          necessary processors and sinks to handle the audio data.
         :param consumer_queue_timeout_seconds: Timeout for blocking queue gets.
         """
-        self._queue = audio_queue
+        self._transport = transport
         self._stop_event = stop_event
         self._pipeline = pipeline
         self._consumer_queue_timeout_seconds = consumer_queue_timeout_seconds
@@ -71,7 +72,7 @@ class ConsumerThread:
         while not self._stop_event.is_set():
             try:
                 # Retrieve the tuple (audio_chunk, timestamp) from the queue
-                audio_chunk, timestamp = self._queue.get(timeout=self._consumer_queue_timeout_seconds)
+                audio_chunk, timestamp = self._transport.recv(timeout=self._consumer_queue_timeout_seconds)
 
                 if self._stop_event.is_set():
                     logger.debug("Stop event detected. Discarding remaining queue items.")

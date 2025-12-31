@@ -53,6 +53,14 @@ class HardwareSettings(BaseModel):
     REFERENCE_DBSPL: float = 94.0
 
 
+class ZmqSettings(BaseModel):
+    """Settings for ZeroMQ transport."""
+
+    HOST: str = "127.0.0.1"
+    PORT: int = 5555
+    MESSAGES: int | None = None  # None means unlimited
+
+
 class Settings(BaseSettings):
     """
     Main settings class acting as the source of truth for the application.
@@ -67,6 +75,7 @@ class Settings(BaseSettings):
     METRICS: MetricsSettings = MetricsSettings()
     RECORDER: RecorderSettings = RecorderSettings()
     HARDWARE: HardwareSettings = HardwareSettings()
+    ZMQ: ZmqSettings = ZmqSettings()
 
     RECONNECT_DELAY_SECONDS: int = 5
     RECONNECT_MAX_RETRIES: int = 10
