@@ -13,8 +13,8 @@ import logging
 import queue
 import threading
 
-from ..transport.base_transport import AudioTransport
-from .pipeline import AudioPipeline
+from ..transports.base_transport import AudioTransport
+from .consumer_pipeline import AudioPipeline
 
 logger = logging.getLogger(__name__)
 

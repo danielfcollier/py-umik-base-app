@@ -11,7 +11,7 @@ Year: 2025
 
 import numpy as np
 
-from ..core.interfaces import AudioTransformer
+from ..transformers.transformers_interface import AudioTransformer
 from .calibrator import HardwareCalibrator
 
 

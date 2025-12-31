@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 
-from umik_base_app.hardware.calibrator import HardwareCalibrator
+from umik_base_app.hardwares.calibrator import HardwareCalibrator
 from umik_base_app.settings import get_settings
 
 settings = get_settings()
