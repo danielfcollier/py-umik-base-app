@@ -46,3 +46,6 @@ jobs:
 
       - name: Run Tests with Coverage
         run: make coverage
+
+      - name: Run Integration TEsts
+        run: make test-integration

@@ -37,7 +37,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik-1 record record-default-mic record-umik-1 test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio test-integration lock setup
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio test-end-to-end lock setup
 
 default: help
 
@@ -103,8 +103,12 @@ check: lint test ## Run all checks.
 	@echo -e "$(GREEN)>>> All checks passed.$(NC)"
 
 test: ## Run unit tests with pytest.
-	@echo -e "$(GREEN)>>> Running tests...$(NC)"
-	@$(PYTHON) -m pytest
+	@echo -e "$(GREEN)>>> Running umit tests...$(NC)"
+	@$(PYTHON) -m pytest -m "not integration"
+
+test-integration: ## Run integration tests
+	@echo -e "$(GREEN)>>> Running integration tests...$(NC)"
+	@$(PYTHON) -m pytest -m "integration"
 
 coverage: ## Run tests and generate coverage report.
 	@echo -e "$(GREEN)>>> Running tests with coverage...$(NC)"
@@ -116,12 +120,12 @@ spell-check: ## Spell check project.
 	@docker run --quiet -v ${PWD}:/workdir ghcr.io/streetsidesoftware/cspell:$(CSPELL_VERSION) lint -c cspell.json --no-progress --unique $(SRC_DIR) $(DOCS_DIR) || exit 0  
 	@echo -e "$(GREEN)*** Project is correctly written! ***$(NC)"
 
-test-integration: ## Run the integration test shell script.
-	@echo -e "$(GREEN)>>> Running integration tests...$(NC)"
-	@if [ -f "tests_integration.sh" ]; then \
-		bash tests_integration.sh; \
+test-end-to-end: ## Run the end-to-end tests shell script.
+	@echo -e "$(GREEN)>>> Running end-to-end tests...$(NC)"
+	@if [ -f "tests_end-to-end.sh" ]; then \
+		bash tests_end-to-end.sh; \
 	else \
-		echo -e "$(RED)Error: tests_integration.sh not found in root directory.$(NC)"; \
+		echo -e "$(RED)Error: tests_end-to-end.sh not found in root directory.$(NC)"; \
 		exit 1; \
 	fi
 
@@ -168,9 +172,9 @@ endif
 # Real Time Meter
 # ==============================================================================
 
-real-time-meter: real-time-meter-umik-1 ## Run the real time meter using the UMIK-1 (Default alias)
+real-time-meter: real-time-meter-umik ## Run the real time meter using the UMIK-1 (Default alias)
 
-real-time-meter-umik-1: ## Run the real time meter using the UMIK-1. Requires F=<cal_file>. Use HELP=--help for usage.
+real-time-meter-umik: ## Run the real time meter using the UMIK-1. Requires F=<cal_file>. Use HELP=--help for usage.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for real_time_meter.py...$(NC)"
 	@$(PYTHON) $(APP_DIR)/real_time_meter.py --help
@@ -183,7 +187,7 @@ else
 		exit 1; \
 	fi
 ifndef F
-	$(error Calibration file path not set. Use 'make real-time-meter-umik-1 F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make real-time-meter-umik F="<path/to/calibration_file.txt>"')
 endif
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/real_time_meter.py $(HELP) --device-id $(ID) --calibration-file "$(F)"
 endif
@@ -201,9 +205,9 @@ endif
 # Recording
 # ==============================================================================
 
-record: record-umik-1 ## Record audio using the UMIK-1 (Default alias)
+record: record-umik ## Record audio using the UMIK-1 (Default alias)
 
-record-umik-1: ## Record audio using the UMIK-1. Requires F=<cal_file>. Optional: OUT=<path>.
+record-umik: ## Record audio using the UMIK-1. Requires F=<cal_file>. Optional: OUT=<path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for basic_recorder.py...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py --help
@@ -216,7 +220,7 @@ else
 		exit 1; \
 	fi
 ifndef F
-	$(error Calibration file path not set. Use 'make record-umik-1 F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make record-umik F="<path/to/calibration_file.txt>"')
 endif
 	@echo -e "$(GREEN)>>> Recording to path $(OUT)...$(NC)"
 	@PYTHONPATH=$(SCRIPT_DIR) $(PYTHON) $(APP_DIR)/basic_recorder.py $(HELP) \

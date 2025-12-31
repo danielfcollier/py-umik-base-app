@@ -4,50 +4,65 @@
 
 > **⚠️ Hardware Note:** This version is currently optimized and verified for the **MiniDSP UMIK-1**.
 >
-> The architecture is fully compatible with the **UMIK-2** (supporting 32-bit float/192kHz natively), but specific device auto-detection logic is currently tuned for the UMIK-1. Full UMIK-2 plug-and-play support is **[on the roadmap](#-roadmap-umik-2-support)**.
+> The architecture is fully compatible with the **UMIK-2** (supporting 32-bit float/192kHz natively) and other calibrated microphones, but specific device auto-detection logic is currently tuned for the UMIK-1. Full UMIK-2 plug-and-play support is **[on the roadmap](#-roadmap-umik-2-support)**.
 
-Welcome! Whether you are an audio engineer, a hobbyist, or a developer looking to integrate high-quality audio measurement into your Python projects, this toolkit is for you. It provides a solid foundation (the "Base App") and a suite of ready-to-run tools to record, measure, and calibrate your microphone.
+**Welcome!**
 
-## 🌟 What's Inside?
+Whether you are an audio engineer, a hobbyist, or a developer looking to integrate high-quality audio measurement into your Python projects, this toolkit is for you. It provides a solid foundation (the "Base App") and a suite of ready-to-run tools to record, measure, and calibrate your microphone.
 
-It includes several ready-made applications to get you started immediately:
+## 🌟 Two Ways to Use
 
-* **📋 List Audio Devices:** Scans your computer and lists all connected audio input devices to help you find the specific "Device ID".
-* **🔍 Get UMIK ID:** A helper utility that hunts for a device named "UMIK-1" and prints its ID automatically.
-* **📏 Calibrate:** Reads the UMIK unique calibration file and creates a digital filter to ensure your measurements are scientifically accurate.
+### 1. As a Toolkit (For Users) 🛠️
+
+Out of the box, it includes a suite of polished CLI applications to record, measure, and analyze audio without writing any code.
+
+* **📋 List Audio Devices:** Scans your computer and lists all connected audio input devices.
+* **📏 Calibrate:** Generate scientific FIR filters from your microphone's calibration file.
 * **🎙️ Recorder:** A robust audio recorder that handles file names, directory creation, and buffering to save high-quality WAV files.
-* **📊 Real Time Meter:** A real-time digital meter that displays RMS, dBFS, LUFS (Loudness), and dBSPL (Sound Pressure Level).
+* **📈 Forensic Analysis:** Generate professional charts correlating digital levels with physical pressure.
+* **📊 Real Time Meter:** A real-time digital meter that displays RMS, dBFS, LUFS (Loudness), and dBSP (Sound Pressure Level).
 
 ```text
 INFO AudioConsumerThread [measured_at: 2025-12-14 10:59:17.672282] {'interval_s': '3.0000', 'rms': '0.0180', 'flux': '45.8031', 'dBFS': '-34.9183', 'LUFS': '-30.4443', 'dBSPL': '77.6267'} [audio-metrics]
 ```
 
+### 2. As a Framework (For Developers) 👩‍💻
+
+Stop fighting with `pyaudio` threads and buffer overflows. This project exposes its core `BaseApp` class, allowing you to build custom audio apps in minutes.
+
+* **🛡️ Process Isolation:** Your custom logic runs in a separate process from the audio capture, preventing glitches.
+* **🌐 Distributed by Default:** Your app automatically supports remote streaming via ZeroMQ.
+* **🧩 Plug-and-Play Sinks:** Just implement `handle_audio(chunk)` and let the framework handle the threading, hardware reconnection, and precise timing.
+
+
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 * **Python 3.12+**
 * **PiP**
 
 #### 📦 System Requirements (Audio Libraries)
 
-Depending on your OS, you may need to install low-level audio drivers for `pyaudio`/`sounddevice` and `soundfile` to work.
+You may need low-level audio drivers (`PortAudio`/`LibSndFile`) and ZeroMQ headers depending on your OS.
 
-##### 🐧 Linux (Ubuntu/Debian)
-
-You must install `PortAudio` and `LibSndFile` headers:
-```bash
-sudo apt update && sudo apt install libportaudio2 libsndfile1 ffmpeg -y
-```
-
-##### 🍎 macOS
-
-If you encounter issues, install these libraries via Homebrew:
+**🐧 Linux (Debian/Ubuntu):**
 
 ```bash
-brew install portaudio libsndfile
+sudo apt update && sudo apt install libportaudio2 libsndfile1 ffmpeg libzmq3-dev -y
 ```
 
-##### 🪟 Windows
+> 🍓 Raspberry Pi 4 Model B: ✅ Verified.
+>
+> This toolkit is fully compatible with the Raspberry Pi 4 B. It serves as an excellent platform for building standalone, headless acoustic monitoring stations or portable measurement rigs.
+
+**🍎 macOS:**
+
+```bash
+brew install portaudio libsndfile zeromq
+```
+
+**🪟 Windows**
 
 Generally, Python wheels include the necessary binaries. If you have issues, ensure you have the latest Visual C++ Redistributable installed. For the UMIK series, no special driver is needed (standard USB Audio Class), but ASIO4ALL is an optional recommendation for low-latency exclusive access.
 
@@ -57,58 +72,143 @@ Generally, Python wheels include the necessary binaries. If you have issues, ens
 pip install umik-base-app
 ```
 
-### 🍓 Hardware Compatibility
+## 🏗️ Under the Hood: Process Isolation
 
-This project is lightweight and efficient, making it perfect for embedded devices.
+This project uses a **Producer-Consumer** architecture to guarantee audio stability. It supports two distinct operational modes depending on your requirements:
 
-#### Raspberry Pi 4 Model B: ✅ Verified.
+### 1. Monolithic Mode (Default)
+By default (no flags), the application runs as a **Single Process** using threads. This is the simplest way to run the app for desktop usage or quick testing. The Producer and Consumer share memory and communicate via a highly efficient, thread-safe queue.
 
-> This toolkit is fully compatible with the Raspberry Pi 4 B. It serves as an excellent platform for building standalone, headless acoustic monitoring stations or portable measurement rigs.
+### 2. The Daemon Philosophy (Priority & Reliability) 🛡️
+For mission-critical monitoring, you can break the monolith. Unlike standard Python scripts that use *threads* (which share the same CPU core and are limited by the GIL), this mode allows you to run the **Producer** and **Consumer** as completely separate **System Processes**.
 
-## 🏗️ Under the Hood: The Base App
+* **The Producer (Ear):** Captures audio and broadcasts it via ZeroMQ. It has no GUI, no heavy math, and uses minimal RAM. We run this with **Real-Time Priority** (`nice -n -20`) so the OS *always* lets it run, even if the system is under load.
+* **The Consumer (Brain):** Subscribes to the stream to calculate FFTs, render plots, or run AI models. If this process hangs or crashes, the audio stream remains unbroken.
 
-Curious how it works? This project isn't just a script; it's a multi-threaded framework designed for stability.
+```mermaid
+graph TD
+    subgraph "High Priority Process (Nice -20)"
+        Mic((🎤 UMIK)) -->|Capture| Producer[Producer Daemon]
+        Producer -->|ZMQ PUB| Socket[Localhost:5555]
+    end
 
-**The "Producer-Consumer" Model**: Instead of doing everything in one loop (which can cause audio glitches), the work has been split:
+    subgraph "Standard User Process"
+        Socket -.->|ZMQ SUB| Consumer[Consumer App]
+        Consumer -->|Heavy Math| Analysis[FFT / AI / Plot]
+    end
+```
 
-1. **The Ear (Producer)**: One thread does nothing but listen to the hardware and put audio into a queue.
-2. **The Brain (Consumer)**: Another thread takes audio from the queue and processes it (calculates metrics, saves to disk, etc.).
+### 3. Distributed Mode (Remote Monitoring) 🌐
+
+Because the components communicate over TCP/IP, you aren't limited to one machine. You can capture audio on a Raspberry Pi and monitor it on your workstation.
 
 ```mermaid
 graph LR
-    Mic((🎤 UMIK)) -->|Raw Audio| Producer[Listener Thread]
-    Producer -->|Buffer| Queue[Queue]
-    Queue -->|Audio| Consumer[Consumer Thread]
+    subgraph "Raspberry Pi (Edge)"
+        Producer[Producer Daemon] -->|Broadcast| Wifi((📶 WiFi))
+    end
     
-    Consumer -->|Execute| Calibrator[Calibrator]
-    Calibrator -->|Clean Audio| Meter[Decibel Meter]
-    Calibrator -->|Clean Audio| Recorder[Recorder]
+    subgraph "Laptop (Remote)"
+        Wifi -->|Subscribe| Consumer[Real Time Meter]
+    end
 ```
 
 *Want to dive deeper? Check out the [Architecture Documentation](./docs/ARCHITECTURE.md).*
+
+## 💻 How to Run
+
+Whether you are testing on your laptop or deploying to a headless Raspberry Pi, there is a mode for you.
+
+### 1. The "Quick Start" (Monolithic Mode)
+*Best for: Testing, Development, and simple Desktop usage.*
+
+Run everything in a single process. It is the easiest way to verify your hardware works.
+
+```bash
+# List available devices to find your ID
+umik-list-devices
+
+# Run the meter (Default Mic)
+umik-real-time-meter
+
+# Run with UMIK-1 Calibration
+umik-real-time-meter --calibration-file "umik-1/700.txt"
+```
+
+### 2. The "Unstoppable Ear" (Daemon Mode) 🛡️
+
+*Best for: Critical Monitoring on a single machine.*
+
+To prevent audio glitches caused by heavy processing or GUI lag, run the capture process as a high-priority system daemon.
+
+**Step 1: Start the Daemon (Producer)**
+Use `nice -n -20` to give the audio capture maximum CPU priority. It will broadcast data locally on port 5555.
+
+```bash
+# Requires sudo to set negative nice values
+sudo nice -n -20 umik-real-time-meter --producer --calibration-file "umik-1/700.txt" --zmq-port 5555
+```
+
+**Step 2: Start the App (Consumer)**
+Connect your GUI or Recorder to the running daemon. You can open, close, or crash this app without ever breaking the audio stream.
+
+```bash
+umik-real-time-meter --consumer --zmq-host localhost --zmq-port 5555
+```
+
+### 3. The "Remote Sentry" (Distributed Mode) 🌐
+
+*Best for: IoT, Headless Pis, and Remote Monitoring.*
+
+Capture audio in one room (e.g., a server closet) and visualize it in another.
+
+**On the Raspberry Pi (Edge Node):**
+
+```bash
+# Start the stream
+umik-real-time-meter --producer --calibration-file "umik-1/700.txt" --zmq-port 5555
+```
+
+**On your Laptop (Workstation):**
+
+```bash
+# Connect over WiFi
+umik-real-time-meter --consumer --zmq-host 192.168.1.50 --zmq-port 5555
+```
+
+### 4. Universal Recording 🎙️
+
+The `umik-recorder` tool works in all modes. You can record directly from hardware or "tap in" to an existing stream to save it to disk.
+
+```bash
+# Option A: Direct Recording (Monolithic)
+umik-recorder --calibration-file "umik-1/700.txt" --output-dir "local_recordings"
+
+# Option B: Record a Daemon/Remote Stream (Consumer)
+umik-recorder --consumer --zmq-host 192.168.1.50 --zmq-port 5555 --output-dir "remote_recordings"
+```
 
 ## 📂 Understanding Calibration Files
 
 The microphone in the UMIK Series are measurement microphones, meaning they rely on a software file to correct their frequency response.
 
-When you download your unique files from MiniDSP (using your serial number, e.g., `7175488`), you will get `.txt` files. When you run this app, it calculates a digital filter and saves a "Cache" file (`.npy`) so it starts up instantly next time.
-
-Here is what the file structure looks like:
+When you download your unique files from MiniDSP (e.g., `7175488`), you will get `.txt` files. This app uses them to generate a digital FIR filter.
 
 ```
 ./umik-1/
-├── 7175488.txt                     <-- Standard Calibration (0° / On-Axis). Use this for pointing at speakers.
-├── 7175488_90deg.txt               <-- 90° Calibration. Use this for ambient room measurement (mic pointing at ceiling).
+├── 7175488.txt                     <-- 0° (On-Axis). Point at speakers.
+├── 7175488_90deg.txt               <-- 90° (Ambient). Point at ceiling.
 ├── 7175488_fir_1024taps_48000hz.npy <-- [GENERATED] The calculated Filter Cache.
 └── ...
 ```
 
 ## 📊 Analysis & Visualization
 
-Beyond real-time monitoring, this toolkit provides powerful scripts to analyze recordings "offline". This is perfect for tuning trigger thresholds or generating reports for noise complaints.
+Beyond real-time monitoring, this toolkit provides powerful scripts to analyze recordings "offline".
 
 1. **Single File Analysis**
 Calculates RMS, Flux, dBFS, LUFS, and dBSPL (if calibrated) for a specific WAV file and saves it to CSV.
+
 ```bash
 umik-metrics-analyzer "file.wav" --calibration-file "umik-1/700.txt"
 ```
@@ -133,57 +233,73 @@ Below is an actual analysis generated by the toolkit. It shows the correlation b
 * **View Raw Data:** [sample_recording_metrics.csv](./sample_recording_metrics.csv)
 * **View High-Res Chart:** [sample_recording_metrics.png](./sample_recording_metrics.png)
 
-## 💻 How to Run
 
-There are easy-to-use commands for every tool.
+To address this, you should add a **"For Developers"** section. This is crucial because it transforms your project from a "Tool" into a "Framework" in the eyes of the user.
 
-1. **List Devices:**
-```bash
-umik-list-devices
+You want to show that `BaseApp`, `AudioPipeline`, and `AudioSink` are reusable building blocks.
+
+Here is the suggested section to add to your `README.md`. I recommend placing it right after the **"How to Run"** section.
+
+## 👩‍💻 For Developers: Build Your Own App
+
+`umik-base-app` isn't just a set of tools; it's a framework. You can use it to build your own custom audio applications - like a baby monitor, a clap detector, or a secure stream recorder - without writing a single line of threading or hardware code.
+
+The framework handles the heavy lifting (Producer-Consumer isolation, ZMQ transport, hardware watchdog) so you can focus on the logic.
+
+### Minimal Example: A "Loudness Printer"
+Here is how you can build a custom app in fewer than 30 lines of code.
+
+**1. Define your Logic (The Sink)**
+Inherit from `AudioSink` and implement `handle_audio`. This method receives the raw numpy arrays from the pipeline.
+
+```python
+import numpy as np
+from umik_base_app.core.interfaces import AudioSink
+
+class LoudnessPrinterSink(AudioSink):
+    def handle_audio(self, audio_chunk: np.ndarray, timestamp):
+        # Calculate simple RMS
+        rms = np.sqrt(np.mean(audio_chunk**2))
+        
+        if rms > 0.05:
+            print(f"[{timestamp}] 📢 LOUD NOISE DETECTED: {rms:.4f}")
 ```
 
-2. **Calibrate:**
-```bash
-umik-calibrate "umik-1/700.txt"
+**2. Assemble the App**
+Create a standard `BaseApp` and attach your sink to the pipeline.
+
+```python
+from umik_base_app.config import AppArgs
+from umik_base_app.core.base_app import BaseApp
+from umik_base_app.core.pipeline import AudioPipeline
+
+def main():
+    # 1. Get standard Configuration (CLI args + Defaults)
+    # This automatically handles --device-id, --producer, --consumer flags!
+    args = AppArgs.get_args()
+    config = AppArgs.validate_args(args)
+
+    # 2. Build the Pipeline
+    pipeline = AudioPipeline()
+    pipeline.add_sink(LoudnessPrinterSink())
+
+    # 3. Run the App
+    # BaseApp handles the threading, ZMQ, and hardware lifecycle
+    app = BaseApp(app_config=config, pipeline=pipeline)
+    app.run()
+
+if __name__ == "__main__":
+    main()
 ```
 
-3. **Run Real Time Meter:**
-```bash
-# Default Mic
-umik-real-time-meter
+### Why use the Framework?
 
-# UMIK-1 (Requires calibration file)
-umik-real-time-meter --calibration-file "umik-1/700.txt"
-```
+By using `BaseApp`, your custom script automatically inherits all the advanced features:
 
-4. **Record Audio:**
-```bash
-# Default Mic
-umik-recorder
+* **ZeroMQ Support:** Your "Loudness Printer" can instantly work over the network by running it with `--consumer`.
+* **Process Isolation:** You can run your script as a GUI app without blocking the audio capture.
+* **Calibration:** You can easily add the `HardwareCalibratorAdapter` to the pipeline to get scientifically accurate data before your Sink sees it.
 
-# UMIK-1 (Requires calibration file)
-umik-recorder --calibration-file "umik-1/700.txt" --output-dir "my_folder"
-```
-
-5. **Audio Analysis & Visualization:**
-
-**Step 1:** Analyze a WAV file to generate a time-series CSV containing RMS, dBFS, LUFS, and dBSPL data.
-```bash
-# Analyze raw audio (Relative dBFS only)
-umik-metrics-analyzer "recordings/my_audio.wav"
-
-# Analyze with calibration (Absolute dBSPL & LUFS)
-umik-metrics-analyzer "recordings/my_audio.wav" --calibration-file "umik-1/700.txt"
-```
-
-**Step 2:** Visualize the Results. Create a professional dual-axis plot.
-```bash
-# Open interactive plot window
-umik-metrics-plot "analysis.csv"
-
-# Save plot to an image file (PNG)
-umik-metrics-plot "analysis.csv" --save "chart.png"
-```
 
 ## 🗺️ Roadmap: UMIK-2 Support
 
@@ -207,6 +323,6 @@ If you are interested in taking this further, check out my **Edge AI Acoustic Mo
 
 ## 🤝 Contributing
 
-Found a bug? Want to help implement UMIK-2 support? Check out [CONTRIBUTING.md](https://github.com/danielfcollier/py-umik-base-app/CONTRIBUTING.md) to see how to run tests, lint your code, and submit Pull Requests.
+Found a bug? Want to help implement UMIK-2 or other digtal microphone support? Check out [CONTRIBUTING.md](https://github.com/danielfcollier/py-umik-base-app/CONTRIBUTING.md).
 
 **Happy listening! 🎧**

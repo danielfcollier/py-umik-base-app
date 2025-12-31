@@ -80,7 +80,7 @@ You can run the built-in applications directly using `make` targets.
     make real-time-meter-default-mic
     
     # Run specifically with a UMIK-1 (requires calibration file path in F variable)
-    make real-time-meter-umik-1 F="path/to/calib.txt"
+    make real-time-meter-umik F="path/to/calib.txt"
     ```
 
 * **Audio Recorder:** Runs the recording utility.
@@ -89,7 +89,7 @@ You can run the built-in applications directly using `make` targets.
     make record-default-mic
     
     # Record with UMIK-1 (requires calibration file)
-    make record-umik-1 F="path/to/calib.txt"
+    make record-umik F="path/to/calib.txt"
     ```
 
 *(Note: Use `make help` to see all available commands).*
