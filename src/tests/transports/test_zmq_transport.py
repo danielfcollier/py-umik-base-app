@@ -17,8 +17,8 @@ import pytest
 import zmq
 
 from umik_base_app.settings import get_settings
-from umik_base_app.transport.queue_transport import QueueInMemoryTransport
-from umik_base_app.transport.zmq_transport import (
+from umik_base_app.transports.queue_transport import QueueInMemoryTransport
+from umik_base_app.transports.zmq_transport import (
     ZmqConsumerTransport,
     ZmqProducerTransport,
 )

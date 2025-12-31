@@ -9,7 +9,6 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -23,13 +22,3 @@ class AudioTransformer(Protocol):
     """
 
     def process_audio(self, audio_chunk: np.ndarray) -> np.ndarray: ...
-
-
-@runtime_checkable
-class AudioSink(Protocol):
-    """
-    Protocol for components that consume audio data (e.g., Recorder, Meter, GUI).
-    Input: Final Audio -> Output: None (Side Effect)
-    """
-
-    def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None: ...

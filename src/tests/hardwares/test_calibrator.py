@@ -12,8 +12,8 @@ from unittest.mock import mock_open, patch
 import numpy as np
 import pytest
 
-from umik_base_app.hardware.cache_strategy import NoOpFilterCache
-from umik_base_app.hardware.calibrator import HardwareCalibrator
+from umik_base_app.hardwares.cache_strategy import NoOpFilterCache
+from umik_base_app.hardwares.calibrator import HardwareCalibrator
 from umik_base_app.settings import get_settings
 
 settings = get_settings()
@@ -46,7 +46,7 @@ def mock_firwin2():
     Mocks scipy.signal.firwin2 to avoid complex DSP calculations during tests.
     Returns a simple impulse response (identity filter).
     """
-    with patch("umik_base_app.hardware.calibrator.firwin2") as mock:
+    with patch("umik_base_app.hardwares.calibrator.firwin2") as mock:
         # Create a mock filter array.
         # HardwareCalibrator designs a filter of length `num_taps`.
         # firwin2 returns `numtaps` coefficients.
