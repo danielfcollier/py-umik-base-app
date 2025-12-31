@@ -72,7 +72,7 @@ class ConsumerThread:
         while not self._stop_event.is_set():
             try:
                 # Retrieve the tuple (audio_chunk, timestamp) from the queue
-                audio_chunk, timestamp = self._transport.recv(timeout=self._consumer_queue_timeout_seconds)
+                audio_chunk, timestamp = self._transport.recv(timeout_seconds=self._consumer_queue_timeout_seconds)
 
                 if self._stop_event.is_set():
                     logger.debug("Stop event detected. Discarding remaining queue items.")
