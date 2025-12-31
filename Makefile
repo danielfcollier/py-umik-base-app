@@ -17,7 +17,7 @@ CSPELL_VERSION = "latest"
 SCRIPT_DIR      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 SRC_DIR         := $(SCRIPT_DIR)/src
 DOCS_DIR        := $(SCRIPT_DIR)/docs
-APP_DIR         := $(SRC_DIR)/py_umik/apps
+APP_DIR         := $(SRC_DIR)/umik_base_app/apps
 SCRIPTS_DIR     := $(SRC_DIR)/scripts
 
 # Calibration file path (MUST be set when calling relevant targets)
@@ -243,7 +243,7 @@ endif
 metrics-analyzer: ## Analyze a WAV file. Requires IN=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_analyzer.py...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_analyzer --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_analyzer --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make metrics-analyzer IN=recordings/file.wav'$(NC)"; \
@@ -251,7 +251,7 @@ else
 	fi
 	@echo -e "$(YELLOW)>>> Analyzing audio file: $(IN)...$(NC)"
 	$(if $(F),@echo -e "$(GREEN)>>> Using Calibration: $(F)$(NC)")
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_analyzer "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_analyzer "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
 endif
@@ -279,28 +279,28 @@ endif
 plot-view: ## View metrics chart. Requires IN=<csv_path>. Optional: METRICS="dbfs lufs".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-view IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Opening plot viewer...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot "$(IN)" \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
 
 plot-save: ## Save metrics chart. Requires IN=<csv_path>. Optional: PLOT_OUT=<png_path>, METRICS="...".
 ifeq ($(HELP),--help)
 	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot --help
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-save IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Generating plot image...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m py_umik.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot "$(IN)" \
 		--save $(if $(PLOT_OUT),"$(PLOT_OUT)") \
 		$(if $(METRICS),--metrics $(METRICS))
 endif

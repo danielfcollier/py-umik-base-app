@@ -85,7 +85,7 @@ The lifecycle of a single audio chunk flows as follows:
 ## 4. Key Directories
 
 The project structure separates reusable library code from specific application logic:
-- `src/py_umik/` **(Core Framework)**:
+- `src/umik_base_app/` **(Core Framework)**:
   - Contains generic, reusable components.
   - `core/`: Threading logic (`ListenerThread`, `ConsumerThread`), `pipeline.py`, and `Queue` management.
   - `hardware/`: Hardware selection (`HardwareSelector`), configuration, and `HardwareCalibrator` logic.
@@ -93,7 +93,7 @@ The project structure separates reusable library code from specific application 
   - `processing/`: Core processing logic like `audio_metrics.py`.
   - **_Design Rule_**: Code here should not depend on specific CLI arguments or application states.
 
-- `src/py_umik/apps` **(Application Layer)**:
+- `src/umik_base_app/apps` **(Application Layer)**:
   - Contains the concrete entry points (apps) that stitch the library components together.
   - `basic_recorder.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `Recorder` (Sink).
   - `real_time_meter.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `MetricsSink` (Sink).

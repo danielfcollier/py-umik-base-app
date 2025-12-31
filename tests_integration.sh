@@ -90,10 +90,10 @@ fi
 
 # B. Pip Commands
 log "Checking 'umik-list-devices'..."
-umik-list-devices > /dev/null && pass || fail
+uv run umik-list-devices > /dev/null && pass || fail
 
 log "Checking 'umik-list-devices --only'..."
-if umik-list-devices --only > /dev/null 2>&1; then
+if uv run umik-list-devices --only > /dev/null 2>&1; then
     pass
 else
     warn "(No UMIK-1 detected via Pip)"
@@ -113,7 +113,7 @@ else
 
     # B. Pip
     log "Checking 'umik-calibrate'..."
-    umik-calibrate "$CAL_FILE" > /dev/null && pass || fail
+    uv run umik-calibrate "$CAL_FILE" > /dev/null && pass || fail
 fi
 
 # ==============================================================================
@@ -131,8 +131,8 @@ run_app ${TEST_TIME} make real-time-meter-default-mic || fail
 run_app ${TEST_TIME} make record-default-mic OUT="$RECORDING_DIR/make_def" || fail
 
 # Pip
-run_app ${TEST_TIME} umik-real-time-meter --default || fail
-run_app ${TEST_TIME} umik-recorder --default --output-dir "$RECORDING_DIR" || fail
+run_app ${TEST_TIME} uv run umik-real-time-meter --default || fail
+run_app ${TEST_TIME} uv run umik-recorder --default --output-dir "$RECORDING_DIR" || fail
 
 
 # ------------------------------------------------------------------------------
@@ -146,8 +146,8 @@ if [ "$HAS_UMIK" = true ] && [ -f "$CAL_FILE" ]; then
     run_app ${TEST_TIME} make record-umik-1 F="$CAL_FILE" OUT="$RECORDING_DIR/make_arg" || fail
 
     # Pip (Requires --calibration-file)
-    run_app ${TEST_TIME} umik-real-time-meter --calibration-file "$CAL_FILE" || fail
-    run_app ${TEST_TIME} umik-recorder --calibration-file "$CAL_FILE" --output-dir "$RECORDING_DIR" || fail
+    run_app ${TEST_TIME} uv run umik-real-time-meter --calibration-file "$CAL_FILE" || fail
+    run_app ${TEST_TIME} uv run umik-recorder --calibration-file "$CAL_FILE" --output-dir "$RECORDING_DIR" || fail
 else
     warn "Skipping Scenario B (Missing Hardware or Cal File)"
 fi
@@ -163,8 +163,8 @@ if [ "$HAS_UMIK" = true ] && [ -f "$CAL_FILE" ]; then
     export CALIBRATION_FILE="$CAL_FILE"
     
     # Pip (Should auto-detect file from Env)
-    run_app ${TEST_TIME} umik-real-time-meter || fail
-    run_app ${TEST_TIME} umik-recorder --output-dir "$RECORDING_DIR" || fail
+    run_app ${TEST_TIME} uv run umik-real-time-meter || fail
+    run_app ${TEST_TIME} uv run umik-recorder --output-dir "$RECORDING_DIR" || fail
 
     # Clean Env
     unset CALIBRATION_FILE
@@ -207,7 +207,7 @@ fi
 
 # Pip (Default)
 log "Checking 'umik-metrics-analyzer'..."
-umik-metrics-analyzer "$TEST_WAV" --output-file "$TEST_CSV" > /dev/null && pass || fail
+uv run umik-metrics-analyzer "$TEST_WAV" --output-file "$TEST_CSV" > /dev/null && pass || fail
 
 
 # B. Metrics Plotter
@@ -219,7 +219,7 @@ if [ -s "$TEST_CSV" ]; then
     make plot-save IN="$TEST_CSV" PLOT_OUT="$TEST_PLOT" > /dev/null && pass || fail
 
     log "Checking 'umik-metrics-plot'..."
-    umik-metrics-plot "$TEST_CSV" --save "$TEST_PLOT" > /dev/null && pass || fail
+    uv run umik-metrics-plot "$TEST_CSV" --save "$TEST_PLOT" > /dev/null && pass || fail
 else
     echo -e "${RED}✖ FAIL: CSV analysis failed, cannot run plot tests.${NC}"
     EXIT_CODE=1
