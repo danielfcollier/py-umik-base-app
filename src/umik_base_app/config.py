@@ -17,9 +17,9 @@ import math
 import os
 import sys
 
-from .hardwares.calibrator import HardwareCalibrator
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
+from .transformers.calibrator import HardwareCalibrator
 
 settings = get_settings()
 

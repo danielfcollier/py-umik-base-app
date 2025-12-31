@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 import numpy as np
 from scipy.io import wavfile
 
-from umik_base_app.hardwares.calibrator import HardwareCalibrator
 from umik_base_app.sinks.audio_metrics import AudioMetrics
+from umik_base_app.transformers.calibrator import HardwareCalibrator
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)

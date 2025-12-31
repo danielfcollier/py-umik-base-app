@@ -13,10 +13,10 @@ from importlib.metadata import PackageNotFoundError, version
 
 from .core.consumer_thread import ConsumerThread
 from .core.listener_thread import ListenerThread
-from .hardwares.calibrator import HardwareCalibrator
 from .hardwares.config import HardwareConfig
 from .hardwares.selector import HardwareSelector
 from .sinks.audio_metrics import AudioMetrics
+from .transformers.calibrator import HardwareCalibrator
 
 __all__ = [
     "HardwareCalibrator",
