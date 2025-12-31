@@ -19,7 +19,7 @@ import numpy as np
 import zmq
 
 from ..settings import get_settings
-from .transport import AudioTransport
+from .base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class ZmqProducerTransport(AudioTransport):
         payload = pickle.dumps((audio_chunk, timestamp))
         self.socket.send(payload)
 
-    def recv(self, timeout: float):
+    def recv(self, timeout_seconds: float):
         """
         The Publisher socket is send-only.
 

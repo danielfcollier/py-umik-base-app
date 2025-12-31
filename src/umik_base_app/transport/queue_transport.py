@@ -15,7 +15,7 @@ from datetime import datetime
 
 import numpy as np
 
-from .transport import AudioTransport
+from .base_transport import AudioTransport
 
 
 class QueueInMemoryTransport(AudioTransport):

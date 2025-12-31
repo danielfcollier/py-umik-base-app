@@ -52,7 +52,7 @@ def test_listener_normal_read(mock_deps):
         listener.run()
 
         # Verify put was called
-        q.put_nowait.assert_called()
+        q.send.assert_called()
 
 
 def test_listener_reconnects_on_error(mock_deps):

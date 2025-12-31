@@ -20,7 +20,7 @@ def test_consumer_processes_queue():
     stop_event = threading.Event()
 
     consumer = ConsumerThread(
-        audio_queue=mock_queue, stop_event=stop_event, pipeline=mock_pipeline, consumer_queue_timeout_seconds=0.1
+        transport=mock_queue, stop_event=stop_event, pipeline=mock_pipeline, consumer_queue_timeout_seconds=0.1
     )
 
     # Setup queue side effects:
