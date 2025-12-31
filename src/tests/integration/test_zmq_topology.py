@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from umik_base_app.transport.zmq_transport import ZmqConsumerTransport, ZmqProducerTransport
+from umik_base_app.transports.zmq_transport import ZmqConsumerTransport, ZmqProducerTransport
 
 
 def get_free_port():

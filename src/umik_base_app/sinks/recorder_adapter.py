@@ -15,8 +15,8 @@ from datetime import datetime
 
 import numpy as np
 
-from ..core.interfaces import AudioSink
 from .recorder import IORecorder
+from .sinks_interface import AudioSink
 
 logger = logging.getLogger(__name__)
 

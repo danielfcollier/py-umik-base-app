@@ -10,12 +10,12 @@ import logging
 import threading
 
 from ..config import AppConfig
-from ..hardware.config import HardwareConfig
+from ..hardwares.config import HardwareConfig
 from ..settings import get_settings
-from ..transport.transport import create_transport
+from ..transports.create_transport import create_transport
+from .consumer_pipeline import AudioPipeline
 from .consumer_thread import ConsumerThread
 from .listener_thread import ListenerThread
-from .pipeline import AudioPipeline
 from .thread_app import ThreadApp
 
 logger = logging.getLogger(__name__)

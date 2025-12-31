@@ -19,11 +19,11 @@ import numpy as np
 
 from umik_base_app.config import AppArgs, AppConfig
 from umik_base_app.core.base_app import BaseApp
-from umik_base_app.core.interfaces import AudioSink
-from umik_base_app.core.pipeline import AudioPipeline
-from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from umik_base_app.processing.audio_metrics import AudioMetrics
+from umik_base_app.core.consumer_pipeline import AudioPipeline
+from umik_base_app.hardwares.calibrator_adapter import HardwareCalibratorAdapter
 from umik_base_app.settings import get_settings
+from umik_base_app.sinks.audio_metrics import AudioMetrics
+from umik_base_app.sinks.sinks_interface import AudioSink
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)

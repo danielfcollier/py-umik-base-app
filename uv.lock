@@ -1248,13 +1248,8 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest-cov" },
     { name = "pytest-timeout" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
@@ -1271,6 +1266,7 @@ requires-dist = [
     { name = "pyloudnorm", specifier = "~=0.1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.4.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "~=0.14.1" },
     { name = "scipy", specifier = "~=1.16.2" },
@@ -1278,12 +1274,6 @@ requires-dist = [
     { name = "zmq", specifier = ">=0.0.0" },
 ]
 provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "pytest-timeout", specifier = ">=2.4.0" },
-]
 
 [[package]]
 name = "urllib3"
