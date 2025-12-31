@@ -21,7 +21,7 @@ import sounddevice as sd
 from ..datetime_stamp import DatetimeStamp
 from ..hardware.config import HardwareConfig
 from ..settings import get_settings
-from ..transport.transport import AudioTransport
+from ..transport.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 

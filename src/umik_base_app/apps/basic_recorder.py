@@ -14,12 +14,10 @@ import logging
 import sys
 from pathlib import Path
 
-from umik_base_app.core.config import AppArgs, AppConfig
-
+from umik_base_app.config import AppArgs, AppConfig
 from umik_base_app.core.base_app import BaseApp
 from umik_base_app.core.pipeline import AudioPipeline
 from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from umik_base_app.hardware.config import HardwareConfig
 from umik_base_app.io.recorder import IORecorder
 from umik_base_app.io.recorder_adapter import IORecorderAdapter
 
@@ -44,16 +42,9 @@ class RecorderApp(BaseApp):
 
         self.dir_path = self._prepare_directory(output_dir)
 
-        device_config = HardwareConfig(
-            target_audio_device=app_config.audio_device,
-            sample_rate=app_config.sample_rate,
-            buffer_seconds=app_config.buffer_seconds,
-            high_priority=True,
-        )
-
         self._recorder = IORecorder(
             base_path=self.dir_path,
-            sample_rate=int(device_config.sample_rate),
+            sample_rate=int(app_config.sample_rate),
             channels=1,
             sample_width=2,
         )
@@ -69,7 +60,7 @@ class RecorderApp(BaseApp):
         recorder_sink = IORecorderAdapter(self._recorder)
         pipeline.add_sink(recorder_sink)
 
-        super().__init__(audio_config=device_config, pipeline=pipeline)
+        super().__init__(app_config=app_config, pipeline=pipeline)
 
     def _prepare_directory(self, path_str: str) -> Path:
         """Helper to ensure output directory exists."""

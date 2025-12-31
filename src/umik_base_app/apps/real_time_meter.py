@@ -16,13 +16,12 @@ import sys
 from datetime import datetime
 
 import numpy as np
-from umik_base_app.core.config import AppArgs, AppConfig
 
+from umik_base_app.config import AppArgs, AppConfig
 from umik_base_app.core.base_app import BaseApp
 from umik_base_app.core.interfaces import AudioSink
 from umik_base_app.core.pipeline import AudioPipeline
 from umik_base_app.hardware.calibrator_adapter import HardwareCalibratorAdapter
-from umik_base_app.hardware.config import HardwareConfig
 from umik_base_app.processing.audio_metrics import AudioMetrics
 from umik_base_app.settings import get_settings
 
@@ -124,13 +123,6 @@ class DecibelMeterApp(BaseApp):
     def __init__(self, config: AppConfig):
         logger.debug("Initializing DecibelMeterApp...")
 
-        device_config = HardwareConfig(
-            target_audio_device=config.audio_device,
-            sample_rate=config.sample_rate,
-            buffer_seconds=config.buffer_seconds,
-            high_priority=True,
-        )
-
         pipeline = AudioPipeline()
 
         if config.audio_calibrator:
@@ -141,7 +133,7 @@ class DecibelMeterApp(BaseApp):
         metrics_sink = AudioMetricsAudioSink(config)
         pipeline.add_sink(metrics_sink)
 
-        super().__init__(audio_config=device_config, pipeline=pipeline)
+        super().__init__(app_config=config, pipeline=pipeline)
         logger.info("DecibelMeterApp initialized.")
 
 

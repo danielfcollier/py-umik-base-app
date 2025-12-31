@@ -1,10 +1,6 @@
 """
 Defines the base application class for audio monitoring tasks.
 
-This module provides an abstract layer (BaseApp) built upon ThreadApp,
-specifically tailored for applications that involve audio input streams,
-pipeline processing, and configuration handling.
-
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
 Year: 2025
@@ -13,87 +9,85 @@ Year: 2025
 import logging
 import threading
 
+from ..config import AppConfig
 from ..hardware.config import HardwareConfig
 from ..settings import get_settings
+from ..transport.transport import create_transport
 from .consumer_thread import ConsumerThread
 from .listener_thread import ListenerThread
 from .pipeline import AudioPipeline
 from .thread_app import ThreadApp
 
 logger = logging.getLogger(__name__)
-
-
 settings = get_settings()
 
 
 class BaseApp(ThreadApp):
     """
-    Abstract base class for audio processing applications.
-
-    Extends ThreadApp to specifically set up an audio listener (producer)
-    thread and an audio consumer thread based on provided configuration and
-    processing pipeline.
+    Abstract base class for audio applications.
+    Orchestrates Listener (Producer) and Consumer (Pipeline) threads based on Topology.
     """
 
-    def __init__(self, audio_config: HardwareConfig, pipeline: AudioPipeline):
+    def __init__(self, app_config: AppConfig, pipeline: AudioPipeline):
         """
-        Initializes the BaseApp, setting up configuration and threads.
+        Initializes the application with a unified configuration object.
 
-        :param audio_config: An instance of HardwareConfig containing validated
-                             settings for the audio device and stream (sample rate,
-                             buffer size, device ID, etc.).
-        :param pipeline:     An instance of AudioPipeline configured with the
-                             necessary processors (e.g., HardwareCalibrator) and sinks
-                             (e.g., Recorder, Metrics).
+        :param app_config: Validated AppConfig containing topology and hardware settings.
+        :param pipeline:   Configured AudioPipeline.
         """
-        # Initialize the parent ThreadApp (creates queue, lock, stop_event, thread list).
         super().__init__()
-        logger.debug("BaseApp initializing...")
+        self._config = app_config
+        self._pipeline = pipeline
 
-        # Store the essential configuration and the processing pipeline.
-        self._audio_config: HardwareConfig = audio_config
-        self._pipeline: AudioPipeline = pipeline
+        # Create Transport (ZMQ or In-Memory)
+        self._transport = create_transport(
+            mode=app_config.run_mode, zmq_host=app_config.zmq_host, zmq_port=app_config.zmq_port
+        )
+        logger.info(f"BaseApp initialized in '{app_config.run_mode}' mode.")
 
     def _setup_threads(self):
         """
-        Implementation of the abstract method from ThreadApp.
-        Creates and registers the standard Audio Listener and Consumer threads,
-        wrapping them in the error guard to ensure app shutdown on failure.
+        Sets up threads based on the configured run_mode (Topology).
         """
-        logger.info("Setting up audio listener and consumer threads...")
+        mode = self._config.run_mode
 
-        # --- Create Listener Thread (The "Ear") ---
-        # Instantiates the ListenerThread, which captures raw audio from the hardware device.
-        # It pushes data to self._queue and monitors self._stop_event to ensure
-        # it releases hardware resources and exits the recording loop cleanly on shutdown.
-        listener = ListenerThread(
-            audio_device_config=self._audio_config,
-            audio_queue=self._queue,
-            stop_event=self._stop_event,
-        )
+        # --- Producer Logic (Listener) ---
+        # Active in "monolithic" or "producer" mode.
+        if mode in ["monolithic", "producer"]:
+            if not self._config.audio_device:
+                logger.error("Cannot start Listener: No audio device configured.")
+                return
 
-        listener_thread = threading.Thread(
-            target=self._thread_guard(listener.run),
-            name="ListenerThread",
-        )
-        self._threads.append(listener_thread)
+            # Construct HardwareConfig on-the-fly for the listener
+            hw_config = HardwareConfig(
+                target_audio_device=self._config.audio_device,
+                sample_rate=self._config.sample_rate,
+                buffer_seconds=self._config.buffer_seconds,
+                high_priority=settings.AUDIO.HIGH_PRIORITY,
+            )
 
-        # --- Create Consumer Thread (The "Brain") ---
-        # Instantiates the ConsumerThread, which retrieves audio from self._queue.
-        # It passes data through the pipeline (executing components like the HardwareCalibrator).
-        # The consumer_queue_timeout_seconds prevents blocking forever on an empty queue,
-        # allowing the thread to periodically check self._stop_event and shut down gracefully.
-        consumer = ConsumerThread(
-            audio_queue=self._queue,
-            stop_event=self._stop_event,
-            pipeline=self._pipeline,
-            consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
-        )
+            logger.info("Starting Audio Listener (Producer)...")
+            listener = ListenerThread(
+                audio_device_config=hw_config,
+                transport=self._transport,
+                stop_event=self._stop_event,
+            )
+            self._threads.append(threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread"))
 
-        consumer_thread = threading.Thread(
-            target=self._thread_guard(consumer.run),
-            name="ConsumerThread",
-        )
-        self._threads.append(consumer_thread)
+        # --- Consumer Logic (Brain) ---
+        # Active in "monolithic" or "consumer" mode.
+        if mode in ["monolithic", "consumer"]:
+            logger.info("Starting Audio Consumer (Processor)...")
+            consumer = ConsumerThread(
+                transport=self._transport,
+                stop_event=self._stop_event,
+                pipeline=self._pipeline,
+                consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
+            )
+            self._threads.append(threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread"))
 
-        logger.info(f"Registered {len(self._threads)} standard audio threads.")
+    def close(self):
+        """Clean up transport resources."""
+        if hasattr(self, "_transport"):
+            self._transport.close()
+        super().close()
