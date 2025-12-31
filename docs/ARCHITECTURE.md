@@ -1,56 +1,87 @@
 # Architecture Overview
 
-This document describes the high-level software architecture of the `umik-base-app`. The application is designed for real-time audio processing using a **Producer-Consumer** concurrency model and a modular **Pipeline** pattern for audio handling.
+This document describes the high-level software architecture of the `umik-base-app`. The application is designed for mission-critical audio monitoring using a **Producer-Consumer** pattern that can operate in two modes: **Monolithic** (Threaded) or **Distributed** (Process-Isolated).
 
+## 1. Core Philosophy: The "Ear" vs. The "Brain"
 
-## 1. Concurrency Model (Producer-Consumer)
+To prevent audio glitches (buffer overflows), the application is decoupled into two distinct roles:
 
-The application handles real-time audio by decoupling the **capture** of audio data from its **processing**. This prevents heavy processing tasks (like FFTs or file I/O) from blocking the audio stream and causing buffer overflows (glitches).
+1.  **The Ear (Producer):**
+    * **Responsibility:** Interacts with the hardware driver (`sounddevice`).
+    * **Priority:** Critical. It must never block.
+    * **Behavior:** Captures raw audio, timestamps it, and pushes it to the Transport Layer immediately.
 
-This is achieved using two dedicated threads managed by the `BaseApp` class:
+2.  **The Brain (Consumer):**
+    * **Responsibility:** Analysis, File I/O, Visualization.
+    * **Priority:** Variable. It can lag behind without breaking the recording.
+    * **Behavior:** Pulls data from the Transport Layer and executes the `AudioPipeline`.
 
-1.  **`ListenerThread` (The Producer):**
-    * **Responsibility:** Interacts directly with the hardware via `sounddevice`. It captures raw audio chunks.
-    * **Behavior:** It runs a "Watchdog" loop that handles hardware reconnections. If the microphone disconnects, it attempts to reconnect automatically.
-    * **Output:** Puts tuples of `(audio_chunk, timestamp)` into a thread-safe `queue.Queue`.
+## 2. Transport Layer (The Abstraction)
 
-2.  **`ConsumerThread` (The Consumer):**
-    * **Responsibility:** Monitors the queue for new data.
-    * **Behavior:** It pulls audio chunks from the queue and delegates them to the `AudioPipeline` for processing.
-    * **Output:** Triggers the pipeline execution.
+The "Ear" and "Brain" are connected by an abstract **Transport Layer**. This allows the application to switch its internal communication mechanism at runtime.
 
-### Concurrency Diagram
+### Mode A: Monolithic (In-Memory Queue)
+* **Flag:** Default (No flags).
+* **Mechanism:** `queue.Queue` (Thread-Safe Memory).
+* **Topology:** Single Python Process.
+* **Pros:** Zero latency, simple to debug.
+* **Cons:** Shared GIL (Global Interpreter Lock). Heavy processing in the Consumer can momentarily stall the Producer.
+
 ```mermaid
-graph TD
-    subgraph "Producer Thread"
-        Hardware((Microphone)) -->|Raw Audio| Listener[ListenerThread]
-    end
-
-    Listener -- "Put (Chunk, Timestamp)" --> Queue[("Thread-Safe Queue")]
-
-    subgraph "Consumer Thread"
-        Queue -->|Get| Consumer[ConsumerThread]
-        Consumer -->|Execute| AudioPipeline[AudioPipeline]
+graph LR
+    subgraph "Single Process (GIL Limited)"
+        Mic((🎤 UMIK)) -->|Capture| L[Listener Thread]
+        L -->|"queue.put()"| Q[Memory Queue]
+        Q -->|"queue.get()"| C[Consumer Thread]
+        C -->|Execute| P[Pipeline]
     end
 ```
 
-## 2. The Audio Pipeline Pattern
-Once the `ConsumerThread` retrieves data, it passes it to the `AudioPipeline`. The pipeline implements a modular pattern consisting of **Transformers** and **Sinks**.
+### Mode B: Distributed (ZeroMQ / Process Isolation)
+
+* **Flags:** `--producer` or `--consumer`.
+* **Mechanism:** `ZeroMQ` (TCP Sockets via Pub-Sub).
+* **Topology:** Multiple Isolated Processes (potentially across a network).
+* **Pros:** * **Process Isolation:** The Producer can run as a high-priority system daemon (`nice -n -20`), completely immune to Consumer crashes or lag.
+* **Remote Monitoring:** The Consumer can run on a different computer.
+
+```mermaid
+graph LR
+    subgraph "Process 1: The Ear (Daemon)"
+        Mic((🎤 UMIK)) -->|Capture| L[Listener Thread]
+        L -->|"zmq.send()"| PUB[ZMQ PUB Socket]
+    end
+
+    PUB -.->|TCP/IP| SUB
+
+    subgraph "Process 2: The Brain (App)"
+        SUB[ZMQ SUB Socket] -->|"zmq.recv()"| C[Consumer Thread]
+        C -->|Execute| P[Pipeline]
+    end
+```
+
+## 3. The Audio Pipeline Pattern
+
+Once the `ConsumerThread` retrieves data (from Queue or ZMQ), it passes it to the `AudioPipeline`. This pipeline implements a modular pattern consisting of **Transformers** and **Sinks**.
 
 ### Components
-- `AudioTransformer` **(Transformers)**:
-  - **Role**: Modifies the audio signal.
-  - **Input**: Audio Chunk -> **Output**: Modified Audio Chunk.
-  - **Example**: `HardwareCalibratorAdapter` applies an FIR filter to correct the frequency response.
 
-- `AudioSink` **(Consumers)**:
-  - **Role**: Consumes the final audio signal (side-effects only).
-  - **Input**: Audio Chunk -> **Output**: None.
-  - **Examples**:
-    - `IORecorderAdapter`: Writes audio to a WAV file.
-    - `AudioMetricsSink`: Calculates RMS/LUFS and logs them.
+* `AudioTransformer` **(Transformers)**:
+  * **Role**: Modifies the audio signal.
+  * **Input**: Audio Chunk -> **Output**: Modified Audio Chunk.
+  * **Example**: `HardwareCalibratorAdapter` applies an FIR filter to correct the frequency response.
+
+
+* `AudioSink` **(Consumers)**:
+  * **Role**: Consumes the final audio signal (side-effects only).
+  * **Input**: Audio Chunk -> **Output**: None.
+  * **Examples**:
+  * `IORecorderAdapter`: Writes audio to a WAV file.
+  * `AudioMetricsSink`: Calculates RMS/LUFS and logs them.
+
 
 ### Pipeline Diagram
+
 ```mermaid
 graph LR
     Input([Raw Audio Chunk]) --> Pipeline{AudioPipeline}
@@ -66,39 +97,23 @@ graph LR
     end
 ```
 
-## 3. Data Flow Overview
+## 4. Data Flow Overview
 
 The lifecycle of a single audio chunk flows as follows:
 
-1. **Hardware Capture**: `sounddevice` reads a block of samples (e.g., 1024 frames) from the OS audio buffer.
+1. **Hardware Capture**: `sounddevice` reads a block of samples (e.g., 1024 frames).
+
 2. **Listener**: The `ListenerThread` receives this block and timestamps it.
-3. **Queueing**: The block is pushed to the internal `queue.Queue`.
-4. **Consumption**: The ConsumerThread wakes up, retrieves the block, and calls pipeline.execute().
+
+3. **Transport**:
+   - **Monolithic:** Pushes tuple `(chunk, timestamp)` to `queue.Queue`.
+   - **Distributed:** Serializes tuple via `pickle` and broadcasts via `ZmqProducerTransport`.
+
+4. **Consumption**: The ConsumerThread wakes up, retrieves/deserializes the block.
+
 5. **Transformation**:
-   - If a **Calibrator** is active, the pipeline passes the chunk through the `HardwareCalibrator`.
-   - The calibrator applies an FIR filter (`scipy.signal.lfilter`) to flatten the frequency response.
+    - If a **Calibrator** is active, the pipeline applies an FIR filter (`scipy.signal.lfilter`).
+
 6. **Sinking**:
-   - The pipeline passes the processed chunk to all registered Sinks.
-    - **Recorder Sink**: Writes bytes to disk (handling file rotation if needed).
-    - **Metrics Sink**: Calculates RMS, flux, or accumulates samples for LUFS measurement.
-
-## 4. Key Directories
-
-The project structure separates reusable library code from specific application logic:
-- `src/umik_base_app/` **(Core Framework)**:
-  - Contains generic, reusable components.
-  - `core/`: Threading logic (`ListenerThread`, `ConsumerThread`), `pipeline.py`, and `Queue` management.
-  - `hardware/`: Hardware selection (`HardwareSelector`), configuration, and `HardwareCalibrator` logic.
-  - `io/`: Input/Output operations, specifically the `AudioRecorder` for saving WAV files and its pipeline adapter (`RecorderSink`).
-  - `processing/`: Core processing logic like `audio_metrics.py`.
-  - **_Design Rule_**: Code here should not depend on specific CLI arguments or application states.
-
-- `src/umik_base_app/apps` **(Application Layer)**:
-  - Contains the concrete entry points (apps) that stitch the library components together.
-  - `basic_recorder.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `Recorder` (Sink).
-  - `real_time_meter.py`: A specific app that combines the `HardwareCalibrator` (Transformer) and a `MetricsSink` (Sink).
-  - `list_audio_devices.py`: A utility script to discover system audio hardware and print available Device IDs.
-  - `umik1_calibrator.py`: A utility to test the calibration process, parsing the file and verifying FIR filter generation.
-  - `metrics_analyzer.py`: A post-processing tool that calculates detailed metrics (LUFS, dBSPL, Flux) from recorded WAV files and exports CSVs.
-  - `metrics_plot.py`: A visualization tool that reads analysis CSVs and renders professional time-series charts.
-  - **_Design Rule_**: These files handle `argparse`, logging configuration, and initialization.
+   - **Recorder Sink**: Writes bytes to disk.
+   - **Metrics Sink**: Calculates RMS, flux, or accumulates samples for LUFS measurement.
