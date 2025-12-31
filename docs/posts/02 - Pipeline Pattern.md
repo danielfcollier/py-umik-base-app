@@ -77,6 +77,6 @@ By decoupling the "What" (processing) from the "How" (execution), you a gain mas
 * **High Cohesion:** The Recorder only knows how to write files. The Meter only knows how to do math. They never talk to each other, so breaking one doesn't break the other.
 * **Hot-Swappable:** Want to change from a local WAV recorder to a Cloud Uploader? Just write a new Sink class and `pipeline.add_sink(CloudUploader())`. The core logic remains untouched.
 
-Check out the code in `src/py_umik/core/pipeline.py` to see how simple building complex audio tools can be! 👇
+Check out the code in `src/umik_base_app/core/pipeline.py` to see how simple building complex audio tools can be! 👇
 
 #SoftwareArchitecture #DesignPatterns #Python #AudioEngineering #PipelinePattern #CleanCode #Refactoring
