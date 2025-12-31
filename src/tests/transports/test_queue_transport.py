@@ -9,7 +9,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from umik_base_app.transport.queue_transport import QueueInMemoryTransport
+from umik_base_app.transports.queue_transport import QueueInMemoryTransport
 
 
 # --- InMemory Tests ---

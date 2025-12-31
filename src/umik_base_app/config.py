@@ -17,8 +17,8 @@ import math
 import os
 import sys
 
-from .hardware.calibrator import HardwareCalibrator
-from .hardware.selector import HardwareNotFound, HardwareSelector
+from .hardwares.calibrator import HardwareCalibrator
+from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
 
 settings = get_settings()

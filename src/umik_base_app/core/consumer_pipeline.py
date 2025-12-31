@@ -1,5 +1,5 @@
 """
-Implements the audio processing pipeline manager.
+Implements the audio sinks pipeline manager.
 
 This module defines the AudioPipeline class, responsible for orchestrating the flow
 of audio data through a sequence of processors (transformers) and delivering the
@@ -14,7 +14,8 @@ from datetime import datetime
 
 import numpy as np
 
-from .interfaces import AudioSink, AudioTransformer
+from umik_base_app.sinks.sinks_interface import AudioSink
+from umik_base_app.transformers.transformers_interface import AudioTransformer
 
 
 class AudioPipeline:
