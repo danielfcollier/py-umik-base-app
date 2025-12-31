@@ -21,8 +21,8 @@ import sys
 import numpy as np
 from scipy.io import wavfile
 
-from src.umik_base_app.hardwares.calibrator import HardwareCalibrator
 from src.umik_base_app.sinks.audio_metrics import AudioMetrics
+from src.umik_base_app.transformers.calibrator import HardwareCalibrator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)

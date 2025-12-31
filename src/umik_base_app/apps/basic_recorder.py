@@ -17,9 +17,9 @@ from pathlib import Path
 from umik_base_app.config import AppArgs, AppConfig
 from umik_base_app.core.base_app import BaseApp
 from umik_base_app.core.consumer_pipeline import AudioPipeline
-from umik_base_app.hardwares.calibrator_adapter import HardwareCalibratorAdapter
 from umik_base_app.sinks.recorder import IORecorder
 from umik_base_app.sinks.recorder_adapter import IORecorderAdapter
+from umik_base_app.transformers.calibrator_adapter import HardwareCalibratorAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)

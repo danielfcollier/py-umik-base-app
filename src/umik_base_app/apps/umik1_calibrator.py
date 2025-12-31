@@ -15,8 +15,8 @@ import logging
 import os
 import sys
 
-from umik_base_app.hardwares.calibrator import HardwareCalibrator
 from umik_base_app.settings import get_settings
+from umik_base_app.transformers.calibrator import HardwareCalibrator
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
