@@ -6,9 +6,8 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-from unittest.mock import patch
+from unittest.mock import patch, sentinel
 
-import numpy as np
 import pytest
 
 from umik_base_app import AudioMetrics
@@ -38,35 +37,34 @@ def test_flux(metrics):
     """Test that flux calls librosa and returns the max value."""
     # Mock librosa to avoid actual DSP calculation
     with patch("umik_base_app.core.audio_metrics.librosa.onset.onset_strength") as mock_onset:
-        # Return a dummy envelope with a known max
-        mock_onset.return_value = np.array([0.1, 0.5, 0.2])
+        # We also need to mock np.max if we want to avoid real math,
+        # OR we can just return a real array and let np.max work.
+        # Using a real array is cleaner for 'max' logic, but we can verify the call arguments with sentinel.
+        mock_onset.return_value = [0.1, 0.5, 0.2]
 
-        chunk = np.zeros(1024)
-        result = metrics.flux(chunk, SAMPLE_RATE)
+        result = metrics.flux(sentinel.chunk, SAMPLE_RATE)
 
         assert result == 0.5
-        mock_onset.assert_called_once()
+        mock_onset.assert_called_once_with(y=sentinel.chunk, sr=SAMPLE_RATE)
 
 
 def test_lufs_aggregation(metrics):
     """Test adding chunks and retrieving/clearing them."""
-    chunk1 = np.array([0.1, 0.2])
-    chunk2 = np.array([0.3, 0.4])
-
-    # 1. Add chunks
-    metrics.aggregate_lufs_chunks(chunk1)
-    metrics.aggregate_lufs_chunks(chunk2)
+    # 1. Add sentinel chunks
+    metrics.aggregate_lufs_chunks(sentinel.chunk1)
+    metrics.aggregate_lufs_chunks(sentinel.chunk2)
 
     # 2. Verify internal state (white-box testing)
     assert len(metrics._lufs_chunks) == 2
+    assert metrics._lufs_chunks[0] is sentinel.chunk1
 
     # 3. Retrieve chunks
     retrieved = metrics.get_lufs_chunks()
 
     # 4. Verify retrieval and clearing
     assert len(retrieved) == 2
-    assert np.array_equal(retrieved[0], chunk1)
-    assert np.array_equal(retrieved[1], chunk2)
+    assert retrieved[0] is sentinel.chunk1
+    assert retrieved[1] is sentinel.chunk2
     assert len(metrics._lufs_chunks) == 0  # Should be cleared
 
 

@@ -7,12 +7,9 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-import pickle
 import queue
-from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, sentinel
 
-import numpy as np
 import pytest
 import zmq
 
@@ -37,29 +34,26 @@ def test_zmq_producer_initialization(mock_context):
     assert transport.socket == mock_socket
 
 
+@patch("umik_base_app.transports.zmq_transport.pickle")
 @patch("zmq.Context")
-def test_zmq_producer_send_serialization(mock_context):
+def test_zmq_producer_send_serialization(mock_context, mock_pickle):
     """Test that data is pickled before sending."""
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
+    # Configure mock pickle to return a sentinel byte string
+    mock_pickle.dumps.return_value = sentinel.pickled_bytes
+
     transport = ZmqProducerTransport(host="*", port=5555, messages=100)
 
-    # Data to send
-    audio_chunk = np.array([1, 2, 3])
-    timestamp = datetime.now()
-    data = (audio_chunk, timestamp)
+    # FIX: Pass a tuple (chunk, timestamp) because send() unpacks it
+    transport.send((sentinel.chunk, sentinel.timestamp))
 
-    transport.send(data)
+    # Verify pickle was called with the tuple
+    mock_pickle.dumps.assert_called_once_with((sentinel.chunk, sentinel.timestamp))
 
-    # Verify socket.send was called with bytes
-    mock_socket.send.assert_called_once()
-    sent_payload = mock_socket.send.call_args[0][0]
-
-    # Verify we can unpickle it back to original data
-    unpickled = pickle.loads(sent_payload)
-    np.testing.assert_array_equal(unpickled[0], audio_chunk)
-    assert unpickled[1] == timestamp
+    # Verify socket.send was called with the result of pickle.dumps
+    mock_socket.send.assert_called_once_with(sentinel.pickled_bytes)
 
 
 @patch("zmq.Context")
@@ -68,12 +62,12 @@ def test_zmq_consumer_initialization(mock_context):
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
-    ZmqConsumerTransport(host="127.0.0.1", port=5555)
+    # FIX: Added required 'messages' argument
+    ZmqConsumerTransport(host="127.0.0.1", port=5555, messages=100)
 
     mock_socket.connect.assert_called_with("tcp://127.0.0.1:5555")
-    mock_socket.setsockopt.assert_any_call(
-        zmq.RCVHWM, settings.ZMQ.MESSAGES or 100
-    )  # zmq.LINGER check implies cleanup safety
+    # Verify RCVHWM is set
+    mock_socket.setsockopt.assert_any_call(zmq.RCVHWM, 100)
 
 
 @patch("zmq.Context")
@@ -91,8 +85,9 @@ def test_zmq_consumer_recv_timeout(mock_context):
         transport.recv(timeout_seconds=0.1)
 
 
+@patch("umik_base_app.transports.zmq_transport.pickle")
 @patch("zmq.Context")
-def test_zmq_consumer_recv_success(mock_context):
+def test_zmq_consumer_recv_success(mock_context, mock_pickle):
     """Test that Consumer correctly unpickles received data."""
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
@@ -102,11 +97,15 @@ def test_zmq_consumer_recv_success(mock_context):
     # 1. Poll returns success
     mock_socket.poll.return_value = 1
 
-    # 2. Recv returns pickled data
-    original_data = (np.array([10, 20]), datetime.now())
-    mock_socket.recv.return_value = pickle.dumps(original_data)
+    # 2. Recv returns specific sentinel bytes
+    mock_socket.recv.return_value = sentinel.raw_bytes
+
+    # 3. Pickle loads returns sentinel data object
+    mock_pickle.loads.return_value = sentinel.unpickled_data
 
     received_data = transport.recv(timeout_seconds=0.1)
 
-    np.testing.assert_array_equal(received_data[0], original_data[0])
-    assert received_data[1] == original_data[1]
+    # Verify flow
+    mock_socket.recv.assert_called_once()
+    mock_pickle.loads.assert_called_once_with(sentinel.raw_bytes)
+    assert received_data is sentinel.unpickled_data
