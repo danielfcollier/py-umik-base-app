@@ -1,5 +1,5 @@
 """
-Unit tests for FilterCacheStrategy implementations.
+Unit tests for CalibratorCacheStrategy implementations.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -10,12 +10,12 @@ from unittest.mock import patch
 
 import numpy as np
 
-from umik_base_app.transformers.cache_strategy import FileFilterCache, NoOpFilterCache
+from umik_base_app.transformers.calibrator_cache_strategy import FileCalibratorCache, NoOpCalibratorCache
 
 
 def test_file_cache_load_success():
     """Test loading existing file via numpy."""
-    cache = FileFilterCache()
+    cache = FileCalibratorCache()
     fake_data = np.array([1, 2, 3])
 
     with patch("os.path.exists", return_value=True):
@@ -28,7 +28,7 @@ def test_file_cache_load_success():
 
 def test_file_cache_load_missing():
     """Test load returns None if file doesn't exist."""
-    cache = FileFilterCache()
+    cache = FileCalibratorCache()
 
     with patch("os.path.exists", return_value=False):
         result = cache.load("missing.npy")
@@ -37,7 +37,7 @@ def test_file_cache_load_missing():
 
 def test_file_cache_save_exception():
     """Test that save handles exceptions gracefully (logs error, doesn't crash)."""
-    cache = FileFilterCache()
+    cache = FileCalibratorCache()
     data = np.zeros(5)
 
     with patch("numpy.save", side_effect=PermissionError("Boom")):
@@ -47,6 +47,6 @@ def test_file_cache_save_exception():
 
 def test_noop_cache():
     """Test that NoOp cache does nothing."""
-    cache = NoOpFilterCache()
+    cache = NoOpCalibratorCache()
     assert cache.load("anything") is None
     cache.save("anything", np.zeros(1))

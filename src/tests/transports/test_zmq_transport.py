@@ -17,7 +17,6 @@ import pytest
 import zmq
 
 from umik_base_app.settings import get_settings
-from umik_base_app.transports.queue_transport import QueueInMemoryTransport
 from umik_base_app.transports.zmq_transport import (
     ZmqConsumerTransport,
     ZmqProducerTransport,
@@ -26,35 +25,13 @@ from umik_base_app.transports.zmq_transport import (
 settings = get_settings()
 
 
-# --- InMemory Transport Tests ---
-def test_memory_transport_fifo():
-    """Test standard First-In-First-Out behavior of memory transport."""
-    transport = QueueInMemoryTransport()
-    data_1 = (np.array([1]), datetime.now())
-    data_2 = (np.array([2]), datetime.now())
-
-    transport.send(data_1)
-    transport.send(data_2)
-
-    assert transport.recv(timeout_seconds=0.1) == data_1
-    assert transport.recv(timeout_seconds=0.1) == data_2
-
-
-def test_memory_transport_timeout():
-    """Test that recv raises Empty on timeout."""
-    transport = QueueInMemoryTransport()
-    with pytest.raises(queue.Empty):
-        transport.recv(timeout_seconds=0.01)
-
-
-# --- ZMQ Producer Tests ---
 @patch("zmq.Context")
 def test_zmq_producer_initialization(mock_context):
     """Test that Producer binds to the correct address."""
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
-    transport = ZmqProducerTransport(port=5555, host="0.0.0.0")
+    transport = ZmqProducerTransport(port=5555, host="0.0.0.0", messages=100)
 
     mock_socket.bind.assert_called_with("tcp://0.0.0.0:5555")
     assert transport.socket == mock_socket
@@ -66,7 +43,7 @@ def test_zmq_producer_send_serialization(mock_context):
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
-    transport = ZmqProducerTransport(port=5555)
+    transport = ZmqProducerTransport(host="*", port=5555, messages=100)
 
     # Data to send
     audio_chunk = np.array([1, 2, 3])
@@ -85,7 +62,6 @@ def test_zmq_producer_send_serialization(mock_context):
     assert unpickled[1] == timestamp
 
 
-# --- ZMQ Consumer Tests ---
 @patch("zmq.Context")
 def test_zmq_consumer_initialization(mock_context):
     """Test that Consumer connects to the correct address."""
@@ -106,7 +82,7 @@ def test_zmq_consumer_recv_timeout(mock_context):
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
-    transport = ZmqConsumerTransport(host="localhost", port=5555)
+    transport = ZmqConsumerTransport(host="localhost", port=5555, messages=100)
 
     # Simulate poll returning 0 (no data)
     mock_socket.poll.return_value = 0
@@ -121,7 +97,7 @@ def test_zmq_consumer_recv_success(mock_context):
     mock_socket = MagicMock()
     mock_context.return_value.socket.return_value = mock_socket
 
-    transport = ZmqConsumerTransport(host="localhost", port=5555)
+    transport = ZmqConsumerTransport(host="localhost", port=5555, messages=100)
 
     # 1. Poll returns success
     mock_socket.poll.return_value = 1

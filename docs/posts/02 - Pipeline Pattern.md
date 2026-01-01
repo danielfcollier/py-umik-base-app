@@ -14,7 +14,7 @@ In `umik-base-app`, I formalized this into two distinct component types:
 
 1. **🧩 Transformers (The "Effects Pedals"):**
 These take raw audio, modify it, and pass it on.
-* *Example:* The `HardwareCalibrator`. It applies a real-time FIR filter to flatten the microphone's frequency response. The rest of the app doesn't even know it's happening - it just receives clean, "effected" audio.
+* *Example:* The `CalibratorTransformer`. It applies a real-time FIR filter to flatten the microphone's frequency response. The rest of the app doesn't even know it's happening - it just receives clean, "effected" audio.
 
 
 2. **🚰 Sinks (The "Amps" & "Recorders"):**
@@ -29,7 +29,7 @@ graph LR
     Input([Raw Audio]) --> Pipeline{AudioPipeline}
     
     subgraph "Transformation (Effects)"
-        Pipeline --> Calib[HardwareCalibrator]
+        Pipeline --> Calib[CalibratorTransformer]
         Calib -->|Calibrated Signal| Splitter((Fan-Out))
     end
     
@@ -55,7 +55,7 @@ pipeline = AudioPipeline()
 
 # 1. Add Effects (Transformers)
 # This applies the FIR filter to correct the UMIK-1's frequency response
-pipeline.add_transformer(HardwareCalibrator("umik-1/700xxxx.txt"))
+pipeline.add_transformer(CalibratorTransformer("umik-1/700xxxx.txt"))
 
 # 2. Plug in Destinations (Sinks)
 # Record to disk...

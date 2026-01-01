@@ -2,7 +2,7 @@
 Defines strategies for caching filter coefficients.
 
 This module allows decoupling the persistence logic (file I/O) from the
-HardwareCalibrator, facilitating unit testing without side effects (file creation).
+CalibratorTransformer, facilitating unit testing without side effects (file creation).
 
 Author: Daniel Collier
 Year: 2025
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
-class FilterCacheStrategy(Protocol):
+class CalibratorCacheStrategy(Protocol):
     """
     Protocol for caching and retrieving numpy arrays (filter taps).
     """
@@ -37,7 +37,7 @@ class FilterCacheStrategy(Protocol):
         ...
 
 
-class FileFilterCache:
+class FileCalibratorCache:
     """
     Concrete implementation that saves/loads filters to the filesystem.
     The 'key' is expected to be a valid file path.
@@ -68,7 +68,7 @@ class FileFilterCache:
             logger.error(f"Failed to save filter cache to '{key}'. Error: {e}")
 
 
-class NoOpFilterCache:
+class NoOpCalibratorCache:
     """
     A dummy implementation for testing that does nothing.
     Ensures no files are created during tests.

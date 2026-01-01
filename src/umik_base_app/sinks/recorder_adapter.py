@@ -1,7 +1,7 @@
 """
 Defines the sink adapter for the audio recorder.
 
-This module implements the `AudioSink` protocol, allowing the `IORecorder`
+This module implements the `AudioSink` protocol, allowing the `RecorderSink`
 to be used as a destination in the `AudioPipeline`. It handles data type conversion
 (Float32 -> Int16) required for standard WAV format.
 
@@ -15,18 +15,18 @@ from datetime import datetime
 
 import numpy as np
 
-from .recorder import IORecorder
-from .sinks_interface import AudioSink
+from .recorder_sink import RecorderSink
+from .sinks_protocol import AudioSink
 
 logger = logging.getLogger(__name__)
 
 
-class IORecorderAdapter(AudioSink):
+class RecorderSinkAdapter(AudioSink):
     """
     Adapts the RecordingManager to the AudioSink protocol.
     """
 
-    def __init__(self, manager: IORecorder):
+    def __init__(self, manager: RecorderSink):
         """
         Initializes the adapter.
 

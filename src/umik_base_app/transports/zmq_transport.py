@@ -18,12 +18,9 @@ from datetime import datetime
 import numpy as np
 import zmq
 
-from ..settings import get_settings
 from .base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
-
-settings = get_settings()
 
 
 class ZmqProducerTransport(AudioTransport):
@@ -35,7 +32,7 @@ class ZmqProducerTransport(AudioTransport):
     over the network.
     """
 
-    def __init__(self, host: str = settings.ZMQ.HOST, port: int = settings.ZMQ.PORT):
+    def __init__(self, host: str, port: int, messages: int):
         """
         Initializes the ZMQ Publisher socket.
 
@@ -48,7 +45,7 @@ class ZmqProducerTransport(AudioTransport):
         # SNDHWM (Send High Water Mark): Sets a limit on how many messages are
         # queued in memory before the socket starts dropping or blocking.
         # A value of 100 provides a safety buffer for transient network jitter.
-        self.socket.setsockopt(zmq.SNDHWM, settings.ZMQ.MESSAGES or 100)
+        self.socket.setsockopt(zmq.SNDHWM, messages)
 
         address = f"tcp://{host}:{port}"
         self.socket.bind(address)
@@ -94,7 +91,7 @@ class ZmqConsumerTransport(AudioTransport):
     on a workstation or server to collect data broadcast by edge producers.
     """
 
-    def __init__(self, host: str = settings.ZMQ.HOST, port: int = settings.ZMQ.PORT):
+    def __init__(self, host: str, port: int, messages: int):
         """
         Initializes the ZMQ Subscriber socket and connects to a host.
 
@@ -109,7 +106,7 @@ class ZmqConsumerTransport(AudioTransport):
 
         # RCVHWM (Receive High Water Mark): Prevents memory exhaustion if the
         # consumer pipeline processing is slower than the incoming data rate.
-        self.socket.setsockopt(zmq.RCVHWM, settings.ZMQ.MESSAGES or 100)
+        self.socket.setsockopt(zmq.RCVHWM, messages)
 
         address = f"tcp://{host}:{port}"
         self.socket.connect(address)

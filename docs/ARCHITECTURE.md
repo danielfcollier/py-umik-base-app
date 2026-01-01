@@ -69,14 +69,14 @@ Once the `ConsumerThread` retrieves data (from Queue or ZMQ), it passes it to th
 * `AudioTransformer` **(Transformers)**:
   * **Role**: Modifies the audio signal.
   * **Input**: Audio Chunk -> **Output**: Modified Audio Chunk.
-  * **Example**: `HardwareCalibratorAdapter` applies an FIR filter to correct the frequency response.
+  * **Example**: `CalibratorAdapter` applies an FIR filter to correct the frequency response.
 
 
 * `AudioSink` **(Consumers)**:
   * **Role**: Consumes the final audio signal (side-effects only).
   * **Input**: Audio Chunk -> **Output**: None.
   * **Examples**:
-  * `IORecorderAdapter`: Writes audio to a WAV file.
+  * `RecorderSinkAdapter`: Writes audio to a WAV file.
   * `AudioMetricsSink`: Calculates RMS/LUFS and logs them.
 
 
@@ -87,7 +87,7 @@ graph LR
     Input([Raw Audio Chunk]) --> Pipeline{AudioPipeline}
     
     subgraph "Processing Stage (Sequential)"
-        Pipeline --> Proc1[Transformer 1<br/>e.g., HardwareCalibrator]
+        Pipeline --> Proc1[Transformer 1<br/>e.g., CalibratorTransformer]
         Proc1 -->|Calibrated Audio| Proc2[Transformer N...]
     end
     

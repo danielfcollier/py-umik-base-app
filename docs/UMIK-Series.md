@@ -64,8 +64,8 @@ The process has three phases:
 
 This happens once, every time your `umik-base-app` starts.
 
-1. **Check for Cache:** The `HardwareCalibrator` looks for a pre-computed filter file (e.g., `..._fir_1024taps_48000hz.npy`).
-2. **Design Filter (First Run):** If no cache is found, the `HardwareCalibrator`:
+1. **Check for Cache:** The `CalibratorTransformer` looks for a pre-computed filter file (e.g., `..._fir_1024taps_48000hz.npy`).
+2. **Design Filter (First Run):** If no cache is found, the `CalibratorTransformer`:
 * Reads the frequency/gain pairs from your `.txt` file.
 * Uses `scipy.signal.firwin2` to design a digital **FIR (Finite Impulse Response) filter**. This filter applies the *exact inverse* of your microphone's unique frequency response.
 * Saves the filter coefficients to a `.npy` cache file for instant startup next time.
@@ -77,14 +77,14 @@ This happens once, every time your `umik-base-app` starts.
 This is the core of the process inside the Consumer Thread:
 
 1. **Receive Raw Audio:** The thread gets a raw chunk (e.g., `float32` array) from the input queue.
-2. **Apply Filter:** It passes the chunk to `HardwareCalibrator.apply()`. This uses `scipy.signal.lfilter` to convolve the audio with the correction filter.
+2. **Apply Filter:** It passes the chunk to `CalibratorTransformer.apply()`. This uses `scipy.signal.lfilter` to convolve the audio with the correction filter.
 3. **Process Further:** **All subsequent operations** - Metrics (RMS/Flux), LUFS calculation, and recording- are performed on this clean, calibrated audio.
 
 This ensures that every piece of data your application analyzes is a scientifically accurate representation of the acoustic environment.
 
 ### Optional Step: Adjusting Filter Complexity
 
-If you find that the real-time correction is consuming too much CPU (e.g., on a Raspberry Pi Zero), you can reduce the load by adjusting the **number of filter taps** in `HardwareCalibrator`:
+If you find that the real-time correction is consuming too much CPU (e.g., on a Raspberry Pi Zero), you can reduce the load by adjusting the **number of filter taps** in `CalibratorTransformer`:
 
 * `num_taps=1024` (Default): High accuracy, higher CPU.
 * `num_taps=512` or `256`: Lower CPU, but reduced accuracy in the low-frequency range (20Hz-250Hz).

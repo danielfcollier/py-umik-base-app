@@ -9,15 +9,17 @@ Year: 2025
 
 import logging
 
-from ..operational_mode import OperationalMode
-from .base_transport import AudioTransport
-from .queue_transport import QueueInMemoryTransport
-from .zmq_transport import ZmqConsumerTransport, ZmqProducerTransport
+from .core.operational_mode import OperationalMode
+from .transports.base_transport import AudioTransport
+from .transports.queue_transport import QueueInMemoryTransport
+from .transports.zmq_transport import ZmqConsumerTransport, ZmqProducerTransport
 
 logger = logging.getLogger(__name__)
 
 
-def create_transport(mode: str, zmq_host: str | None = None, zmq_port: int | None = None) -> AudioTransport:
+def create_transport(
+    mode: str, zmq_host: str | None = None, zmq_port: int | None = None, zmq_messages: int | None = None
+) -> AudioTransport:
     """
     Factory to create the correct transport instance based on the application mode.
 
@@ -35,9 +37,9 @@ def create_transport(mode: str, zmq_host: str | None = None, zmq_port: int | Non
         return QueueInMemoryTransport()
     elif OperationalMode.is_producer(mode):
         logger.debug(f"Creating ZMQ producer transport on port {zmq_port}.")
-        return ZmqProducerTransport(port=zmq_port)
+        return ZmqProducerTransport(host=zmq_host, port=zmq_port, messages=zmq_messages)
     elif OperationalMode.is_consumer(mode):
         logger.debug(f"Creating ZMQ consumer transport connecting to {zmq_host}:{zmq_port}.")
-        return ZmqConsumerTransport(host=zmq_host, port=zmq_port)
+        return ZmqConsumerTransport(host=zmq_host, port=zmq_port, messages=zmq_messages)
     else:
         raise ValueError(f"Unknown mode: {mode}")

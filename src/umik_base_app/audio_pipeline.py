@@ -14,8 +14,8 @@ from datetime import datetime
 
 import numpy as np
 
-from umik_base_app.sinks.sinks_interface import AudioSink
-from umik_base_app.transformers.transformers_interface import AudioTransformer
+from .sinks.sinks_protocol import AudioSink
+from .transformers.transformers_protocol import AudioTransformer
 
 
 class AudioPipeline:

@@ -17,7 +17,7 @@ import numpy as np
 @runtime_checkable
 class AudioTransformer(Protocol):
     """
-    Protocol for components that transform audio data (e.g., HardwareCalibrator, Filter).
+    Protocol for components that transform audio data (e.g., CalibratorTransformer, Filter).
     Input: Raw Audio -> Output: Processed Audio
     """
 

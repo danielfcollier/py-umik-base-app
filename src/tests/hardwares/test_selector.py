@@ -11,7 +11,6 @@ from unittest.mock import patch
 
 import pytest
 
-# Ensure both the class and the exception are imported
 from umik_base_app.hardwares.selector import HardwareNotFound, HardwareSelector
 
 # Mock device list returned by sd.query_devices()

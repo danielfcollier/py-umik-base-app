@@ -18,10 +18,10 @@ import threading
 
 import sounddevice as sd
 
-from ..datetime_stamp import DatetimeStamp
-from ..hardwares.config import HardwareConfig
-from ..settings import get_settings
-from ..transports.base_transport import AudioTransport
+from .core.datetime_stamp import DatetimeStamp
+from .hardware_config import HardwareConfig
+from .settings import get_settings
+from .transports.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 

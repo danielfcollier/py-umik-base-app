@@ -103,7 +103,7 @@ check: lint test ## Run all checks.
 	@echo -e "$(GREEN)>>> All checks passed.$(NC)"
 
 test: ## Run unit tests with pytest.
-	@echo -e "$(GREEN)>>> Running umit tests...$(NC)"
+	@echo -e "$(GREEN)>>> Running unit tests...$(NC)"
 	@$(PYTHON) -m pytest -m "not integration"
 
 test-integration: ## Run integration tests

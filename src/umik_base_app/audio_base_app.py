@@ -9,20 +9,20 @@ Year: 2025
 import logging
 import threading
 
-from ..config import AppConfig
-from ..hardwares.config import HardwareConfig
-from ..settings import get_settings
-from ..transports.create_transport import create_transport
-from .consumer_pipeline import AudioPipeline
+from .app_config import AppConfig
+from .audio_pipeline import AudioPipeline
+from .base_thread_app import BaseThreadApp
 from .consumer_thread import ConsumerThread
+from .create_transport import create_transport
+from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
-from .thread_app import ThreadApp
+from .settings import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-class BaseApp(ThreadApp):
+class AudioBaseApp(BaseThreadApp):
     """
     Abstract base class for audio applications.
     Orchestrates Listener (Producer) and Consumer (Pipeline) threads based on Topology.
@@ -43,7 +43,7 @@ class BaseApp(ThreadApp):
         self._transport = create_transport(
             mode=app_config.run_mode, zmq_host=app_config.zmq_host, zmq_port=app_config.zmq_port
         )
-        logger.info(f"BaseApp initialized in '{app_config.run_mode}' mode.")
+        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode}' mode.")
 
     def _setup_threads(self):
         """
