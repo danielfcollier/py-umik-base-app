@@ -4,9 +4,8 @@ Mocks ZMQ to verify logic without networking.
 """
 
 import queue
-from datetime import datetime
+from unittest.mock import sentinel
 
-import numpy as np
 import pytest
 
 from umik_base_app import QueueInMemoryTransport
@@ -14,12 +13,14 @@ from umik_base_app import QueueInMemoryTransport
 
 def test_memory_transport_fifo():
     transport = QueueInMemoryTransport()
-    data = (np.zeros(10), datetime.now())
 
-    transport.send(data)
+    # Send a sentinel object
+    transport.send(sentinel.payload)
+
+    # Verify we receive the exact same object instance
     received = transport.recv(timeout_seconds=0.1)
 
-    assert received == data
+    assert received is sentinel.payload
 
 
 def test_memory_transport_timeout():

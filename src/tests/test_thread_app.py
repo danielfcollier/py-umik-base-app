@@ -13,7 +13,7 @@ from umik_base_app.base_thread_app import BaseThreadApp
 
 
 class ConcreteApp(BaseThreadApp):
-    """Helper class to instantiate abstract BaseThreadApp."""
+    """Helper class to instantiate abstract ThreadApp."""
 
     def _setup_threads(self):
         # Create a dummy thread

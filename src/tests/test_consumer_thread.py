@@ -8,14 +8,14 @@ Year: 2025
 
 import queue
 import threading
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, sentinel
 
 from umik_base_app.consumer_thread import ConsumerThread
 
 
 def test_consumer_processes_queue():
     """Test that consumer fetches items via transport and executes pipeline."""
-    mock_transport = MagicMock()  # This replaces the old mock_queue
+    mock_transport = MagicMock()
     mock_pipeline = MagicMock()
     stop_event = threading.Event()
 
@@ -24,14 +24,10 @@ def test_consumer_processes_queue():
     )
 
     # Setup transport side effects:
-    # 1. Return valid data (chunk, timestamp)
+    # 1. Return valid data (sentinels)
     # 2. Raise queue.Empty to simulate timeout
-    chunk = MagicMock()
-    timestamp = "12:00:00"
-
-    # FIX: Mock .recv() instead of .get()
     mock_transport.recv.side_effect = [
-        (chunk, timestamp),
+        (sentinel.chunk, sentinel.timestamp),
         queue.Empty,
     ]
 
@@ -43,8 +39,8 @@ def test_consumer_processes_queue():
     t.join(timeout=0.2)
     stop_event.set()
 
-    # Verify pipeline was called with correct args
-    mock_pipeline.execute.assert_called_with(chunk, timestamp)
+    # Verify pipeline was called with exactly the objects returned by transport
+    mock_pipeline.execute.assert_called_with(sentinel.chunk, sentinel.timestamp)
 
 
 def test_consumer_handles_pipeline_error():
@@ -61,7 +57,7 @@ def test_consumer_handles_pipeline_error():
     mock_pipeline.execute.side_effect = Exception("Processing Error")
 
     # Transport returns valid data
-    mock_transport.recv.return_value = (MagicMock(), "ts")
+    mock_transport.recv.return_value = (sentinel.chunk, sentinel.timestamp)
 
     # Start thread
     t = threading.Thread(target=consumer.run)

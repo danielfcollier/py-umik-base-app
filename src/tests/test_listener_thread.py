@@ -7,7 +7,7 @@ Year: 2025
 """
 
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, sentinel
 
 import pytest
 import sounddevice as sd
@@ -18,7 +18,8 @@ from umik_base_app.listener_thread import ListenerThread
 @pytest.fixture
 def mock_deps():
     config = MagicMock()
-    config.id = 1
+    # Use sentinel for ID to verify exact pass-through
+    config.id = sentinel.device_id
     config.sample_rate = 48000
     config.block_size = 1024
 
@@ -27,32 +28,42 @@ def mock_deps():
     return config, q, stop
 
 
-def test_listener_normal_read(mock_deps):
+@patch("umik_base_app.listener_thread.DatetimeStamp")
+def test_listener_normal_read(mock_datetime, mock_deps):
     """Test normal reading from stream."""
     config, q, stop = mock_deps
     listener = ListenerThread(config, q, stop)
+
+    # Setup Timestamp mock
+    mock_datetime.get.return_value = sentinel.timestamp
 
     # Mock Stream
     with patch("sounddevice.InputStream") as mock_stream_cls:
         # Get the instance returned by the context manager
         mock_stream = mock_stream_cls.return_value.__enter__.return_value
 
-        # Setup read to return data then stop
-        fake_data = MagicMock()
-        fake_data.ndim = 2
-        fake_data.flatten.return_value = fake_data  # simplfy
+        # We use a MagicMock to simulate the array properties required by logic (e.g., .ndim)
+        mock_audio_data = MagicMock()
+        mock_audio_data.ndim = 1  # Pretend it is already 1D to skip flattening
 
-        # Define side effect to stop the loop after one read
-        def stop_side_effect(*args):
-            stop.set()
-            return (fake_data, False)  # (data, overflow)
+        # Define side effect to allow one successful read, then stop on the next
+        call_counter = 0
 
-        mock_stream.read.side_effect = stop_side_effect
+        def smart_side_effect(*args):
+            nonlocal call_counter
+            call_counter += 1
+            if call_counter > 1:
+                stop.set()
+            # Return (data, overflow_flag)
+            return (mock_audio_data, False)
+
+        mock_stream.read.side_effect = smart_side_effect
 
         listener.run()
 
-        # Verify put was called
-        q.send.assert_called()
+        # Verify put was called with (audio_chunk, timestamp)
+        # The previous failure was expecting (audio_chunk, False), which was incorrect.
+        q.send.assert_called_with((mock_audio_data, sentinel.timestamp))
 
 
 def test_listener_reconnects_on_error(mock_deps):
@@ -69,8 +80,14 @@ def test_listener_reconnects_on_error(mock_deps):
 
         # 2. Configure the successful stream to break the loop immediately
         valid_stream_instance = success_stream_mock.__enter__.return_value
-        # When read() is called: set stop event, then return dummy data
-        valid_stream_instance.read.side_effect = lambda x: stop.set() or (MagicMock(), False)
+
+        mock_audio_data = MagicMock()
+        mock_audio_data.ndim = 1
+
+        # On the successful stream, just set stop immediately to exit loop clean
+        # We also need to patch DatetimeStamp here if we want strictly clean logs,
+        # but for this test we only care about the reconnection logic (mock_stream_cls calls).
+        valid_stream_instance.read.side_effect = lambda x: stop.set() or (mock_audio_data, False)
 
         # 3. Assign side_effect with the Error first, then the Configured Mock
         mock_stream_cls.side_effect = [

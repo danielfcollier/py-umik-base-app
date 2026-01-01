@@ -42,6 +42,8 @@ def mock_sounddevice():
     with patch("umik_base_app.hardwares.selector.sd") as mock_sd:
         mock_sd.query_devices.return_value = MOCK_DEVICES
         # Mock sd.default.device = [input_id, output_id]
+        # Use sentinels here doesn't make sense if the code uses these as indexes into MOCK_DEVICES
+        # So we stick to the integer indices defined above.
         mock_sd.default.device = [0, 2]
         yield mock_sd
 
@@ -52,7 +54,7 @@ def test_select_default_device(mock_sounddevice):
 
     assert selector.id == 0
     assert selector.name == "Default Mic"
-    assert selector.is_default is False  # Name is "Default Mic", not "default"
+    assert selector.is_default is False
     assert selector.native_rate == 44100.0
 
 
@@ -68,7 +70,6 @@ def test_select_specific_device(mock_sounddevice):
 def test_device_not_found_raises_exception(mock_sounddevice):
     """
     Test that selecting a non-existent device raises HardwareNotFound.
-    (Updated from SystemExit to Exception based on recent refactor).
     """
     # ID 99 does not exist in MOCK_DEVICES
     with pytest.raises(HardwareNotFound, match="Device with ID 99 not found"):
