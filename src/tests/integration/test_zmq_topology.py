@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from umik_base_app.transports.zmq_transport import ZmqConsumerTransport, ZmqProducerTransport
+from umik_base_app import ZmqConsumerTransport, ZmqProducerTransport
 
 
 def get_free_port():
@@ -35,10 +35,11 @@ def test_real_zmq_socket_transmission():
     """
     port = get_free_port()
     host = "127.0.0.1"
+    messages = 100
 
     # --- 1. Setup Topology ---
-    producer = ZmqProducerTransport(port=port, host="*")
-    consumer = ZmqConsumerTransport(host=host, port=port)
+    producer = ZmqProducerTransport(port=port, host="*", messages=messages)
+    consumer = ZmqConsumerTransport(host=host, port=port, messages=messages)
 
     # Allow ZMQ internal handshake (PUB/SUB "slow joiner" syndrome)
     time.sleep(0.2)

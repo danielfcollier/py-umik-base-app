@@ -1,5 +1,5 @@
 """
-Unit tests for ThreadApp.
+Unit tests for BaseThreadApp.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -9,11 +9,11 @@ Year: 2025
 import threading
 from unittest.mock import MagicMock, patch
 
-from umik_base_app.core.thread_app import ThreadApp
+from umik_base_app.base_thread_app import BaseThreadApp
 
 
-class ConcreteApp(ThreadApp):
-    """Helper class to instantiate abstract ThreadApp."""
+class ConcreteApp(BaseThreadApp):
+    """Helper class to instantiate abstract BaseThreadApp."""
 
     def _setup_threads(self):
         # Create a dummy thread

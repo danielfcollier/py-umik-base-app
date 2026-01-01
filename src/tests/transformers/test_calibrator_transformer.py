@@ -1,5 +1,5 @@
 """
-Unit tests for the HardwareCalibrator class.
+Unit tests for the CalibratorTransformer class.
 Uses mocking to avoid file I/O and verify filter design logic.
 
 Author: Daniel Collier
@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 
 from umik_base_app.settings import get_settings
-from umik_base_app.transformers.cache_strategy import NoOpFilterCache
-from umik_base_app.transformers.calibrator import HardwareCalibrator
+from umik_base_app.transformers.calibrator_cache_strategy import NoOpCalibratorCache
+from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 settings = get_settings()
 
@@ -46,9 +46,9 @@ def mock_firwin2():
     Mocks scipy.signal.firwin2 to avoid complex DSP calculations during tests.
     Returns a simple impulse response (identity filter).
     """
-    with patch("umik_base_app.transformers.calibrator.firwin2") as mock:
+    with patch("umik_base_app.transformers.calibrator_transformer.firwin2") as mock:
         # Create a mock filter array.
-        # HardwareCalibrator designs a filter of length `num_taps`.
+        # CalibratorTransformer designs a filter of length `num_taps`.
         # firwin2 returns `numtaps` coefficients.
         # The code calls firwin2 with (num_taps - 1), so we return that many.
 
@@ -66,12 +66,12 @@ def test_initialization_parses_file_and_designs_filter(mock_firwin2):
     """
     # Mock 'open' to read our dummy string instead of a real file
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)) as mock_file:
-        # Initialize HardwareCalibrator with NoOp cache (crucial for isolation)
-        calibrator = HardwareCalibrator(
+        # Initialize CalibratorTransformer with NoOp cache (crucial for isolation)
+        calibrator = CalibratorTransformer(
             calibration_file_path="/fake/path/cal.txt",
             sample_rate=48000,
             num_taps=1024,
-            cache_strategy=NoOpFilterCache(),
+            cache_strategy=NoOpCalibratorCache(),
         )
 
         # 1. Verify file was opened correctly
@@ -96,11 +96,11 @@ def test_apply_maintains_shape(mock_firwin2):
     a calibrated array of the same shape.
     """
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
-        calibrator = HardwareCalibrator(
+        calibrator = CalibratorTransformer(
             calibration_file_path="/fake/path/cal.txt",
             sample_rate=48000,
             num_taps=1024,
-            cache_strategy=NoOpFilterCache(),
+            cache_strategy=NoOpCalibratorCache(),
         )
 
         # Create a dummy audio chunk (e.g., 100ms at 48k)
@@ -125,7 +125,7 @@ def test_get_sensitivity_values_parsing():
         settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS = -18.0
         settings.HARDWARE.REFERENCE_DBSPL = 94.0
 
-        sens_dbfs, ref_spl = HardwareCalibrator.get_sensitivity_values("dummy.txt")
+        sens_dbfs, ref_spl = CalibratorTransformer.get_sensitivity_values("dummy.txt")
 
         # Calculation: Nominal(-18.0) + Factor(-12.5) = -30.5
         assert sens_dbfs == -30.5
@@ -138,4 +138,4 @@ def test_get_sensitivity_values_missing_header():
 
     with patch("builtins.open", mock_open(read_data=dummy_content)):
         with pytest.raises(ValueError, match="not found"):
-            HardwareCalibrator.get_sensitivity_values("dummy.txt")
+            CalibratorTransformer.get_sensitivity_values("dummy.txt")

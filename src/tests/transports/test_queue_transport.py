@@ -9,10 +9,9 @@ from datetime import datetime
 import numpy as np
 import pytest
 
-from umik_base_app.transports.queue_transport import QueueInMemoryTransport
+from umik_base_app import QueueInMemoryTransport
 
 
-# --- InMemory Tests ---
 def test_memory_transport_fifo():
     transport = QueueInMemoryTransport()
     data = (np.zeros(10), datetime.now())

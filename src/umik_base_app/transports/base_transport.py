@@ -12,11 +12,7 @@ from datetime import datetime
 
 import numpy as np
 
-from ..settings import get_settings
-
 logger = logging.getLogger(__name__)
-
-settings = get_settings()
 
 
 class AudioTransport(ABC):

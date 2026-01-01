@@ -14,7 +14,7 @@ import logging
 import wave
 from pathlib import Path
 
-from ..datetime_stamp import DatetimeStamp
+from ..core.datetime_stamp import DatetimeStamp
 from ..settings import get_settings
 
 settings = get_settings()
@@ -22,7 +22,7 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
-class IORecorder:
+class RecorderSink:
     """
     Manages WAV file recording with automatic file rotation.
     """

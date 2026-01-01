@@ -25,8 +25,8 @@ from datetime import datetime, timedelta
 import numpy as np
 from scipy.io import wavfile
 
-from umik_base_app.sinks.audio_metrics import AudioMetrics
-from umik_base_app.transformers.calibrator import HardwareCalibrator
+from umik_base_app import AudioMetrics
+from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class MetricsAnalyzer:
     def _load_calibration(self, path: str):
         """Helper to parse the UMIK-1 calibration file."""
         try:
-            sens, ref = HardwareCalibrator.get_sensitivity_values(path)
+            sens, ref = CalibratorTransformer.get_sensitivity_values(path)
             self.sensitivity = sens
             self.reference = ref
             logger.info(f"Calibration Loaded: Sens={sens:.2f}dB, Ref={ref:.1f}dB")

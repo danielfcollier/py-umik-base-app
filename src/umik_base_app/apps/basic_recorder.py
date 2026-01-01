@@ -2,7 +2,7 @@
 Application script for recording audio to a WAV file.
 
 This script sets up a recording pipeline that captures audio (optionally calibrated)
-and writes it to disk using the IORecorder library. It treats the output path as a
+and writes it to disk using the RecorderSink library. It treats the output path as a
 directory and automatically generates a timestamped filename.
 
 Author: Daniel Collier
@@ -14,21 +14,24 @@ import logging
 import sys
 from pathlib import Path
 
-from umik_base_app.config import AppArgs, AppConfig
-from umik_base_app.core.base_app import BaseApp
-from umik_base_app.core.consumer_pipeline import AudioPipeline
-from umik_base_app.sinks.recorder import IORecorder
-from umik_base_app.sinks.recorder_adapter import IORecorderAdapter
-from umik_base_app.transformers.calibrator_adapter import HardwareCalibratorAdapter
+from umik_base_app import (
+    AppArgs,
+    AppConfig,
+    AudioBaseApp,
+    AudioPipeline,
+)
+from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
+from umik_base_app.sinks.recorder_sink import RecorderSink
+from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 
-class RecorderApp(BaseApp):
+class RecorderApp(AudioBaseApp):
     """
     A concrete application for recording audio streams to a WAV file.
-    Combines the IORecorder with the BaseApp threading model.
+    Combines the RecorderSink with the AudioBaseApp threading model.
     """
 
     def __init__(self, app_config: AppConfig, output_dir: str):
@@ -42,7 +45,7 @@ class RecorderApp(BaseApp):
 
         self.dir_path = self._prepare_directory(output_dir)
 
-        self._recorder = IORecorder(
+        self._recorder = RecorderSink(
             base_path=self.dir_path,
             sample_rate=int(app_config.sample_rate),
             channels=1,
@@ -54,10 +57,10 @@ class RecorderApp(BaseApp):
 
         if app_config.audio_calibrator:
             logger.info("Adding Calibration Processor to pipeline.")
-            calibrator_adapter = HardwareCalibratorAdapter(app_config.audio_calibrator)
+            calibrator_adapter = CalibratorAdapter(app_config.audio_calibrator)
             pipeline.add_transformer(calibrator_adapter)
 
-        recorder_sink = IORecorderAdapter(self._recorder)
+        recorder_sink = RecorderSinkAdapter(self._recorder)
         pipeline.add_sink(recorder_sink)
 
         super().__init__(app_config=app_config, pipeline=pipeline)

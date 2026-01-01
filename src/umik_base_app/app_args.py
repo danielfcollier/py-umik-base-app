@@ -17,51 +17,14 @@ import math
 import os
 import sys
 
+from .app_config import AppConfig
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
-from .transformers.calibrator import HardwareCalibrator
+from .transformers.calibrator_transformer import CalibratorTransformer
 
 settings = get_settings()
 
 logger = logging.getLogger(__name__)
-
-
-class AppConfig:
-    """
-    Holds the validated and processed configuration settings for the audio application.
-    """
-
-    def __init__(
-        self,
-        audio_device: HardwareSelector | None,
-        sample_rate: float,
-        buffer_seconds: float,
-        run_mode: str,
-        zmq_host: str | None = None,
-        zmq_port: int | None = None,
-    ):
-        """
-        Initializes the configuration object.
-
-        :param audio_device: The selected HardwareSelector instance (None if Consumer).
-        :param sample_rate: The final sample rate to be used (native or default).
-        :param buffer_seconds: The validated and adjusted buffer duration in seconds.
-        :param run_mode: The topology mode ('monolithic', 'producer', 'consumer').
-        :param zmq_host: The ZMQ hostname (if applicable).
-        :param zmq_port: The ZMQ port (if applicable).
-        """
-        self.audio_device: HardwareSelector | None = audio_device
-        self.sample_rate: float = sample_rate
-        self.buffer_seconds: float = buffer_seconds
-
-        self.run_mode = run_mode  # "monolithic", "producer", "consumer"
-        self.zmq_host = zmq_host
-        self.zmq_port = zmq_port
-
-        self.audio_calibrator: HardwareCalibrator | None = None
-        self.sensitivity_dbfs: float | None = None
-        self.reference_dbspl: float | None = None
-        self.num_taps: int | None = None
 
 
 class AppArgs:
@@ -179,7 +142,7 @@ class AppArgs:
         - Auto-detects UMIK-1 if calibration file is present but device ID is missing.
         - Selects the audio device (default or specified ID).
         - Determines the final sample rate (uses native rate if calibrating and device is present).
-        - Initializes the HardwareCalibrator and extracts sensitivity if a calibration file is provided.
+        - Initializes the CalibratorTransformer and extracts sensitivity if a calibration file is provided.
 
         :param args: The argparse.Namespace object containing parsed arguments from get_args().
         :return: A populated and validated AppConfig object.
@@ -293,8 +256,8 @@ class AppArgs:
                 )
                 config.sample_rate = final_sample_rate
 
-            sensitivity_dbfs, reference_dbspl = HardwareCalibrator.get_sensitivity_values(args.calibration_file)
-            config.audio_calibrator = HardwareCalibrator(
+            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(args.calibration_file)
+            config.audio_calibrator = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
                 sample_rate=config.sample_rate,
                 num_taps=args.num_taps,

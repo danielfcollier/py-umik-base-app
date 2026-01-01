@@ -26,7 +26,7 @@ umik-real-time-meter
 
 * **Real-Time Feedback:** See your voice move the needle.
 * **RMS & dBFS:** Measure the "digital loudness" of your signal.
-* **Coding Practice:** Explore how the `BaseApp` class handles producer-consumer threading to keep audio glitch-free.
+* **Coding Practice:** Explore how the `AudioBaseApp` class handles producer-consumer threading to keep audio glitch-free.
 
 It is the perfect way to prototype audio apps without spending a dime.
 

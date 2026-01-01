@@ -11,8 +11,8 @@ Year: 2025
 
 import logging
 
-from ..hardwares.selector import HardwareSelector
-from ..settings import get_settings
+from .hardwares.selector import HardwareSelector
+from .settings import get_settings
 
 settings = get_settings()
 

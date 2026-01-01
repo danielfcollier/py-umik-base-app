@@ -3,7 +3,7 @@ Main application script for the Digital Real Time Meter.
 
 This script parses command-line arguments for configuration, sets up the
 necessary audio components (device selection, calibration), initializes the
-multi-threaded application framework (BaseApp), and defines the core
+multi-threaded application framework (AudioBaseApp), and defines the core
 metric calculation logic executed by the consumer thread via the AudioPipeline.
 
 Author: Daniel Collier
@@ -17,13 +17,16 @@ from datetime import datetime
 
 import numpy as np
 
-from umik_base_app.config import AppArgs, AppConfig
-from umik_base_app.core.base_app import BaseApp
-from umik_base_app.core.consumer_pipeline import AudioPipeline
+from umik_base_app import (
+    AppArgs,
+    AppConfig,
+    AudioBaseApp,
+    AudioMetrics,
+    AudioPipeline,
+    AudioSink,
+)
 from umik_base_app.settings import get_settings
-from umik_base_app.sinks.audio_metrics import AudioMetrics
-from umik_base_app.sinks.sinks_interface import AudioSink
-from umik_base_app.transformers.calibrator_adapter import HardwareCalibratorAdapter
+from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -115,7 +118,7 @@ class AudioMetricsAudioSink(AudioSink):
         self._audio_metrics.show_metrics(**metrics_data)
 
 
-class DecibelMeterApp(BaseApp):
+class DecibelMeterApp(AudioBaseApp):
     """
     The main application class that stitches together hardware, pipeline, and sink.
     """
@@ -127,7 +130,7 @@ class DecibelMeterApp(BaseApp):
 
         if config.audio_calibrator:
             logger.info("Adding Calibration Processor to pipeline.")
-            adapter = HardwareCalibratorAdapter(config.audio_calibrator)
+            adapter = CalibratorAdapter(config.audio_calibrator)
             pipeline.add_transformer(adapter)
 
         metrics_sink = AudioMetricsAudioSink(config)

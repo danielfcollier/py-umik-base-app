@@ -1,5 +1,5 @@
 """
-Unit tests for BaseApp.
+Unit tests for AudioBaseApp.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -10,7 +10,7 @@ from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
-from umik_base_app.core.base_app import BaseApp
+from umik_base_app import AudioBaseApp
 
 
 @pytest.fixture
@@ -29,20 +29,20 @@ def mock_dependencies():
     return config, pipeline
 
 
-@patch("umik_base_app.core.base_app.create_transport")
-@patch("umik_base_app.core.base_app.ConsumerThread")
-@patch("umik_base_app.core.base_app.ListenerThread")
+@patch("umik_base_app.audio_base_app.create_transport")
+@patch("umik_base_app.audio_base_app.ConsumerThread")
+@patch("umik_base_app.audio_base_app.ListenerThread")
 def test_app_initialization_and_thread_setup(
     mock_listener_cls, mock_consumer_cls, mock_create_transport, mock_dependencies
 ):
     """
-    Test that BaseApp initializes correctly and sets up the
+    Test that AudioBaseApp initializes correctly and sets up the
     producer/consumer threads in its thread list.
     """
     app_config, pipeline = mock_dependencies
 
     # Instantiate the app
-    app = BaseApp(app_config, pipeline)
+    app = AudioBaseApp(app_config, pipeline)
 
     # Assert initial state
     assert app._config == app_config

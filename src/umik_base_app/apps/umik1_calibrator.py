@@ -1,5 +1,5 @@
 """
-Script to test the initialization of the HardwareCalibrator (triggering
+Script to test the initialization of the CalibratorTransformer (triggering
 FIR filter design/caching) and extract sensitivity values from a UMIK-1
 (or similar) calibration file provided as a command-line argument.
 
@@ -16,7 +16,7 @@ import os
 import sys
 
 from umik_base_app.settings import get_settings
-from umik_base_app.transformers.calibrator import HardwareCalibrator
+from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 settings = get_settings()
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
@@ -39,7 +39,7 @@ class CalibrationValidator:
     def show_sensitivity_info(self):
         """Extracts and prints sensitivity headers from the file."""
         try:
-            sens_dbfs, ref_dbspl = HardwareCalibrator.get_sensitivity_values(self.file_path)
+            sens_dbfs, ref_dbspl = CalibratorTransformer.get_sensitivity_values(self.file_path)
             logger.info("--- Sensitivity Data Extracted ---")
             logger.info(f"Sensitivity:   {sens_dbfs:.3f} dBFS")
             logger.info(f"Reference SPL: {ref_dbspl:.1f} dBSPL")
@@ -50,7 +50,7 @@ class CalibrationValidator:
 
     def generate_and_cache_filter(self):
         """
-        Instantiates HardwareCalibrator to trigger filter design and caching.
+        Instantiates CalibratorTransformer to trigger filter design and caching.
         """
         logger.info(f"Testing filter design for: {self.file_path}")
         logger.info(f"Target Sample Rate:    {self.sample_rate:.0f} Hz")
@@ -59,7 +59,7 @@ class CalibrationValidator:
 
         try:
             # Force write to ensure the cache is refreshed
-            HardwareCalibrator(
+            CalibratorTransformer(
                 calibration_file_path=self.file_path,
                 sample_rate=self.sample_rate,
                 num_taps=self.num_taps,

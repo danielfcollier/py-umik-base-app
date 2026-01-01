@@ -16,15 +16,12 @@ import os
 import numpy as np
 from scipy.signal import firwin2, lfilter
 
-from ..settings import get_settings
-from .cache_strategy import FileFilterCache, FilterCacheStrategy
-
-settings = get_settings()
+from .calibrator_cache_strategy import CalibratorCacheStrategy, FileCalibratorCache
 
 logger = logging.getLogger(__name__)
 
 
-class HardwareCalibrator:
+class CalibratorTransformer:
     """
     Manages microphone calibration using data from a manufacturer-provided file.
 
@@ -39,10 +36,10 @@ class HardwareCalibrator:
         sample_rate: float,
         num_taps: int = 1024,
         force_write: bool = False,
-        cache_strategy: FilterCacheStrategy | None = None,
+        cache_strategy: CalibratorCacheStrategy | None = None,
     ):
         """
-        Initializes the HardwareCalibrator.
+        Initializes the CalibratorTransformer.
 
         Determines the cache file path based on the calibration file's directory.
         If a cached filter exists and force_write is False, it loads the filter.
@@ -55,14 +52,14 @@ class HardwareCalibrator:
                          Higher values provide more accuracy, especially at low frequencies,
                          but increase computational load during filtering (e.g., 1024, 512, 256).
         :param force_write: If True, always redesign the filter and overwrite the cache file.
-        :param cache_strategy: Strategy for loading/saving filter taps. Defaults to FileFilterCache.
+        :param cache_strategy: Strategy for loading/saving filter taps. Defaults to FileCalibratorCache.
         """
-        logger.debug("Initializing HardwareCalibrator...")
+        logger.debug("Initializing CalibratorTransformer...")
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
 
         # Use provided strategy or default to File System cache
-        self._cache_strategy = cache_strategy or FileFilterCache()
+        self._cache_strategy = cache_strategy or FileCalibratorCache()
 
         calibration_dir = os.path.dirname(calibration_file_path)
         calibration_basename = os.path.splitext(os.path.basename(calibration_file_path))[0]
@@ -101,7 +98,7 @@ class HardwareCalibrator:
 
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-        logger.info("✅ HardwareCalibrator initialized. Filter is ready.")
+        logger.info("✅ CalibratorTransformer initialized. Filter is ready.")
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -239,7 +236,9 @@ class HardwareCalibrator:
         return calibrated_chunk
 
     @staticmethod
-    def get_sensitivity_values(file_path: str) -> tuple[float, float]:
+    def get_sensitivity_values(
+        file_path: str, nominal_sensitivity_dbfs: float, reference_dbspl: float
+    ) -> tuple[float, float]:
         """
         Reads a calibration file and extracts sensitivity values, specifically
         looking for a "Sens Factor" line.
@@ -259,9 +258,6 @@ class HardwareCalibrator:
         :raises FileNotFoundError: If the file_path does not exist.
         """
         logger.debug(f"Reading sensitivity data from '{file_path}' (expecting 'Sens Factor' format)...")
-
-        nominal_sensitivity_dbfs = settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS
-        reference_dbspl = settings.HARDWARE.REFERENCE_DBSPL
 
         try:
             with open(file_path, encoding="utf-8") as f:

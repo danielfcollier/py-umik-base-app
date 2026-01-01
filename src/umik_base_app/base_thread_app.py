@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 logger = logging.getLogger(__name__)
 
 
-class ThreadApp(ABC):
+class BaseThreadApp(ABC):
     """
     An abstract base class that provides the core structure for a multi-threaded
     application. It handles thread creation, lifecycle management, and graceful

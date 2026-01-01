@@ -21,8 +21,8 @@ import sys
 import numpy as np
 from scipy.io import wavfile
 
-from src.umik_base_app.sinks.audio_metrics import AudioMetrics
-from src.umik_base_app.transformers.calibrator import HardwareCalibrator
+from umik_base_app import AudioMetrics
+from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S")
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     ref = 94.0
     if args.calibration_file:
         try:
-            sens, ref = HardwareCalibrator.get_sensitivity_values(args.calibration_file)
+            sens, ref = CalibratorTransformer.get_sensitivity_values(args.calibration_file)
         except Exception as e:
             logger.error(f"Failed to parse calibration file: {e}")
             sys.exit(1)

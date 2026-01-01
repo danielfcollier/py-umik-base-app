@@ -8,7 +8,7 @@ Year: 2025
 
 from unittest.mock import MagicMock
 
-from umik_base_app.hardwares.config import HardwareConfig
+from umik_base_app import HardwareConfig
 
 
 def test_audio_device_config_initialization():
