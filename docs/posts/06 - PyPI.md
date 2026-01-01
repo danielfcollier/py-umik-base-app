@@ -58,7 +58,7 @@ umik-list-devices        = "umik_base_app.apps.list_audio_devices:main"
 umik-real-time-meter     = "umik_base_app.apps.real_time_meter:main"
 umik-recorder            = "umik_base_app.apps.basic_recorder:main"
 umik-metrics-analyzer    = "umik_base_app.apps.metrics_analyzer:main"
-umik-metrics-plot        = "umik_base_app.apps.metrics_plot:main"
+umik-metrics-plotter        = "umik_base_app.apps.metrics_plotter:main"
 ```
 
 Because of these few lines, users don't have to type `python src/umik_base_app/apps/real_time_meter.py`. They just type:

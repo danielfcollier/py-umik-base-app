@@ -51,6 +51,7 @@ class HardwareSettings(BaseModel):
 
     NOMINAL_SENSITIVITY_DBFS: float = -18.0
     REFERENCE_DBSPL: float = 94.0
+    TARGET_DEVICE_NAME: str = "UMIK-1"
 
 
 class ZmqSettings(BaseModel):

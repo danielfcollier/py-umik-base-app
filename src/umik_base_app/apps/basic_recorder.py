@@ -14,12 +14,7 @@ import logging
 import sys
 from pathlib import Path
 
-from umik_base_app import (
-    AppArgs,
-    AppConfig,
-    AudioBaseApp,
-    AudioPipeline,
-)
+from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
 from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
 from umik_base_app.sinks.recorder_sink import RecorderSink
 from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
@@ -37,41 +32,28 @@ class RecorderApp(AudioBaseApp):
     def __init__(self, app_config: AppConfig, output_dir: str):
         """
         Initializes the RecorderApp by composing the pipeline components.
-
-        :param app_config: Validated application configuration.
-        :param output_dir: Path string where recordings should be saved.
         """
-        logger.debug(f"Initializing RecorderApp with output directory: {output_dir}")
-
-        self.dir_path = self._prepare_directory(output_dir)
+        self.output_path = Path(output_dir).resolve()
+        self.output_path.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Initializing RecorderApp with output directory: {self.output_path}")
 
         self._recorder = RecorderSink(
-            base_path=self.dir_path,
+            base_path=self.output_path,
             sample_rate=int(app_config.sample_rate),
             channels=1,
             sample_width=2,
         )
-        self._recorder.open()  # Open file handle immediately
+        self._recorder.open()
 
         pipeline = AudioPipeline()
 
         if app_config.audio_calibrator:
             logger.info("Adding Calibration Processor to pipeline.")
-            calibrator_adapter = CalibratorAdapter(app_config.audio_calibrator)
-            pipeline.add_transformer(calibrator_adapter)
+            pipeline.add_transformer(CalibratorAdapter(app_config.audio_calibrator))
 
-        recorder_sink = RecorderSinkAdapter(self._recorder)
-        pipeline.add_sink(recorder_sink)
+        pipeline.add_sink(RecorderSinkAdapter(self._recorder))
 
         super().__init__(app_config=app_config, pipeline=pipeline)
-
-    def _prepare_directory(self, path_str: str) -> Path:
-        """Helper to ensure output directory exists."""
-        path = Path(path_str).resolve()
-        if not path.exists():
-            logger.info(f"Creating output directory: {path}")
-            path.mkdir(parents=True, exist_ok=True)
-        return path
 
     def close(self):
         """Overrides close to ensure the WAV file is properly released."""
@@ -85,34 +67,23 @@ def main():
     logger.info("Initializing Audio Recorder Application...")
 
     parser = AppArgs.get_parser()
-
-    parser.add_argument(
-        "-o",
-        "--output-dir",
-        type=str,
-        default="recordings",
-        help="Directory to save the recording. Default: 'recordings'",
-    )
-
+    parser.add_argument("-o", "--output-dir", default="recordings", help="Directory to save the recording.")
     args = parser.parse_args()
 
-    app: RecorderApp | None = None
+    app = None
     try:
         config = AppArgs.validate_args(args)
-        app = RecorderApp(app_config=config, output_dir=args.output_dir)
+        app = RecorderApp(config, args.output_dir)
         app.run()
-    except (ValueError, SystemExit) as e:
-        logger.error(f"Configuration Error: {e}")
-        sys.exit(1)
     except KeyboardInterrupt:
         logger.info("\nUser stopped recording.")
     except Exception as e:
-        logger.critical(f"Unexpected error: {e}", exc_info=True)
+        logger.critical(f"Application failed: {e}", exc_info=True)
         sys.exit(1)
     finally:
         if app:
-            logger.info(f"Recording saved to: {app.dir_path}")
             app.close()
+            logger.info(f"Recording saved to: {app.output_path}")
 
     logger.info("Application shutdown complete.")
 
