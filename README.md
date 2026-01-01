@@ -4,7 +4,8 @@
 
 > **⚠️ Hardware Note:** This version is currently optimized and verified for the **MiniDSP UMIK-1**.
 >
-> The architecture is fully compatible with the **UMIK-2** (supporting 32-bit float/192kHz natively) and other calibrated microphones, but specific device auto-detection logic is currently tuned for the UMIK-1. Full UMIK-2 plug-and-play support is **[on the roadmap](#-roadmap-umik-2-support)**.
+> The architecture is fully compatible with the **UMIK-2** (supporting 32-bit float/192kHz natively) and other calibrated microphones.
+> **New:** You can now configure the target device name (e.g., "UMIK-2") in `settings.py` or via environment variables to support auto-detection for other hardware.
 
 **Welcome!**
 
@@ -309,9 +310,9 @@ While the UMIK-1 is fully supported, the architecture of this base app is design
 
 The following updates are planned to make the UMIK-2 "Plug-and-Play":
 
-* **Generalized Device Detection:** Update the auto-discovery logic to find generic "UMIK" devices rather than strictly searching for "UMIK-1".
-* **Robust Calibration Parsing:** Implement regex support for varying calibration file headers (e.g., if the UMIK-2 file format differs from the UMIK-1 `Sens Factor` tag).
-* **Configurable Sensitivity:** Add environment variable overrides for the nominal sensitivity reference (since UMIK-2 sensitivity may differ from the UMIK-1's ~-18dB default).
+- **Robust Calibration Parsing**: Implement regex support for varying calibration file headers (e.g., if the UMIK-2 file format differs from the UMIK-1 `Sens Factor` tag).
+
+- **Configurable Sensitivity**: Add environment variable overrides for the nominal sensitivity reference (since UMIK-2 sensitivity may differ from the UMIK-1's ~-18dB default).
 
 ## 📚 Documentation & Resources
 

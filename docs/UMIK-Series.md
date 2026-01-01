@@ -9,7 +9,19 @@ This document provides a comprehensive overview of the **miniDSP UMIK Series** U
 
 The **miniDSP UMIK-1** and **UMIK-2** are specialized omnidirectional USB measurement microphones. Unlike microphones designed for voice or music, their primary purpose is to provide a scientifically accurate, linear, and repeatable way to capture sound.
 
-While the UMIK-1 is the industry standard entry-level device, the UMIK-2 offers higher resolution. This application is designed to support both:
+### Configuring for Other Devices
+While the application defaults to searching for "UMIK-1", you can configure it to detect **UMIK-2** or any other specific microphone name.
+
+1. Open `src/umik_base_app/settings.py` (or use environment variables).
+2. Update the `HARDWARE` settings:
+   ```python
+   class HardwareSettings(BaseModel):
+       TARGET_DEVICE_NAME: str = "UMIK-2"  # or any substring of your device name
+       NOMINAL_SENSITIVITY_DBFS: float = -12.0  # Adjust for your specific hardware
+
+```
+
+3. The `umik-list-devices --only` command and auto-detection logic will now target your specified device.
 
 | Feature | UMIK-1 | UMIK-2 | Application Support |
 | --- | --- | --- | --- |
@@ -37,14 +49,10 @@ The principle is simple: **Garbage In, Garbage Out.** The quality of your analys
 * **Uncalibrated Microphones (Laptops, Phones):** These are "colored." They are designed to boost speech frequencies and cut low-frequency rumble. When you feed this biased signal into your application:
 * **LUFS measurements will be inaccurate**, as they are calculated on an altered signal.
 * **Low-frequency noise** (traffic, HVAC, machinery) will be underestimated.
-
-
 * **Calibrated UMIK Series:** This provides a "ground truth" signal.
 * It ensures that a sound's energy is represented accurately across the entire frequency spectrum, **including critical low frequencies**.
 * This allows metrics like **LUFS** and **dBSPL** to be calculated with scientific accuracy.
 * It provides Machine Learning models with a clean, unbiased signal, leading to more reliable classification.
-
-
 
 ## 3. The Real-Time Calibration Process
 
@@ -56,9 +64,8 @@ The process has three phases:
 
 1. **Find Serial Number:** Locate the serial number on your microphone body (e.g., `700xxxx` for UMIK-1 or `800xxxx` for UMIK-2).
 2. **Download File:** Go to the miniDSP calibration tool website and download your unique `.txt` file.
+
 * **Note for UMIK-2 Users:** The UMIK-2 calibration file might use a different header tag for sensitivity (e.g., `Sensitivity` instead of `Sens Factor`). You may need to manually adjust the text file header to match the expected format `Sens Factor =-XXdB` until the parser is updated.
-
-
 
 ### Phase 2: Application Startup (Filter Design & Caching)
 
@@ -66,11 +73,10 @@ This happens once, every time your `umik-base-app` starts.
 
 1. **Check for Cache:** The `CalibratorTransformer` looks for a pre-computed filter file (e.g., `..._fir_1024taps_48000hz.npy`).
 2. **Design Filter (First Run):** If no cache is found, the `CalibratorTransformer`:
+
 * Reads the frequency/gain pairs from your `.txt` file.
 * Uses `scipy.signal.firwin2` to design a digital **FIR (Finite Impulse Response) filter**. This filter applies the *exact inverse* of your microphone's unique frequency response.
 * Saves the filter coefficients to a `.npy` cache file for instant startup next time.
-
-
 
 ### Phase 3: Real-Time Correction (Continuous Loop)
 
