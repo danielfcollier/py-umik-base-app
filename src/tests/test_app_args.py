@@ -95,6 +95,7 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     )
 
     # Explicitly simulate a non-default device for this test
+    # Note: native_rate must be a number because the code performs float() conversion on it
     mock_hardware_selector.return_value.is_default = False
     mock_hardware_selector.return_value.native_rate = 48000
 
@@ -120,7 +121,11 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     # Should use the device's native rate (48000) overriding the requested 44100
     assert config.sample_rate == 48000
 
-    mock_calibrator_cls.get_sensitivity_values.assert_called_once_with(sentinel.cal_file)
+    mock_calibrator_cls.get_sensitivity_values.assert_called_once_with(
+        sentinel.cal_file,
+        settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+        settings.HARDWARE.REFERENCE_DBSPL,
+    )
     mock_calibrator_cls.assert_called_once_with(
         calibration_file_path=sentinel.cal_file, sample_rate=48000, num_taps=sentinel.num_taps
     )

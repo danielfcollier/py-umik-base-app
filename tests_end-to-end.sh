@@ -22,7 +22,6 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-
 EXIT_CODE=0
 TEST_TIME="5s"
 
@@ -59,6 +58,8 @@ if [ ! -d ".venv" ]; then
     exit 1
 fi
 
+# Clean previous run
+rm -rf "$RECORDING_DIR"
 mkdir -p "$RECORDING_DIR"
 
 # ==============================================================================
@@ -88,6 +89,7 @@ run_app ${TEST_TIME} uv run umik-recorder --default --output-dir "$RECORDING_DIR
 # B. UMIK-1 (Only if present)
 if [ "$HAS_UMIK" = true ] && [ -f "$CAL_FILE" ]; then
     echo -e "${BLUE}>> UMIK-1 Hardware${NC}"
+    run_app ${TEST_TIME} uv run umik-recorder --calibration-file "$CAL_FILE" || fail
     run_app ${TEST_TIME} uv run umik-real-time-meter --calibration-file "$CAL_FILE" || fail
 else
     warn "Skipping UMIK-1 Monolithic tests."
@@ -97,7 +99,7 @@ fi
 # 4. RUNTIME: DISTRIBUTED TOPOLOGY (ZMQ)
 # ==============================================================================
 echo -e "\n${YELLOW}=== Phase 3: Distributed Topology (ZMQ) ===${NC}"
-# This tests the new Architecture: Producer -> [ZMQ] -> Consumer
+# This tests the new Architecture: Producer -> [ZMQ] -> Consumer(s)
 
 ZMQ_PORT=5556
 ZMQ_HOST="127.0.0.1"
@@ -116,24 +118,21 @@ if ! kill -0 $PRODUCER_PID 2>/dev/null; then
     echo -e "${RED}Producer process died immediately! Check logs.${NC}"
     fail
 else
-    # Step 2: Run Consumer (The Test Subject)
-    # The consumer connects to the producer. We expect it to run for TEST_TIME and exit cleanly (timeout).
-    log "Starting Consumer Node..."
+    # Step 2a: Test Recorder as Consumer
+    log ">> Testing Consumer: Recorder..."
+    run_app ${TEST_TIME} uv run umik-recorder --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT --output-dir "$RECORDING_DIR/zmq_rec"
     
-    # We test the Recorder as Consumer
-    run_app ${TEST_TIME} uv run umik-recorder --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT --output-dir "$RECORDING_DIR"
+    if [ $? -ne 0 ]; then fail; fi
+
+    # Step 2b: Test Real-Time Meter as Consumer
+    log ">> Testing Consumer: Real-Time Meter..."
+    run_app ${TEST_TIME} uv run umik-real-time-meter --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT
     
-    RESULT=$?
+    if [ $? -ne 0 ]; then fail; fi
     
     # Step 3: Cleanup Producer
     kill $PRODUCER_PID 2>/dev/null
     wait $PRODUCER_PID 2>/dev/null
-
-    if [ $RESULT -eq 0 ]; then
-        pass
-    else
-        fail
-    fi
 fi
 
 # ==============================================================================
@@ -155,18 +154,28 @@ fi
 log "Running Analyzer..."
 run_app ${TEST_TIME} uv run umik-metrics-analyzer "$TEST_WAV" --output-file "$TEST_CSV" || fail
 
+# Verify CSV creation
+if [ ! -s "$TEST_CSV" ]; then
+    echo -e "${RED}Analysis failed: CSV file not created or empty.${NC}"
+    fail
+fi
+
 # Plotting
-if [ -s "$TEST_CSV" ]; then
-    log "Running Plotter..."
-    run_app ${TEST_TIME} uv run umik-metrics-plot "$TEST_CSV" --save "$TEST_PLOT" || fail
+log "Running Plotter..."
+run_app ${TEST_TIME} uv run umik-metrics-plotter "$TEST_CSV" --save "$TEST_PLOT" || fail
+
+# Verify Plot creation
+if [ -f "$TEST_PLOT" ]; then
+    log "Plot created successfully at $TEST_PLOT"
 else
-    echo -e "${RED}CSV generation failed.${NC}"
+    echo -e "${RED}Plotting failed: Image file not created.${NC}"
     fail
 fi
 
 # ==============================================================================
 # CLEANUP
 # ==============================================================================
+# Optional: Comment out next line to inspect results on failure
 rm -rf "$RECORDING_DIR"
 
 if [ $EXIT_CODE -eq 0 ]; then

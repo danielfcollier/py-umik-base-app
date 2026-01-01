@@ -13,11 +13,12 @@ Year: 2025
 
 import argparse
 import logging
-import os
 import sys
+from pathlib import Path
 
 import pandas as pd
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
@@ -28,69 +29,79 @@ class MetricsVisualizer:
     """
 
     def __init__(self, csv_path: str):
-        self.csv_path = csv_path
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+        self.csv_path = Path(csv_path).resolve()
+        if not self.csv_path.exists():
+            raise FileNotFoundError(f"CSV file not found: {self.csv_path}")
 
-        logger.info(f"Loading data from {csv_path}...")
-        self.df = pd.read_csv(csv_path)
+        logger.info(f"Loading data from {self.csv_path}...")
+        self.df = pd.read_csv(self.csv_path)
 
-    def plot(self, metrics: list[str], save_path: str | None = None):
+    def plot(self, requested_metrics: list[str], save_path: str | bool | None = None):
         """
         Generates the plot based on selected metrics.
         """
+        # Backend setup must happen before pyplot import
         import matplotlib
 
-        # If saving to file, force the 'Agg' backend (Headless/No GUI)
-        # This prevents crashes on servers or CI environments without screens.
         if save_path:
             matplotlib.use("Agg")
 
         import matplotlib.dates as mdates
         import matplotlib.pyplot as plt
 
-        metrics = [m.lower() for m in metrics]
-
         # 1. Filter Available Metrics
-        level_metrics = [m for m in ["dbfs", "lufs", "dbspl"] if m in metrics]
+        available_cols = set(self.df.columns)
 
-        # Verify columns exist
-        level_metrics = [m for m in level_metrics if m in self.df.columns]
+        # Identify valid level metrics
+        level_metrics = []
+        for m in ["dbfs", "lufs", "dbspl"]:
+            if m in [rm.lower() for rm in requested_metrics] and m in available_cols:
+                # Specific check for dBSPL data validity
+                if m == "dbspl" and not pd.to_numeric(self.df["dbspl"], errors="coerce").notna().any():
+                    logger.warning("dBSPL column is empty/invalid. Skipping.")
+                    continue
+                level_metrics.append(m)
 
-        # Check dBSPL specifically (might be empty strings if uncalibrated)
-        if "dbspl" in level_metrics:
-            if not pd.to_numeric(self.df["dbspl"], errors="coerce").notna().any():
-                logger.warning("dBSPL selected but column is empty. Removing from plot.")
-                level_metrics.remove("dbspl")
+        show_flux = "flux" in [rm.lower() for rm in requested_metrics] and "flux" in available_cols
 
-        has_flux = "flux" in metrics and "flux" in self.df.columns
-        has_levels = len(level_metrics) > 0
-
-        if not has_levels and not has_flux:
+        if not level_metrics and not show_flux:
             logger.error("No valid metrics found to plot.")
             return
 
-        # 2. Setup Subplots
-        if has_levels and has_flux:
-            fig, (ax_levels, ax_flux) = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
-        else:
-            fig, ax = plt.subplots(1, 1, figsize=(14, 6))
-            ax_levels = ax if has_levels else None
-            ax_flux = ax if has_flux else None
+        # 2. Setup Figure
+        nrows = 2 if (level_metrics and show_flux) else 1
+        fig, axes = plt.subplots(nrows=nrows, ncols=1, figsize=(14, 4 * nrows + 2), sharex=True)
 
-        fig.suptitle(f"Audio Analysis: {os.path.basename(self.csv_path)}", fontsize=16)
+        # Normalize axes to variables
+        if nrows == 2:
+            ax_levels, ax_flux = axes
+        else:
+            ax_levels = axes if level_metrics else None
+            ax_flux = axes if show_flux else None
+
+        fig.suptitle(f"Audio Analysis: {self.csv_path.name}", fontsize=16)
 
         # 3. Determine X-Axis (Time)
         x_data, is_absolute = self._get_time_axis()
 
         # 4. Plot Levels
         if ax_levels:
-            if "dbfs" in level_metrics:
-                ax_levels.plot(x_data, self.df["dbfs"], label="dBFS", color="#3498db", alpha=0.7)
-            if "lufs" in level_metrics:
-                ax_levels.plot(x_data, self.df["lufs"], label="LUFS", color="#2c3e50", linewidth=2)
-            if "dbspl" in level_metrics:
-                ax_levels.plot(x_data, self.df["dbspl"], label="dBSPL", color="#e74c3c", linestyle="--")
+            styles = {
+                "dbfs": {"label": "dBFS", "color": "#3498db", "alpha": 0.7, "style": "-"},
+                "lufs": {"label": "LUFS", "color": "#2c3e50", "alpha": 1.0, "style": "-"},
+                "dbspl": {"label": "dBSPL", "color": "#e74c3c", "alpha": 1.0, "style": "--"},
+            }
+
+            for metric in level_metrics:
+                s = styles.get(metric, {})
+                ax_levels.plot(
+                    x_data,
+                    self.df[metric],
+                    label=s.get("label", metric),
+                    color=s.get("color"),
+                    linestyle=s.get("style"),
+                    alpha=s.get("alpha"),
+                )
 
             ax_levels.set_ylabel("Level (dB)")
             ax_levels.grid(True, which="both", linestyle="--", alpha=0.5)
@@ -117,20 +128,19 @@ class MetricsVisualizer:
 
         # 7. Output
         if save_path:
-            # Handle boolean flag case (argparse const=True)
-            if isinstance(save_path, bool):
-                save_path = os.path.splitext(self.csv_path)[0] + ".png"
-
-            plt.savefig(save_path)
-            logger.info(f"✅ Plot saved to: {save_path}")
+            # Handle boolean flag case (const=True from argparse)
+            output_file = self.csv_path.with_suffix(".png") if save_path is True else Path(save_path)
+            plt.savefig(output_file)
+            logger.info(f"✅ Plot saved to: {output_file}")
         else:
             logger.info("🖥️  Displaying plot...")
             plt.show()
 
     def _get_time_axis(self):
         """Returns (x_data_series, is_absolute_bool)."""
-        if "timestamp" in self.df.columns and self.df["timestamp"].notna().all():
+        if "timestamp" in self.df.columns:
             try:
+                # Attempt to parse absolute timestamps
                 return pd.to_datetime(self.df["timestamp"]), True
             except Exception:
                 pass
@@ -149,7 +159,7 @@ def main():
         viz = MetricsVisualizer(args.csv_file)
         viz.plot(args.metrics, args.save)
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.exception(f"Plotting failed: {e}")
         sys.exit(1)
 
 

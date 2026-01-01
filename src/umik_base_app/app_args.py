@@ -36,10 +36,6 @@ class AppArgs:
     def get_parser() -> argparse.ArgumentParser:
         """
         Creates and returns the ArgumentParser with standard arguments.
-        Does NOT parse arguments immediately. Use this if you need to add custom
-        arguments in your specific application (like --output-dir).
-
-        :return: An argparse.ArgumentParser object with standard flags configured.
         """
         parser = argparse.ArgumentParser(description="Run the Digital Real Time Meter / Audio Monitor application.")
         parser.add_argument(
@@ -122,9 +118,6 @@ class AppArgs:
     def get_args() -> argparse.Namespace:
         """
         Defines and parses command-line arguments using argparse.
-        This remains for backward compatibility with apps that don't need custom args.
-
-        :return: An argparse.Namespace object containing the parsed arguments.
         """
         parser = AppArgs.get_parser()
         args = parser.parse_args()
@@ -134,20 +127,6 @@ class AppArgs:
     def validate_args(args: argparse.Namespace) -> AppConfig:
         """
         Validates the parsed command-line arguments and creates the final AppConfig object.
-        Performs checks and adjustments:
-        - Determines Topology (Monolithic/Producer/Consumer).
-        - Skips hardware checks if in Consumer mode.
-        - Resolves calibration file from Arg or Env Var.
-        - Ensures buffer_seconds meets the minimum and is a multiple of the LUFS window.
-        - Auto-detects UMIK-1 if calibration file is present but device ID is missing.
-        - Selects the audio device (default or specified ID).
-        - Determines the final sample rate (uses native rate if calibrating and device is present).
-        - Initializes the CalibratorTransformer and extracts sensitivity if a calibration file is provided.
-
-        :param args: The argparse.Namespace object containing parsed arguments from get_args().
-        :return: A populated and validated AppConfig object.
-        :raises ValueError: If configuration is invalid.
-        :raises SystemExit: If the specified device ID cannot be found.
         """
         logger.info("Validating command-line arguments...")
 
@@ -175,16 +154,20 @@ class AppArgs:
         selected_audio_device = None
 
         if run_mode != "consumer":
-            # Auto-Detect UMIK-1 if needed
+            # Auto-Detect Target Device (e.g. UMIK-1) if needed
             if args.calibration_file and args.device_id is None and not args.default:
-                logger.info("Calibration file active. Attempting to auto-detect 'UMIK-1'...")
+                target_name = settings.HARDWARE.TARGET_DEVICE_NAME
+                logger.info(f"Calibration file active. Attempting to auto-detect '{target_name}'...")
                 try:
-                    umik_id = HardwareSelector.find_device_by_name("UMIK-1")
-                    if umik_id is not None:
-                        logger.info(f"✨ Auto-detected UMIK-1 at Device ID {umik_id}")
-                        args.device_id = umik_id
+                    # No argument needed, defaults to settings target
+                    target_id = HardwareSelector.find_device_by_name()
+                    if target_id is not None:
+                        logger.info(f"✨ Auto-detected {target_name} at Device ID {target_id}")
+                        args.device_id = target_id
                     else:
-                        logger.warning("⚠️ Could not find a device named 'UMIK-1'. Will attempt to use system default.")
+                        logger.warning(
+                            f"⚠️ Could not find a device named '{target_name}'. Will attempt to use system default."
+                        )
                 except Exception as e:
                     logger.warning(f"Hardware detection failed during auto-discovery: {e}")
 
@@ -256,7 +239,12 @@ class AppArgs:
                 )
                 config.sample_rate = final_sample_rate
 
-            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(args.calibration_file)
+            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(
+                args.calibration_file,
+                settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                settings.HARDWARE.REFERENCE_DBSPL,
+            )
+
             config.audio_calibrator = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
                 sample_rate=config.sample_rate,

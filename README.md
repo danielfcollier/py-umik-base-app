@@ -217,13 +217,13 @@ umik-metrics-analyzer "file.wav" --calibration-file "umik-1/700.txt"
 Turns your CSV data into professional-grade charts.
 * **View (Popup Window):**
 ```bash
-umik-metrics-plot "file.csv"
+umik-metrics-plotter "file.csv"
 ```
 
 * **Save (To Image):**
 ```bash
 # Saves to file.png by default
-umik-metrics-plot "file.csv" --save
+umik-metrics-plotter "file.csv" --save
 ```
 
 ### 📉 Example Output

@@ -282,29 +282,29 @@ endif
 
 plot-view: ## View metrics chart. Requires IN=<csv_path>. Optional: METRICS="dbfs lufs".
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot --help
+	@echo -e "$(YELLOW)>>> Showing help for metrics_plotter.py...$(NC)"
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plotter --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-view IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Opening plot viewer...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plotter "$(IN)" \
 		$(if $(METRICS),--metrics $(METRICS))
 endif
 
 plot-save: ## Save metrics chart. Requires IN=<csv_path>. Optional: PLOT_OUT=<png_path>, METRICS="...".
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for metrics_plot.py...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot --help
+	@echo -e "$(YELLOW)>>> Showing help for metrics_plotter.py...$(NC)"
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plotter --help
 else
 	@if [ -z "$(IN)" ]; then \
 		echo -e "$(RED)>>> ERROR: Input CSV not set. Use 'make plot-save IN=analysis.csv'$(NC)"; \
 		exit 1; \
 	fi
 	@echo -e "$(YELLOW)>>> Generating plot image...$(NC)"
-	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plot "$(IN)" \
+	@PYTHONPATH=$(SRC_DIR) $(PYTHON) -m umik_base_app.apps.metrics_plotter "$(IN)" \
 		--save $(if $(PLOT_OUT),"$(PLOT_OUT)") \
 		$(if $(METRICS),--metrics $(METRICS))
 endif

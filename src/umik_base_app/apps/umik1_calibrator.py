@@ -39,7 +39,11 @@ class CalibrationValidator:
     def show_sensitivity_info(self):
         """Extracts and prints sensitivity headers from the file."""
         try:
-            sens_dbfs, ref_dbspl = CalibratorTransformer.get_sensitivity_values(self.file_path)
+            sens_dbfs, ref_dbspl = CalibratorTransformer.get_sensitivity_values(
+                self.file_path,
+                settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                settings.HARDWARE.REFERENCE_DBSPL,
+            )
             logger.info("--- Sensitivity Data Extracted ---")
             logger.info(f"Sensitivity:   {sens_dbfs:.3f} dBFS")
             logger.info(f"Reference SPL: {ref_dbspl:.1f} dBSPL")
@@ -105,11 +109,7 @@ def main():
 
     args = parser.parse_args()
 
-    final_path = args.calibration_file
-    if final_path is None:
-        final_path = os.environ.get("CALIBRATION_FILE")
-        if final_path:
-            logger.info(f"Using CALIBRATION_FILE from environment: {final_path}")
+    final_path = args.calibration_file or os.environ.get("CALIBRATION_FILE")
 
     if not final_path:
         logger.error("Error: No calibration file specified.")
@@ -124,7 +124,7 @@ def main():
         )
         validator.run()
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logger.exception(f"Validation failed: {e}")
         sys.exit(1)
 
 
