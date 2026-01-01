@@ -62,6 +62,9 @@ testpaths = [
     "src/tests",
 ]
 pythonpath = "src"
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')"
+]
 
 [tool.ruff]
 line-length = 120
