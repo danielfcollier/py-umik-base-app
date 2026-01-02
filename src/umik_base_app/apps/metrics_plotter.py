@@ -11,6 +11,8 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import sys
