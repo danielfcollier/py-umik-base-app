@@ -40,7 +40,7 @@ Stop fighting with `pyaudio` threads and buffer overflows. This project exposes 
 
 ### Prerequisites
 
-* **Python 3.12+**
+* **Python 3.9+**
 * **PiP**
 
 #### 📦 System Requirements (Audio Libraries)

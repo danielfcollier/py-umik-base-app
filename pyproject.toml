@@ -6,23 +6,23 @@ authors = [
     {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12, <3.14" 
+requires-python = ">=3.9, <3.14" 
 
 # Production Dependencies
 dependencies = [
-    "numpy~=2.3.3",
-    "scipy~=1.16.2",
-    "pydantic~=2.12.3",
-    "sounddevice~=0.5.3",
-    "librosa~=0.11.0",
-    "pyloudnorm~=0.1.1",
-    "pydantic-settings>=2.12.0",
+    "numpy>=1.26.0",
+    "scipy>=1.12.0",
+    "pydantic>=2.5.0",
+    "sounddevice>=0.4.6",
+    "librosa>=0.10.0",
+    "pyloudnorm>=0.1.1",
+    "pydantic-settings>=2.1.0",
     "pydub>=0.25.1",
-    "noisereduce>=3.0.3",
-    "matplotlib>=3.10.8",
-    "pandas>=2.3.3",
+    "noisereduce>=3.0.0",
+    "matplotlib>=3.9.0",
+    "pandas>=2.2.0",
     "python-dotenv>=1.2.1",
-    "zmq>=0.0.0",
+    "pyzmq>=24.0.0",
 ]
 
 [build-system]
@@ -36,11 +36,11 @@ local_scheme = "no-local-version"
 # Development Dependencies (used for linting/testing)
 [project.optional-dependencies]
 dev = [
-    "ruff~=0.14.1",
-    "mypy~=1.18.2",
-    "pytest>=9.0.2",
-    "pytest-cov",
-    "pytest-timeout>=2.4.0",
+    "ruff>=0.1.0",
+    "mypy>=1.4.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.0.0",
+    "pytest-timeout>=2.1.0",
 ]
 
 [project.urls]
@@ -68,7 +68,7 @@ markers = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py313"
+target-version = "py39"
 exclude = [
     ".venv",
     ".git",
