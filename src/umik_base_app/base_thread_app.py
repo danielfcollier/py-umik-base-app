@@ -10,6 +10,8 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from __future__ import annotations
+
 import logging
 import queue
 import signal
