@@ -37,12 +37,13 @@ class MetricsAnalyzer:
     Engine for analyzing audio files and generating scientific metrics.
     """
 
-    def __init__(self, file_path: str, calibration_file: str | None = None):
+    def __init__(self, file_path: str, calibration_file: str | None = None, is_calibrated: bool = False):
         """
         Initialize the analyzer with the target file and optional calibration.
         """
         self.file_path = file_path
         self.filename = os.path.basename(file_path)
+        self.is_calibrated = is_calibrated
 
         # 1. Load Calibration
         self.sensitivity: float | None = None
@@ -63,7 +64,13 @@ class MetricsAnalyzer:
                 settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
                 settings.HARDWARE.REFERENCE_DBSPL,
             )
-            self.sensitivity = sens
+            logger.info(self.is_calibrated)
+            if self.is_calibrated:
+                logger.info(f"Calibration Mode: PRE-CALIBRATED FILE. Ignoring sensitivity offset {sens:.2f}dB.")
+                self.sensitivity = 0.0
+            else:
+                self.sensitivity = sens
+
             self.reference = ref
             logger.info(f"Calibration Loaded: Sens={sens:.2f}dB, Ref={ref:.1f}dB")
         except Exception as e:
@@ -213,6 +220,11 @@ def main():
     parser.add_argument("file", help="Path to input WAV file")
     parser.add_argument("--window", type=int, default=100, help="Analysis window in ms (default: 100)")
     parser.add_argument("--calibration-file", "-F", help="Path to UMIK-1 calibration file (.txt)")
+    parser.add_argument(
+        "--calibrated-input",
+        action="store_true",
+        help="Use this if the WAV file was saved with calibration gain applied.",
+    )
     parser.add_argument("--output-file", "-o", help="Optional output CSV path")
     parser.add_argument("--start-time", help="Force start time (ISO format)")
 
@@ -221,7 +233,7 @@ def main():
     out_path = args.output_file or (os.path.splitext(args.file)[0] + ".csv")
 
     try:
-        analyzer = MetricsAnalyzer(args.file, args.calibration_file)
+        analyzer = MetricsAnalyzer(args.file, args.calibration_file, args.calibrated_input)
         analyzer.run_analysis(out_path, args.window, args.start_time)
     except KeyboardInterrupt:
         logger.info("\nAnalysis stopped by user.")
