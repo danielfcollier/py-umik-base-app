@@ -91,7 +91,7 @@ def test_initialization_parses_file_and_designs_filter(mock_firwin2):
 def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     """
     Verify that the apply() method calls lfilter with the
-    input audio and the stored filter taps.
+    input audio multiplied by the gain.
     """
     # Create inputs/outputs with .dtype attributes to satisfy type check logic
     # if calibrated_chunk.dtype != audio_chunk.dtype: ...
@@ -107,6 +107,7 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     fake_path = "/fake/path/cal.txt"
 
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
+        # Default sensitivity_gain is 1.0
         calibrator = CalibratorTransformer(
             calibration_file_path=fake_path,
             sample_rate=48000,
@@ -117,21 +118,60 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
         # Apply calibration
         output = calibrator.apply(mock_input_audio)
 
-        # Verify lfilter was called
-        mock_lfilter.assert_called_once()
+        # 1. Verify Gain Application
+        # The input audio should be multiplied by the gain (1.0 default)
+        mock_input_audio.__mul__.assert_called_with(1.0)
+        expected_gained_chunk = mock_input_audio.__mul__.return_value
 
+        # 2. Verify lfilter was called with the GAINED chunk
+        mock_lfilter.assert_called_once()
         args, kwargs = mock_lfilter.call_args
+
         # Expected: lfilter(b, a, x, zi=...)
         assert args[0] == mock_firwin2.return_value  # b (taps)
         assert args[1] == 1.0  # a
-        assert args[2] == mock_input_audio  # x (input)
+        assert args[2] == expected_gained_chunk  # x (MUST BE THE MULTIPLIED OBJECT)
         assert "zi" in kwargs  # zi (state provided)
 
-        # Verify output is what lfilter returned
+        # 3. Verify output matches
         assert output == mock_calibrated_chunk
 
-        # Verify internal state was updated
+        # 4. Verify internal state update
         assert calibrator._filter_state == sentinel.new_state
+
+
+def test_apply_resets_state(mock_firwin2):
+    """
+    Verify that calling apply(reset_state=True) resets the internal filter state.
+    """
+    fake_path = "/fake/path/cal.txt"
+    mock_input_audio = MagicMock()
+    mock_input_audio.dtype = "float32"
+
+    with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
+        with patch("umik_base_app.transformers.calibrator_transformer.lfilter") as mock_lfilter:
+            # Setup lfilter to return dummy data
+            mock_lfilter.return_value = (mock_input_audio, [1, 2, 3])
+
+            calibrator = CalibratorTransformer(
+                calibration_file_path=fake_path,
+                sample_rate=48000,
+                num_taps=1024,
+                cache_strategy=NoOpCalibratorCache(),
+            )
+
+            # Dirty the state
+            calibrator._filter_state = [9, 9, 9]
+
+            # Apply with reset
+            calibrator.apply(mock_input_audio, reset_state=True)
+
+            # Check if lfilter received a zeroed state in kwargs
+            _, kwargs = mock_lfilter.call_args
+            passed_zi = kwargs["zi"]
+
+            # Should be all zeros (float)
+            assert (passed_zi == 0).all()
 
 
 def test_get_sensitivity_values_parsing():
