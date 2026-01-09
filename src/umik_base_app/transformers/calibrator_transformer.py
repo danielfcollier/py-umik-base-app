@@ -37,6 +37,7 @@ class CalibratorTransformer:
         num_taps: int = 1024,
         force_write: bool = False,
         cache_strategy: CalibratorCacheStrategy | None = None,
+        sensitivity_gain: float = 1.0,
     ):
         """
         Initializes the CalibratorTransformer.
@@ -46,17 +47,19 @@ class CalibratorTransformer:
         Otherwise, it parses the calibration file, designs a new FIR correction
         filter, and saves (or overwrites) it to the cache file.
 
-        :param calibration_file_path: Path to the unique .txt calibration file for the microphone (e.g., from miniDSP).
-        :param sample_rate: The native sample rate of the audio stream being captured (e.g., 48.000 Hz).
+        :param calibration_file_path: Path to the unique .txt calibration file for the microphone.
+        :param sample_rate: The native sample rate of the audio stream being captured.
         :param num_taps: The number of coefficients (taps) for the FIR filter.
                          Higher values provide more accuracy, especially at low frequencies,
                          but increase computational load during filtering (e.g., 1024, 512, 256).
         :param force_write: If True, always redesign the filter and overwrite the cache file.
-        :param cache_strategy: Strategy for loading/saving filter taps. Defaults to FileCalibratorCache.
+        :param cache_strategy: Strategy for loading/saving filter taps.
+        :param sensitivity_gain: Linear gain factor to apply before filtering (Volume Correction).
         """
         logger.debug("Initializing CalibratorTransformer...")
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
+        self._sensitivity_gain = sensitivity_gain
 
         # Use provided strategy or default to File System cache
         self._cache_strategy = cache_strategy or FileCalibratorCache()
@@ -96,9 +99,12 @@ class CalibratorTransformer:
             logger.info("Saving new filter to cache...")
             self._cache_strategy.save(taps_file, self._filter_taps)
 
+        # Initialize filter state (zi)
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-        logger.info("✅ CalibratorTransformer initialized. Filter is ready.")
+        logger.info(
+            f"✅ CalibratorTransformer ready. Gain: {self._sensitivity_gain:.4f}x, Taps: {len(self._filter_taps)}"
+        )
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -216,19 +222,37 @@ class CalibratorTransformer:
 
         return filter_taps
 
-    def apply(self, audio_chunk: np.ndarray) -> np.ndarray:
+    def reset_state(self):
         """
-        Applies the pre-designed FIR correction filter to a chunk of audio in real-time.
+        Resets the internal filter state (zi) to zeros.
 
-        Uses lfilter with state (`zi`/`zo`) to handle continuous filtering across chunks.
-
-        :param audio_chunk: A numpy array of raw audio samples from the microphone.
-        :return: A numpy array of calibrated (frequency-corrected) audio samples.
+        This is necessary when starting to process a new, discontinuous audio stream
+        (e.g., jumping from a pre-roll buffer to a new recording event) to avoid
+        filter ringing artifacts caused by the state of previous, unrelated audio.
         """
-        # Apply the FIR filter using lfilter.
+        if self._filter_taps is not None:
+            self._filter_state = np.zeros(len(self._filter_taps) - 1)
+
+    def apply(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
+        """
+        Applies Sensitivity Gain AND FIR correction.
+
+        :param audio_chunk: A numpy array of raw audio samples.
+        :param reset_state: If True, resets the filter state (zi) to zeros before processing.
+        :return: A numpy array of calibrated (frequency-corrected + level-corrected) audio.
+        """
+        # 0. Optional: Reset State
+        if reset_state:
+            self.reset_state()
+
+        # 1. Apply Scalar Gain (Absolute Level)
+        # We apply this FIRST so the filter acts on the "True Level" signal.
+        gained_chunk = audio_chunk * self._sensitivity_gain
+
+        # 2. Apply Vector Filter (Frequency Response)
         # `zi` provides the initial state from the previous chunk.
         # `zo` (returned as the second element) becomes the state for the *next* chunk.
-        calibrated_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, audio_chunk, zi=self._filter_state)
+        calibrated_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, gained_chunk, zi=self._filter_state)
 
         if calibrated_chunk.dtype != audio_chunk.dtype:
             calibrated_chunk = calibrated_chunk.astype(audio_chunk.dtype)
