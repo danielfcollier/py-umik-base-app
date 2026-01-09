@@ -56,6 +56,7 @@ class CalibratorTransformer:
         :param cache_strategy: Strategy for loading/saving filter taps.
         :raises RuntimeError: If the filter taps cannot be loaded or designed.
         :raises ValueError: If the sensitivity factor cannot be parsed from the file.
+        :raises FileNotFoundError: If the calibration file does not exist.
         """
         logger.debug("Initializing CalibratorTransformer...")
         self._sample_rate = sample_rate
@@ -100,7 +101,9 @@ class CalibratorTransformer:
                 logger.info(f"No valid cached filter found for '{taps_file}'.")
 
             logger.info(f"Designing new {num_taps}-tap filter from '{calibration_file_path}'...")
+
             freqs, gains = self._parse_frequency_response(calibration_file_path)
+
             self._filter_taps = self._design_fir_filter(freqs, gains, num_taps)
 
             logger.info("Saving new filter to cache...")
@@ -127,7 +130,8 @@ class CalibratorTransformer:
 
         :param file_path: The full path to the calibration .txt file.
         :return: A tuple containing two NumPy arrays: (frequencies, gains_db).
-        :raises SystemExit: If the file is not found, empty, or contains no valid data.
+        :raises ValueError: If the file is empty or contains no valid data pairs.
+        :raises FileNotFoundError: If the file is not found.
         """
         frequencies, gains_db = [], []
         data_started = False
@@ -172,23 +176,27 @@ class CalibratorTransformer:
                     break
 
             if not frequencies:
-                logger.critical(
+                msg = (
                     "No valid frequency/gain data pairs (two numeric columns "
                     f"separated by whitespace) found in '{file_path}'."
                 )
-                exit(1)
+                logger.error(msg)
+                raise ValueError(msg)
 
             logger.info(f"Parsed {len(frequencies)} frequency/gain points.")
             return np.array(frequencies), np.array(gains_db)
 
         except FileNotFoundError:
-            logger.critical(f"Calibration file not found at '{file_path}'. Please check the path.")
-            exit(1)
+            logger.error(f"Calibration file not found at '{file_path}'. Please check the path.")
+            raise
         except Exception as e:
-            logger.critical(
+            if isinstance(e, ValueError) and "No valid frequency" in str(e):
+                raise e
+
+            logger.error(
                 f"An unexpected error occurred while reading calibration file '{file_path}': {e}", exc_info=True
             )
-            exit(1)
+            raise
 
     def _design_fir_filter(self, freqs: np.ndarray, gains: np.ndarray, num_taps: int) -> np.ndarray:
         """
