@@ -249,6 +249,8 @@ class AppArgs:
                 calibration_file_path=args.calibration_file,
                 sample_rate=config.sample_rate,
                 num_taps=args.num_taps,
+                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
             config.sensitivity_dbfs = sensitivity_dbfs

@@ -126,8 +126,13 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
         settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
         settings.HARDWARE.REFERENCE_DBSPL,
     )
+
     mock_calibrator_cls.assert_called_once_with(
-        calibration_file_path=sentinel.cal_file, sample_rate=48000, num_taps=sentinel.num_taps
+        calibration_file_path=sentinel.cal_file,
+        sample_rate=48000,
+        num_taps=sentinel.num_taps,
+        nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+        reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
     )
 
     assert config.audio_calibrator == mock_calibrator_cls.return_value

@@ -34,32 +34,41 @@ class CalibratorTransformer:
         self,
         calibration_file_path: str,
         sample_rate: float,
+        nominal_sensitivity_dbfs: float,
+        reference_dbspl: float,
         num_taps: int = 1024,
         force_write: bool = False,
         cache_strategy: CalibratorCacheStrategy | None = None,
-        sensitivity_gain: float = 1.0,
     ):
         """
         Initializes the CalibratorTransformer.
 
         Determines the cache file path based on the calibration file's directory.
-        If a cached filter exists and force_write is False, it loads the filter.
-        Otherwise, it parses the calibration file, designs a new FIR correction
-        filter, and saves (or overwrites) it to the cache file.
+        Calculates the sensitivity gain from the file header and designs/loads
+        the FIR correction filter.
 
-        :param calibration_file_path: Path to the unique .txt calibration file for the microphone.
-        :param sample_rate: The native sample rate of the audio stream being captured.
+        :param calibration_file_path: Path to the unique .txt calibration file.
+        :param sample_rate: The native sample rate of the audio stream.
+        :param nominal_sensitivity_dbfs: The assumed sensitivity of the hardware (e.g., -18.0).
+        :param reference_dbspl: The reference SPL level (e.g., 94.0).
         :param num_taps: The number of coefficients (taps) for the FIR filter.
-                         Higher values provide more accuracy, especially at low frequencies,
-                         but increase computational load during filtering (e.g., 1024, 512, 256).
-        :param force_write: If True, always redesign the filter and overwrite the cache file.
+        :param force_write: If True, always redesign the filter and overwrite the cache.
         :param cache_strategy: Strategy for loading/saving filter taps.
-        :param sensitivity_gain: Linear gain factor to apply before filtering (Volume Correction).
+        :raises RuntimeError: If the filter taps cannot be loaded or designed.
+        :raises ValueError: If the sensitivity factor cannot be parsed from the file.
         """
         logger.debug("Initializing CalibratorTransformer...")
         self._sample_rate = sample_rate
         self._calibration_file_path = calibration_file_path
-        self._sensitivity_gain = sensitivity_gain
+
+        sens_db, _ = self.get_sensitivity_values(
+            file_path=calibration_file_path,
+            nominal_sensitivity_dbfs=nominal_sensitivity_dbfs,
+            reference_dbspl=reference_dbspl,
+        )
+        self._sensitivity_gain = 10 ** (sens_db / 20.0)
+
+        logger.info(f"🎚️ Calculated Gain: {self._sensitivity_gain:.4f} ({sens_db}dB)")
 
         # Use provided strategy or default to File System cache
         self._cache_strategy = cache_strategy or FileCalibratorCache()
@@ -70,7 +79,6 @@ class CalibratorTransformer:
         taps_file = os.path.join(calibration_dir, taps_filename)
         logger.debug(f"Using cache key/path: {taps_file}")
 
-        # --- 1. Attempt Load ---
         self._filter_taps = None
 
         if not force_write:
@@ -85,7 +93,6 @@ class CalibratorTransformer:
                     self._filter_taps = loaded_taps
                     logger.debug("Cached filter loaded successfully.")
 
-        # --- 2. Design & Save (if load failed or forced) ---
         if self._filter_taps is None:
             if force_write:
                 logger.info("Force_write enabled. Redesigning filter...")
@@ -99,7 +106,11 @@ class CalibratorTransformer:
             logger.info("Saving new filter to cache...")
             self._cache_strategy.save(taps_file, self._filter_taps)
 
-        # Initialize filter state (zi)
+        if self._filter_taps is None:
+            raise RuntimeError(
+                f"Failed to initialize calibration filter for {calibration_file_path}. Filter design returned None."
+            )
+
         self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
         logger.info(
