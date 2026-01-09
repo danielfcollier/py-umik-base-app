@@ -220,7 +220,11 @@ def main():
     parser.add_argument("file", help="Path to input WAV file")
     parser.add_argument("--window", type=int, default=100, help="Analysis window in ms (default: 100)")
     parser.add_argument("--calibration-file", "-F", help="Path to UMIK-1 calibration file (.txt)")
-    parser.add_argument("--calibrated-input", action="store_true", help="Use this if the WAV file was saved with calibration gain applied.")
+    parser.add_argument(
+        "--calibrated-input",
+        action="store_true",
+        help="Use this if the WAV file was saved with calibration gain applied.",
+    )
     parser.add_argument("--output-file", "-o", help="Optional output CSV path")
     parser.add_argument("--start-time", help="Force start time (ISO format)")
 
