@@ -68,6 +68,8 @@ def test_initialization_parses_file_and_designs_filter(mock_firwin2):
         calibrator = CalibratorTransformer(
             calibration_file_path=fake_path,
             sample_rate=48000,
+            nominal_sensitivity_dbfs=-18.0,
+            reference_dbspl=94.0,
             num_taps=1024,
             cache_strategy=NoOpCalibratorCache(),
         )
@@ -107,10 +109,13 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     fake_path = "/fake/path/cal.txt"
 
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
-        # Default sensitivity_gain is 1.0
+        # We use nominal_sensitivity_dbfs = 1.23 to cancel out the -1.23dB "Sens Factor"
+        # in DUMMY_CAL_DATA. Result: 0dB gain (1.0x).
         calibrator = CalibratorTransformer(
             calibration_file_path=fake_path,
             sample_rate=48000,
+            nominal_sensitivity_dbfs=1.23,
+            reference_dbspl=94.0,
             num_taps=1024,
             cache_strategy=NoOpCalibratorCache(),
         )
@@ -119,7 +124,7 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
         output = calibrator.apply(mock_input_audio)
 
         # 1. Verify Gain Application
-        # The input audio should be multiplied by the gain (1.0 default)
+        # The input audio should be multiplied by the gain (1.0 in this specific setup)
         mock_input_audio.__mul__.assert_called_with(1.0)
         expected_gained_chunk = mock_input_audio.__mul__.return_value
 
@@ -156,6 +161,8 @@ def test_apply_resets_state(mock_firwin2):
             calibrator = CalibratorTransformer(
                 calibration_file_path=fake_path,
                 sample_rate=48000,
+                nominal_sensitivity_dbfs=-18.0,
+                reference_dbspl=94.0,
                 num_taps=1024,
                 cache_strategy=NoOpCalibratorCache(),
             )

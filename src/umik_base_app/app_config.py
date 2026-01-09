@@ -55,6 +55,4 @@ class AppConfig:
         self.zmq_port = zmq_port
 
         self.audio_calibrator: CalibratorTransformer | None = None
-        self.sensitivity_dbfs: float | None = None
-        self.reference_dbspl: float | None = None
         self.num_taps: int | None = None
