@@ -67,6 +67,8 @@ class CalibrationValidator:
                 calibration_file_path=self.file_path,
                 sample_rate=self.sample_rate,
                 num_taps=self.num_taps,
+                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
                 force_write=True,
             )
             logger.info("✅ SUCCESS: FIR filter designed and cached.")
