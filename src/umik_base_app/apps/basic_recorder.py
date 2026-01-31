@@ -47,9 +47,9 @@ class RecorderApp(AudioBaseApp):
 
         pipeline = AudioPipeline()
 
-        if app_config.audio_calibrator:
+        if app_config.calibration:
             logger.info("Adding Calibration Processor to pipeline.")
-            pipeline.add_transformer(CalibratorAdapter(app_config.audio_calibrator))
+            pipeline.add_transformer(CalibratorAdapter(app_config.calibration.transformer))
 
         pipeline.add_sink(RecorderSinkAdapter(self._recorder))
 

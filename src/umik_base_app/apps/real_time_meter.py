@@ -98,11 +98,11 @@ class AudioMetricsAudioSink(AudioSink):
         }
 
         # Calculate dBSPL (if calibrated)
-        if self._config.audio_calibrator:
+        if self._config.calibration:
             metrics_data["dBSPL"] = self._audio_metrics.dBSPL(
                 dbfs_level=metrics_data["dBFS"],
-                sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
+                sensitivity_dbfs=self._config.calibration.sensitivity_dbfs,
+                reference_dbspl=self._config.calibration.reference_dbspl,
             )
 
         self._audio_metrics.show_metrics(**metrics_data)
@@ -118,9 +118,9 @@ class DecibelMeterApp(AudioBaseApp):
 
         pipeline = AudioPipeline()
 
-        if config.audio_calibrator:
+        if config.calibration:
             logger.info("Adding Calibration Processor to pipeline.")
-            pipeline.add_transformer(CalibratorAdapter(config.audio_calibrator))
+            pipeline.add_transformer(CalibratorAdapter(config.calibration.transformer))
 
         pipeline.add_sink(AudioMetricsAudioSink(config))
 

@@ -95,6 +95,9 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     mock_hardware_selector.return_value.is_default = False
     mock_hardware_selector.return_value.native_rate = 48000
 
+    # Mock the static method get_sensitivity_values
+    mock_calibrator_cls.get_sensitivity_values.return_value = (-18.5, 94.0)
+
     args = argparse.Namespace(
         device_id=sentinel.device_id,
         buffer_seconds=6.0,
@@ -125,8 +128,11 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
         reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
     )
 
-    assert config.audio_calibrator == mock_calibrator_cls.return_value
-    assert config.num_taps == sentinel.num_taps
+    assert config.calibration is not None
+    assert config.calibration.transformer == mock_calibrator_cls.return_value
+    assert config.calibration.num_taps == sentinel.num_taps
+    assert config.calibration.sensitivity_dbfs == -18.5
+    assert config.calibration.reference_dbspl == 94.0
     assert config.zmq_host == sentinel.zmq_host
     assert config.zmq_port == sentinel.zmq_port
 
@@ -153,7 +159,7 @@ def test_no_calibration_file_allows_uncalibrated_setup(mock_hardware_selector):
 
     config = AppArgs.validate_args(args)
 
-    assert config.audio_calibrator is None
+    assert config.calibration is None
 
     assert config.audio_device == mock_hardware_selector.return_value
     assert config.zmq_host == sentinel.zmq_host

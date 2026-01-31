@@ -18,6 +18,7 @@ import os
 import sys
 
 from .app_config import AppConfig
+from .calibration_config import CalibrationConfig
 from .core.operational_mode import OperationalMode
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
@@ -205,8 +206,7 @@ class AppArgs:
             buffer_seconds = new_buffer
 
         # --- 5. Calibration Setup & Final Sample Rate ---
-        audio_calibrator = None
-        num_taps = None
+        calibration = None
         final_sample_rate = float(args.sample_rate)
 
         if args.calibration_file:
@@ -241,14 +241,30 @@ class AppArgs:
                     f"{final_sample_rate:.0f} Hz."
                 )
 
-            audio_calibrator = CalibratorTransformer(
+            # Get calculated sensitivity from calibration file
+            sensitivity_dbfs, reference_dbspl = (
+                CalibratorTransformer.get_sensitivity_values(
+                    file_path=args.calibration_file,
+                    nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                    reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
+                )
+            )
+
+            transformer = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
                 sample_rate=final_sample_rate,
                 num_taps=args.num_taps,
                 nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
                 reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
-            num_taps = args.num_taps
+
+            calibration = CalibrationConfig(
+                calibration_file_path=args.calibration_file,
+                sensitivity_dbfs=sensitivity_dbfs,
+                reference_dbspl=reference_dbspl,
+                num_taps=args.num_taps,
+                transformer=transformer,
+            )
             logger.info("Calibration enabled and initialized.")
         else:
             logger.info("No calibration file provided. Calibration disabled.")
@@ -262,14 +278,13 @@ class AppArgs:
             audio_device=selected_audio_device,
             zmq_host=args.zmq_host,
             zmq_port=args.zmq_port,
-            audio_calibrator=audio_calibrator,
-            num_taps=num_taps,
+            calibration=calibration,
         )
 
         logger.info(
             f"Final Configuration: Mode={run_mode.value}, "
             f"SR={config.sample_rate:.0f}Hz, "
             f"Buffer={config.buffer_seconds:.1f}s, "
-            f"Calibrated={config.audio_calibrator is not None}"
+            f"Calibrated={config.calibration is not None}"
         )
         return config
