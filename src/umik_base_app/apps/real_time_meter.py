@@ -98,11 +98,11 @@ class AudioMetricsAudioSink(AudioSink):
         }
 
         # Calculate dBSPL (if calibrated)
-        if self._config.audio_calibrator and self._config.sensitivity_dbfs is not None:
+        if self._config.audio_calibrator:
             metrics_data["dBSPL"] = self._audio_metrics.dBSPL(
                 dbfs_level=metrics_data["dBFS"],
-                sensitivity_dbfs=self._config.sensitivity_dbfs,
-                reference_dbspl=self._config.reference_dbspl,
+                sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
         self._audio_metrics.show_metrics(**metrics_data)

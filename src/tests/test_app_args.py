@@ -89,10 +89,6 @@ def test_validate_args_adjusts_buffer_rounding(mock_hardware_selector):
 def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selector):
     """Test valid configuration with a non-default device and calibration file."""
     # Arrange
-    mock_calibrator_cls.get_sensitivity_values.return_value = (
-        sentinel.sensitivity_dbfs,
-        sentinel.reference_dbspl,
-    )
 
     # Explicitly simulate a non-default device for this test
     # Note: native_rate must be a number because the code performs float() conversion on it
@@ -121,12 +117,6 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     # Should use the device's native rate (48000) overriding the requested 44100
     assert config.sample_rate == 48000
 
-    mock_calibrator_cls.get_sensitivity_values.assert_called_once_with(
-        sentinel.cal_file,
-        settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-        settings.HARDWARE.REFERENCE_DBSPL,
-    )
-
     mock_calibrator_cls.assert_called_once_with(
         calibration_file_path=sentinel.cal_file,
         sample_rate=48000,
@@ -136,8 +126,6 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     )
 
     assert config.audio_calibrator == mock_calibrator_cls.return_value
-    assert config.sensitivity_dbfs == sentinel.sensitivity_dbfs
-    assert config.reference_dbspl == sentinel.reference_dbspl
     assert config.num_taps == sentinel.num_taps
     assert config.zmq_host == sentinel.zmq_host
     assert config.zmq_port == sentinel.zmq_port
