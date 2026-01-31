@@ -13,11 +13,10 @@ from unittest.mock import MagicMock, sentinel
 from umik_base_app.consumer_thread import ConsumerThread
 
 
-def test_consumer_processes_queue():
+def test_consumer_processes_queue(stop_event):
     """Test that consumer fetches items via transport and executes pipeline."""
     mock_transport = MagicMock()
     mock_pipeline = MagicMock()
-    stop_event = threading.Event()
 
     consumer = ConsumerThread(
         transport=mock_transport, stop_event=stop_event, pipeline=mock_pipeline, consumer_queue_timeout_seconds=0.1
@@ -43,11 +42,10 @@ def test_consumer_processes_queue():
     mock_pipeline.execute.assert_called_with(sentinel.chunk, sentinel.timestamp)
 
 
-def test_consumer_handles_pipeline_error():
+def test_consumer_handles_pipeline_error(stop_event):
     """Test that consumer keeps running if pipeline fails."""
     mock_transport = MagicMock()
     mock_pipeline = MagicMock()
-    stop_event = threading.Event()
 
     consumer = ConsumerThread(
         transport=mock_transport, stop_event=stop_event, pipeline=mock_pipeline, consumer_queue_timeout_seconds=0.1

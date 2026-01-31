@@ -16,7 +16,7 @@ from umik_base_app.listener_thread import ListenerThread
 
 
 @pytest.fixture
-def mock_deps():
+def mock_deps(stop_event):
     config = MagicMock()
     # Use sentinel for ID to verify exact pass-through
     config.id = sentinel.device_id
@@ -24,8 +24,7 @@ def mock_deps():
     config.block_size = 1024
 
     q = MagicMock()
-    stop = threading.Event()
-    return config, q, stop
+    return config, q, stop_event
 
 
 @patch("umik_base_app.listener_thread.datetime")

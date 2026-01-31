@@ -28,13 +28,6 @@ def mock_config():
     return config
 
 
-@pytest.fixture
-def mock_transport():
-    """Return a mock AudioTransport."""
-    transport = MagicMock()
-    return transport
-
-
 @patch("umik_base_app.audio_base_app.HardwareConfig")
 @patch("umik_base_app.audio_base_app.ConsumerThread")
 @patch("umik_base_app.audio_base_app.ListenerThread")
