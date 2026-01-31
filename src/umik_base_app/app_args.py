@@ -210,7 +210,10 @@ class AppArgs:
         final_sample_rate = float(args.sample_rate)
 
         if args.calibration_file:
-            logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
+            logger.info(
+                f"Calibration file provided: {args.calibration_file}. "
+                "Enabling calibration."
+            )
 
             # Determine sample rate for calibration
             if selected_audio_device:
