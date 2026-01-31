@@ -18,7 +18,8 @@ import threading
 
 import sounddevice as sd
 
-from .core.datetime_stamp import DatetimeStamp
+from datetime import datetime
+
 from .hardware_config import HardwareConfig
 from .settings import get_settings
 from .transports.base_transport import AudioTransport
@@ -115,7 +116,7 @@ class ListenerThread:
                                 f"Input overflow detected on device {device_id}. Audio data lost from hardware buffer."
                             )
 
-                        timestamp = DatetimeStamp.get()
+                        timestamp = datetime.now()
 
                         # --- 3. Buffer Overflow Handling (Software side) ---
                         try:

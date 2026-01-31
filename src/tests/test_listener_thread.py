@@ -28,14 +28,14 @@ def mock_deps():
     return config, q, stop
 
 
-@patch("umik_base_app.listener_thread.DatetimeStamp")
-def test_listener_normal_read(mock_datetime, mock_deps):
+@patch("umik_base_app.listener_thread.datetime")
+def test_listener_normal_read(mock_datetime_module, mock_deps):
     """Test normal reading from stream."""
     config, q, stop = mock_deps
     listener = ListenerThread(config, q, stop)
 
     # Setup Timestamp mock
-    mock_datetime.get.return_value = sentinel.timestamp
+    mock_datetime_module.now.return_value = sentinel.timestamp
 
     # Mock Stream
     with patch("sounddevice.InputStream") as mock_stream_cls:
@@ -85,7 +85,7 @@ def test_listener_reconnects_on_error(mock_deps):
         mock_audio_data.ndim = 1
 
         # On the successful stream, just set stop immediately to exit loop clean
-        # We also need to patch DatetimeStamp here if we want strictly clean logs,
+        # We also need to patch datetime here if we want strictly clean logs,
         # but for this test we only care about the reconnection logic (mock_stream_cls calls).
         valid_stream_instance.read.side_effect = lambda x: stop.set() or (mock_audio_data, False)
 

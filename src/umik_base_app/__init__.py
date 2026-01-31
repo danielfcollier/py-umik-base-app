@@ -17,7 +17,6 @@ from .audio_base_app import AudioBaseApp
 from .calibration_config import CalibrationConfig
 from .audio_pipeline import AudioPipeline
 from .core.audio_metrics import AudioMetrics
-from .core.datetime_stamp import DatetimeStamp
 from .core.operational_mode import OperationalMode
 from .create_transport import QueueInMemoryTransport, ZmqConsumerTransport, ZmqProducerTransport
 from .hardware_config import HardwareConfig
@@ -36,7 +35,6 @@ __all__ = [
     "CalibrationConfig",
     "HardwareConfig",
     "AudioMetrics",
-    "DatetimeStamp",
     "OperationalMode",
     "QueueInMemoryTransport",
 ]
