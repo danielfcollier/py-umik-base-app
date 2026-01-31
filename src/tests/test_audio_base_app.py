@@ -35,7 +35,6 @@ def mock_transport():
     return transport
 
 
-@patch("umik_base_app.audio_base_app.settings")
 @patch("umik_base_app.audio_base_app.HardwareConfig")
 @patch("umik_base_app.audio_base_app.ConsumerThread")
 @patch("umik_base_app.audio_base_app.ListenerThread")
@@ -43,7 +42,6 @@ def test_app_initialization_and_thread_setup(
     mock_listener_cls,
     mock_consumer_cls,
     mock_hardware_config_cls,
-    mock_settings,
     mock_config,
     mock_transport,
 ):
@@ -51,9 +49,6 @@ def test_app_initialization_and_thread_setup(
     Test that AudioBaseApp initializes correctly and sets up the
     producer/consumer threads in its thread list.
     """
-    # Arrange
-    mock_settings.AUDIO.HIGH_PRIORITY = sentinel.high_priority
-
     # Act - inject transport directly
     app = AudioBaseApp(mock_config, sentinel.pipeline, transport=mock_transport)
 
@@ -71,7 +66,6 @@ def test_app_initialization_and_thread_setup(
         target_audio_device=mock_config.audio_device,
         sample_rate=sentinel.sample_rate,
         buffer_seconds=sentinel.buffer_seconds,
-        high_priority=sentinel.high_priority,
     )
 
     mock_listener_cls.assert_called_once_with(

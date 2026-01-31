@@ -80,7 +80,6 @@ class AudioBaseApp(BaseThreadApp):
                 target_audio_device=self._config.audio_device,
                 sample_rate=self._config.sample_rate,
                 buffer_seconds=self._config.buffer_seconds,
-                high_priority=settings.AUDIO.HIGH_PRIORITY,
             )
 
             logger.info("Starting Audio Listener (Producer)...")
