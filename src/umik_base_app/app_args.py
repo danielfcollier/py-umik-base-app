@@ -18,6 +18,7 @@ import os
 import sys
 
 from .app_config import AppConfig
+from .core.operational_mode import OperationalMode
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
 from .transformers.calibrator_transformer import CalibratorTransformer
@@ -135,11 +136,11 @@ class AppArgs:
             logger.error("Cannot be both Producer and Consumer separately. Do not set flags for Monolithic mode.")
             sys.exit(1)
 
-        run_mode = "monolithic"
+        run_mode = OperationalMode.MONOLITHIC
         if args.producer:
-            run_mode = "producer"
+            run_mode = OperationalMode.PRODUCER
         elif args.consumer:
-            run_mode = "consumer"
+            run_mode = OperationalMode.CONSUMER
 
         # --- 2. Resolve Calibration File (Arg > Env) ---
         if args.calibration_file is None and not args.default:
@@ -153,7 +154,7 @@ class AppArgs:
         # --- 3. Hardware Selection (Skip if Consumer) ---
         selected_audio_device = None
 
-        if run_mode != "consumer":
+        if run_mode != OperationalMode.CONSUMER:
             # Auto-Detect Target Device (e.g. UMIK-1) if needed
             if args.calibration_file and args.device_id is None and not args.default:
                 target_name = settings.HARDWARE.TARGET_DEVICE_NAME
@@ -239,12 +240,6 @@ class AppArgs:
                 )
                 config.sample_rate = final_sample_rate
 
-            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(
-                args.calibration_file,
-                settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-                settings.HARDWARE.REFERENCE_DBSPL,
-            )
-
             config.audio_calibrator = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
                 sample_rate=config.sample_rate,
@@ -253,8 +248,6 @@ class AppArgs:
                 reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
-            config.sensitivity_dbfs = sensitivity_dbfs
-            config.reference_dbspl = reference_dbspl
             config.num_taps = args.num_taps
             logger.info("Calibration enabled and initialized.")
 
@@ -263,7 +256,7 @@ class AppArgs:
             logger.info(f"Using specified/default sample rate: {config.sample_rate:.0f} Hz.")
 
         logger.info(
-            f"Final Configuration: Mode={run_mode}, SR={config.sample_rate:.0f}Hz, "
+            f"Final Configuration: Mode={run_mode.value}, SR={config.sample_rate:.0f}Hz, "
             f"Buffer={config.buffer_seconds:.1f}s, Calibrated={config.audio_calibrator is not None}"
         )
         return config

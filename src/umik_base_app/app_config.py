@@ -13,6 +13,7 @@ Year: 2025
 
 import logging
 
+from .core.operational_mode import OperationalMode
 from .hardwares.selector import HardwareSelector
 from .settings import get_settings
 from .transformers.calibrator_transformer import CalibratorTransformer
@@ -32,7 +33,7 @@ class AppConfig:
         audio_device: HardwareSelector | None,
         sample_rate: float,
         buffer_seconds: float,
-        run_mode: str,
+        run_mode: OperationalMode,
         zmq_host: str | None = None,
         zmq_port: int | None = None,
     ):
@@ -42,7 +43,7 @@ class AppConfig:
         :param audio_device: The selected HardwareSelector instance (None if Consumer).
         :param sample_rate: The final sample rate to be used (native or default).
         :param buffer_seconds: The validated and adjusted buffer duration in seconds.
-        :param run_mode: The topology mode ('monolithic', 'producer', 'consumer').
+        :param run_mode: The topology mode (OperationalMode enum).
         :param zmq_host: The ZMQ hostname (if applicable).
         :param zmq_port: The ZMQ port (if applicable).
         """
@@ -50,7 +51,7 @@ class AppConfig:
         self.sample_rate: float = sample_rate
         self.buffer_seconds: float = buffer_seconds
 
-        self.run_mode = run_mode  # "monolithic", "producer", "consumer"
+        self.run_mode: OperationalMode = run_mode
         self.zmq_host = zmq_host
         self.zmq_port = zmq_port
 

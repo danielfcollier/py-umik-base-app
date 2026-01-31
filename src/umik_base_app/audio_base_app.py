@@ -13,6 +13,7 @@ from .app_config import AppConfig
 from .audio_pipeline import AudioPipeline
 from .base_thread_app import BaseThreadApp
 from .consumer_thread import ConsumerThread
+from .core.operational_mode import OperationalMode
 from .create_transport import create_transport
 from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
@@ -43,7 +44,7 @@ class AudioBaseApp(BaseThreadApp):
         self._transport = create_transport(
             mode=app_config.run_mode, zmq_host=app_config.zmq_host, zmq_port=app_config.zmq_port
         )
-        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode}' mode.")
+        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode.")
 
     def _setup_threads(self):
         """
@@ -52,8 +53,8 @@ class AudioBaseApp(BaseThreadApp):
         mode = self._config.run_mode
 
         # --- Producer Logic (Listener) ---
-        # Active in "monolithic" or "producer" mode.
-        if mode in ["monolithic", "producer"]:
+        # Active in MONOLITHIC or PRODUCER mode.
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.PRODUCER):
             if not self._config.audio_device:
                 logger.error("Cannot start Listener: No audio device configured.")
                 return
@@ -75,8 +76,8 @@ class AudioBaseApp(BaseThreadApp):
             self._threads.append(threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread"))
 
         # --- Consumer Logic (Brain) ---
-        # Active in "monolithic" or "consumer" mode.
-        if mode in ["monolithic", "consumer"]:
+        # Active in MONOLITHIC or CONSUMER mode.
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.CONSUMER):
             logger.info("Starting Audio Consumer (Processor)...")
             consumer = ConsumerThread(
                 transport=self._transport,

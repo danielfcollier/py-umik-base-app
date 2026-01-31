@@ -10,7 +10,7 @@ from unittest.mock import ANY, MagicMock, patch, sentinel
 
 import pytest
 
-from umik_base_app import AudioBaseApp
+from umik_base_app import AudioBaseApp, OperationalMode
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def mock_dependencies():
     """Return mocks for AppConfig and pipeline."""
     config = MagicMock()
 
-    config.run_mode = "monolithic"
+    config.run_mode = OperationalMode.MONOLITHIC
 
     config.zmq_host = sentinel.zmq_host
     config.zmq_port = sentinel.zmq_port
@@ -70,7 +70,7 @@ def test_app_initialization_and_thread_setup(
 
     # Assert calls
     mock_create_transport.assert_called_once_with(
-        mode="monolithic", zmq_host=sentinel.zmq_host, zmq_port=sentinel.zmq_port
+        mode=OperationalMode.MONOLITHIC, zmq_host=sentinel.zmq_host, zmq_port=sentinel.zmq_port
     )
 
     mock_hardware_config_cls.assert_called_once_with(
