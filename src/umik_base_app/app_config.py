@@ -1,59 +1,36 @@
 """
-Defines classes and functions for parsing command-line arguments and setting up
-the configuration for the audio monitoring application.
-
-This module handles argument validation, device selection logic based on arguments,
-and initialization of the calibration process if specified via command line
-or environment variable.
+Defines the configuration dataclass for the audio monitoring application.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-import logging
+from dataclasses import dataclass
 
 from .core.operational_mode import OperationalMode
 from .hardwares.selector import HardwareSelector
-from .settings import get_settings
 from .transformers.calibrator_transformer import CalibratorTransformer
 
-settings = get_settings()
 
-logger = logging.getLogger(__name__)
-
-
+@dataclass
 class AppConfig:
     """
-    Holds the validated and processed configuration settings for the audio application.
+    Holds the validated and processed configuration settings for the audio
+    application.
+
+    All fields are set at construction time. Calibration-related fields
+    default to None when calibration is not enabled.
     """
 
-    def __init__(
-        self,
-        audio_device: HardwareSelector | None,
-        sample_rate: float,
-        buffer_seconds: float,
-        run_mode: OperationalMode,
-        zmq_host: str | None = None,
-        zmq_port: int | None = None,
-    ):
-        """
-        Initializes the configuration object.
+    # Required fields (no defaults)
+    sample_rate: float
+    buffer_seconds: float
+    run_mode: OperationalMode
 
-        :param audio_device: The selected HardwareSelector instance (None if Consumer).
-        :param sample_rate: The final sample rate to be used (native or default).
-        :param buffer_seconds: The validated and adjusted buffer duration in seconds.
-        :param run_mode: The topology mode (OperationalMode enum).
-        :param zmq_host: The ZMQ hostname (if applicable).
-        :param zmq_port: The ZMQ port (if applicable).
-        """
-        self.audio_device: HardwareSelector | None = audio_device
-        self.sample_rate: float = sample_rate
-        self.buffer_seconds: float = buffer_seconds
-
-        self.run_mode: OperationalMode = run_mode
-        self.zmq_host = zmq_host
-        self.zmq_port = zmq_port
-
-        self.audio_calibrator: CalibratorTransformer | None = None
-        self.num_taps: int | None = None
+    # Optional fields (with defaults)
+    audio_device: HardwareSelector | None = None
+    zmq_host: str | None = None
+    zmq_port: int | None = None
+    audio_calibrator: CalibratorTransformer | None = None
+    num_taps: int | None = None

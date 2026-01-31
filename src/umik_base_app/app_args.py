@@ -204,59 +204,72 @@ class AppArgs:
             )
             buffer_seconds = new_buffer
 
+        # --- 5. Calibration Setup & Final Sample Rate ---
+        audio_calibrator = None
+        num_taps = None
         final_sample_rate = float(args.sample_rate)
 
-        config = AppConfig(
-            audio_device=selected_audio_device,
-            sample_rate=final_sample_rate,
-            buffer_seconds=buffer_seconds,
-            run_mode=run_mode,
-            zmq_host=args.zmq_host,
-            zmq_port=args.zmq_port,
-        )
-
-        # --- 5. Calibration Setup ---
         if args.calibration_file:
-            logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
+            logger.info(
+                f"Calibration file provided: {args.calibration_file}. "
+                "Enabling calibration."
+            )
 
-            # Attempt to use native rate if device is available (Producer/Monolithic)
-            if config.audio_device:
+            # Determine sample rate for calibration
+            if selected_audio_device:
                 try:
-                    native_rate = float(config.audio_device.native_rate)
+                    native_rate = float(selected_audio_device.native_rate)
                     if native_rate > 0:
-                        config.sample_rate = native_rate
-                        logger.info(f"Using device native sample rate for calibration: {config.sample_rate:.0f} Hz.")
+                        final_sample_rate = native_rate
+                        logger.info(
+                            "Using device native sample rate for calibration: "
+                            f"{final_sample_rate:.0f} Hz."
+                        )
                     else:
                         raise ValueError(f"Invalid native rate: {native_rate}")
-
                 except (AttributeError, ValueError, TypeError) as e:
-                    logger.error(f"Could not use native rate from device. Error: {e}")
-                    logger.warning(f"Falling back to requested sample rate: {final_sample_rate:.0f} Hz.")
-                    config.sample_rate = final_sample_rate
+                    logger.error(
+                        f"Could not use native rate from device. Error: {e}"
+                    )
+                    logger.warning(
+                        "Falling back to requested sample rate: "
+                        f"{final_sample_rate:.0f} Hz."
+                    )
             else:
-                # Consumer mode with calibration (e.g., calibrating raw stream)
                 logger.info(
-                    f"Consumer mode: Using requested sample rate for calibration context: {final_sample_rate:.0f} Hz."
+                    "Consumer mode: Using requested sample rate: "
+                    f"{final_sample_rate:.0f} Hz."
                 )
-                config.sample_rate = final_sample_rate
 
-            config.audio_calibrator = CalibratorTransformer(
+            audio_calibrator = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
-                sample_rate=config.sample_rate,
+                sample_rate=final_sample_rate,
                 num_taps=args.num_taps,
                 nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
                 reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
-
-            config.num_taps = args.num_taps
+            num_taps = args.num_taps
             logger.info("Calibration enabled and initialized.")
-
         else:
-            logger.info("No calibration file provided (Arg or Env). Calibration disabled.")
-            logger.info(f"Using specified/default sample rate: {config.sample_rate:.0f} Hz.")
+            logger.info("No calibration file provided. Calibration disabled.")
+            logger.info(f"Using sample rate: {final_sample_rate:.0f} Hz.")
+
+        # --- 6. Create AppConfig in a single call ---
+        config = AppConfig(
+            sample_rate=final_sample_rate,
+            buffer_seconds=buffer_seconds,
+            run_mode=run_mode,
+            audio_device=selected_audio_device,
+            zmq_host=args.zmq_host,
+            zmq_port=args.zmq_port,
+            audio_calibrator=audio_calibrator,
+            num_taps=num_taps,
+        )
 
         logger.info(
-            f"Final Configuration: Mode={run_mode.value}, SR={config.sample_rate:.0f}Hz, "
-            f"Buffer={config.buffer_seconds:.1f}s, Calibrated={config.audio_calibrator is not None}"
+            f"Final Configuration: Mode={run_mode.value}, "
+            f"SR={config.sample_rate:.0f}Hz, "
+            f"Buffer={config.buffer_seconds:.1f}s, "
+            f"Calibrated={config.audio_calibrator is not None}"
         )
         return config
