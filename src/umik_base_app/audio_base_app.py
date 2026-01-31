@@ -18,6 +18,7 @@ from .create_transport import create_transport
 from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
 from .settings import get_settings
+from .transports.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -29,22 +30,37 @@ class AudioBaseApp(BaseThreadApp):
     Orchestrates Listener (Producer) and Consumer (Pipeline) threads based on Topology.
     """
 
-    def __init__(self, app_config: AppConfig, pipeline: AudioPipeline):
+    def __init__(
+        self,
+        app_config: AppConfig,
+        pipeline: AudioPipeline,
+        transport: AudioTransport | None = None,
+    ):
         """
         Initializes the application with a unified configuration object.
 
-        :param app_config: Validated AppConfig containing topology and hardware settings.
-        :param pipeline:   Configured AudioPipeline.
+        :param app_config: Validated AppConfig containing topology and hardware
+            settings.
+        :param pipeline: Configured AudioPipeline.
+        :param transport: Optional transport for dependency injection. If None,
+            creates transport via create_transport() based on app_config.
         """
         super().__init__()
         self._config = app_config
         self._pipeline = pipeline
 
-        # Create Transport (ZMQ or In-Memory)
-        self._transport = create_transport(
-            mode=app_config.run_mode, zmq_host=app_config.zmq_host, zmq_port=app_config.zmq_port
+        # Use injected transport or create one based on config
+        if transport is not None:
+            self._transport = transport
+        else:
+            self._transport = create_transport(
+                mode=app_config.run_mode,
+                zmq_host=app_config.zmq_host,
+                zmq_port=app_config.zmq_port,
+            )
+        logger.info(
+            f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode."
         )
-        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode.")
 
     def _setup_threads(self):
         """
