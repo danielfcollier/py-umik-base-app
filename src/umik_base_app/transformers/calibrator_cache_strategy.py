@@ -37,7 +37,7 @@ class CalibratorCacheStrategy(Protocol):
         ...
 
 
-class FileCalibratorCache:
+class FileCalibratorCache(CalibratorCacheStrategy):
     """
     Concrete implementation that saves/loads filters to the filesystem.
     The 'key' is expected to be a valid file path.
@@ -68,7 +68,7 @@ class FileCalibratorCache:
             logger.error(f"Failed to save filter cache to '{key}'. Error: {e}")
 
 
-class NoOpCalibratorCache:
+class NoOpCalibratorCache(CalibratorCacheStrategy):
     """
     A dummy implementation for testing that does nothing.
     Ensures no files are created during tests.
