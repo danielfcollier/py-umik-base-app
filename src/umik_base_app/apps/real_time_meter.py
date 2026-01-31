@@ -29,7 +29,6 @@ from umik_base_app import (
 )
 from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
-from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -220,16 +219,6 @@ class DecibelMeterApp(AudioBaseApp):
         logger.debug("Initializing DecibelMeterApp...")
 
         pipeline = AudioPipeline(sample_rate=config.sample_rate)
-
-        if config.calibration:
-            logger.info("Adding Calibration Processor to pipeline.")
-            pipeline.add_transformer(
-                CalibratorAdapter(
-                    config.calibration.transformer,
-                    config.calibration.sensitivity_dbfs,
-                    config.calibration.reference_dbspl,
-                )
-            )
 
         pipeline.add_sink(AudioMetricsSink(sample_rate=config.sample_rate))
 
