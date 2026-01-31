@@ -252,31 +252,53 @@ class CalibratorTransformer:
         if self._filter_taps is not None:
             self._filter_state = np.zeros(len(self._filter_taps) - 1)
 
-    def apply(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
+    def apply_gain(self, audio_chunk: np.ndarray) -> np.ndarray:
         """
-        Applies Sensitivity Gain AND FIR correction.
+        Applies only the sensitivity gain correction. O(n) operation.
+
+        Use this for cheap real-time metrics (dBFS, RMS, peak) that only
+        need level correction, not frequency response correction.
 
         :param audio_chunk: A numpy array of raw audio samples.
-        :param reset_state: If True, resets the filter state (zi) to zeros before processing.
-        :return: A numpy array of calibrated (frequency-corrected + level-corrected) audio.
+        :return: A numpy array with gain applied.
         """
-        # 0. Optional: Reset State
+        return audio_chunk * self._sensitivity_gain
+
+    def apply_filter(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
+        """
+        Applies only the FIR frequency correction filter. O(n * taps) operation.
+
+        Note: This maintains internal filter state for streaming continuity.
+        If chunks are not contiguous, use reset_state=True to avoid artifacts.
+
+        :param audio_chunk: A numpy array of audio samples (typically gain-corrected).
+        :param reset_state: If True, resets filter state before processing.
+        :return: A numpy array with frequency response correction applied.
+        """
         if reset_state:
             self.reset_state()
 
-        # 1. Apply Scalar Gain (Absolute Level)
-        # We apply this FIRST so the filter acts on the "True Level" signal.
-        gained_chunk = audio_chunk * self._sensitivity_gain
+        filtered_chunk, self._filter_state = lfilter(
+            self._filter_taps, 1.0, audio_chunk, zi=self._filter_state
+        )
 
-        # 2. Apply Vector Filter (Frequency Response)
-        # `zi` provides the initial state from the previous chunk.
-        # `zo` (returned as the second element) becomes the state for the *next* chunk.
-        calibrated_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, gained_chunk, zi=self._filter_state)
+        if filtered_chunk.dtype != audio_chunk.dtype:
+            filtered_chunk = filtered_chunk.astype(audio_chunk.dtype)
 
-        if calibrated_chunk.dtype != audio_chunk.dtype:
-            calibrated_chunk = calibrated_chunk.astype(audio_chunk.dtype)
+        return filtered_chunk
 
-        return calibrated_chunk
+    def apply(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
+        """
+        Applies both sensitivity gain AND FIR frequency correction.
+
+        Equivalent to: apply_filter(apply_gain(audio_chunk), reset_state)
+
+        :param audio_chunk: A numpy array of raw audio samples.
+        :param reset_state: If True, resets the filter state (zi) to zeros before processing.
+        :return: A numpy array of fully calibrated audio (level + frequency corrected).
+        """
+        gained_chunk = self.apply_gain(audio_chunk)
+        return self.apply_filter(gained_chunk, reset_state=reset_state)
 
     @staticmethod
     def get_sensitivity_values(

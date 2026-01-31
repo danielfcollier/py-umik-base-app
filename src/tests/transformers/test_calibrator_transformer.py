@@ -100,6 +100,11 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     mock_input_audio = MagicMock()
     mock_input_audio.dtype = "float32"
 
+    # The gained chunk (result of multiplication) also needs dtype for the filter's check
+    mock_gained_chunk = MagicMock()
+    mock_gained_chunk.dtype = "float32"
+    mock_input_audio.__mul__.return_value = mock_gained_chunk
+
     mock_calibrated_chunk = MagicMock()
     mock_calibrated_chunk.dtype = "float32"
 
@@ -126,7 +131,6 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
         # 1. Verify Gain Application
         # The input audio should be multiplied by the gain (1.0 in this specific setup)
         mock_input_audio.__mul__.assert_called_with(1.0)
-        expected_gained_chunk = mock_input_audio.__mul__.return_value
 
         # 2. Verify lfilter was called with the GAINED chunk
         mock_lfilter.assert_called_once()
@@ -135,7 +139,7 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
         # Expected: lfilter(b, a, x, zi=...)
         assert args[0] == mock_firwin2.return_value  # b (taps)
         assert args[1] == 1.0  # a
-        assert args[2] == expected_gained_chunk  # x (MUST BE THE MULTIPLIED OBJECT)
+        assert args[2] == mock_gained_chunk  # x (MUST BE THE MULTIPLIED OBJECT)
         assert "zi" in kwargs  # zi (state provided)
 
         # 3. Verify output matches
