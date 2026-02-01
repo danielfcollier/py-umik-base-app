@@ -21,6 +21,7 @@ from umik_base_app import (
     AudioPipeline,
     AudioSink,
     OperationalMode,
+    PipelineContext,
     QueueInMemoryTransport,
 )
 
@@ -39,8 +40,8 @@ class RecordingSink(AudioSink):
         self.received: list[tuple[np.ndarray, datetime]] = []
         self.call_count = 0
 
-    def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
-        self.received.append((audio_chunk, timestamp))
+    def handle(self, ctx: PipelineContext) -> None:
+        self.received.append((ctx.audio, ctx.timestamp))
         self.call_count += 1
 
 
@@ -98,7 +99,7 @@ def test_app_lifecycle_processes_audio_and_shuts_down(
     4. All chunks are processed
     """
     # --- 1. Setup Pipeline with Recording Sink ---
-    pipeline = AudioPipeline()
+    pipeline = AudioPipeline(sample_rate=consumer_config.sample_rate)
     pipeline.add_sink(recording_sink)
 
     # --- 2. Create App with Injected Transport ---
@@ -145,7 +146,7 @@ def test_app_handles_empty_queue_gracefully(consumer_config, recording_sink):
     """
     transport = QueueInMemoryTransport()
 
-    pipeline = AudioPipeline()
+    pipeline = AudioPipeline(sample_rate=consumer_config.sample_rate)
     pipeline.add_sink(recording_sink)
 
     app = AudioBaseApp(
@@ -181,7 +182,7 @@ def test_app_shutdown_is_responsive(consumer_config, recording_sink):
         chunk = np.zeros(4800, dtype=np.float32)
         transport.send((chunk, datetime.now()))
 
-    pipeline = AudioPipeline()
+    pipeline = AudioPipeline(sample_rate=consumer_config.sample_rate)
     pipeline.add_sink(recording_sink)
 
     app = AudioBaseApp(

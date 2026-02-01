@@ -8,6 +8,7 @@ Year: 2025
 
 import numpy as np
 
+from ..core.pipeline_context import PipelineContext
 from .transformers_protocol import AudioTransformer
 
 
@@ -34,9 +35,24 @@ class GainTransformer(AudioTransformer):
 
     def process_audio(self, audio_chunk: np.ndarray) -> np.ndarray:
         """
-        Apply gain to the audio chunk.
+        Apply gain to raw audio data.
+
+        This is the core processing method used internally by CalibratorTransformer
+        and for direct audio processing without pipeline context.
 
         :param audio_chunk: Input audio samples.
         :return: Gain-corrected audio samples.
         """
         return audio_chunk * self._gain
+
+    def process(self, ctx: PipelineContext) -> PipelineContext:
+        """
+        Apply gain to the audio chunk and annotate context.
+
+        :param ctx: The pipeline context containing audio data.
+        :return: The same context with gain applied to audio.
+        """
+        ctx.audio = self.process_audio(ctx.audio)
+        ctx.set("gain_applied", True)
+        ctx.set("gain_linear", self._gain)
+        return ctx

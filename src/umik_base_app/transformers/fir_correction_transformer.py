@@ -9,6 +9,7 @@ Year: 2025
 import numpy as np
 from scipy.signal import lfilter
 
+from ..core.pipeline_context import PipelineContext
 from .transformers_protocol import AudioTransformer
 
 
@@ -50,16 +51,33 @@ class FirCorrectionTransformer(AudioTransformer):
 
     def process_audio(self, audio_chunk: np.ndarray) -> np.ndarray:
         """
-        Apply FIR filter to the audio chunk, maintaining state.
+        Apply FIR filter to raw audio data, maintaining state.
+
+        This is the core processing method used internally by CalibratorTransformer
+        and for direct audio processing without pipeline context.
 
         :param audio_chunk: Input audio samples.
         :return: Frequency-corrected audio samples.
         """
+        original_dtype = audio_chunk.dtype
+
         filtered_chunk, self._filter_state = lfilter(
             self._filter_taps, 1.0, audio_chunk, zi=self._filter_state
         )
 
-        if filtered_chunk.dtype != audio_chunk.dtype:
-            filtered_chunk = filtered_chunk.astype(audio_chunk.dtype)
+        if filtered_chunk.dtype != original_dtype:
+            filtered_chunk = filtered_chunk.astype(original_dtype)
 
         return filtered_chunk
+
+    def process(self, ctx: PipelineContext) -> PipelineContext:
+        """
+        Apply FIR filter to the audio chunk, maintaining state.
+
+        :param ctx: The pipeline context containing audio data.
+        :return: The same context with frequency correction applied.
+        """
+        ctx.audio = self.process_audio(ctx.audio)
+        ctx.set("fir_applied", True)
+        ctx.set("fir_num_taps", self.num_taps)
+        return ctx
