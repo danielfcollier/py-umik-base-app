@@ -160,10 +160,7 @@ class PipelineContext:
 
         :return: True if sensitivity and reference values are available.
         """
-        return (
-            self.sensitivity_dbfs is not None
-            and self.reference_dbspl is not None
-        )
+        return self.sensitivity_dbfs is not None and self.reference_dbspl is not None
 
     def get_calibration_summary(self) -> dict[str, Any]:
         """

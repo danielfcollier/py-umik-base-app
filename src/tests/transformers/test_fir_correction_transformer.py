@@ -6,9 +6,10 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from unittest.mock import MagicMock, patch, sentinel
+
 import numpy as np
 import pytest
-from unittest.mock import patch, MagicMock, sentinel
 
 from umik_base_app.transformers.fir_correction_transformer import (
     FirCorrectionTransformer,
@@ -42,7 +43,7 @@ def test_fir_transformer_maintains_state_across_chunks(simple_taps):
 
     # First chunk ends with 1.0
     chunk1 = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-    result1 = transformer.process_audio(chunk1)
+    transformer.process_audio(chunk1)
 
     # Second chunk starts with 0.0, but state carries the 1.0
     chunk2 = np.array([0.0, 0.0, 0.0], dtype=np.float32)

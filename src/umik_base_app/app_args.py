@@ -210,10 +210,7 @@ class AppArgs:
         final_sample_rate = float(args.sample_rate)
 
         if args.calibration_file:
-            logger.info(
-                f"Calibration file provided: {args.calibration_file}. "
-                "Enabling calibration."
-            )
+            logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
 
             # Determine sample rate for calibration
             if selected_audio_device:
@@ -221,33 +218,20 @@ class AppArgs:
                     native_rate = float(selected_audio_device.native_rate)
                     if native_rate > 0:
                         final_sample_rate = native_rate
-                        logger.info(
-                            "Using device native sample rate for calibration: "
-                            f"{final_sample_rate:.0f} Hz."
-                        )
+                        logger.info(f"Using device native sample rate for calibration: {final_sample_rate:.0f} Hz.")
                     else:
                         raise ValueError(f"Invalid native rate: {native_rate}")
                 except (AttributeError, ValueError, TypeError) as e:
-                    logger.error(
-                        f"Could not use native rate from device. Error: {e}"
-                    )
-                    logger.warning(
-                        "Falling back to requested sample rate: "
-                        f"{final_sample_rate:.0f} Hz."
-                    )
+                    logger.error(f"Could not use native rate from device. Error: {e}")
+                    logger.warning(f"Falling back to requested sample rate: {final_sample_rate:.0f} Hz.")
             else:
-                logger.info(
-                    "Consumer mode: Using requested sample rate: "
-                    f"{final_sample_rate:.0f} Hz."
-                )
+                logger.info(f"Consumer mode: Using requested sample rate: {final_sample_rate:.0f} Hz.")
 
             # Get calculated sensitivity from calibration file
-            sensitivity_dbfs, reference_dbspl = (
-                CalibratorTransformer.get_sensitivity_values(
-                    file_path=args.calibration_file,
-                    nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-                    reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
-                )
+            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(
+                file_path=args.calibration_file,
+                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
             transformer = CalibratorTransformer(

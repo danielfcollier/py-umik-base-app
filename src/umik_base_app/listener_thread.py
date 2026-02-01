@@ -15,10 +15,9 @@ Year: 2025
 import logging
 import queue
 import threading
+from datetime import datetime
 
 import sounddevice as sd
-
-from datetime import datetime
 
 from .hardware_config import HardwareConfig
 from .settings import get_settings

@@ -7,7 +7,6 @@ Year: 2025
 """
 
 import numpy as np
-import pytest
 
 from umik_base_app.transformers.gain_transformer import GainTransformer
 

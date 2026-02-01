@@ -114,8 +114,7 @@ class CalibratorTransformer:
 
         if self._filter_taps is None:
             raise RuntimeError(
-                f"Failed to initialize calibration filter for "
-                f"{calibration_file_path}. Filter design returned None."
+                f"Failed to initialize calibration filter for {calibration_file_path}. Filter design returned None."
             )
 
         # Create component transformers
@@ -123,8 +122,7 @@ class CalibratorTransformer:
         self._fir_transformer = FirCorrectionTransformer(self._filter_taps)
 
         logger.info(
-            f"✅ CalibratorTransformer ready. "
-            f"Gain: {self._sensitivity_gain:.4f}x, Taps: {len(self._filter_taps)}"
+            f"✅ CalibratorTransformer ready. Gain: {self._sensitivity_gain:.4f}x, Taps: {len(self._filter_taps)}"
         )
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
@@ -279,9 +277,7 @@ class CalibratorTransformer:
         """
         return self._gain_transformer.process_audio(audio_chunk)
 
-    def apply_filter(
-        self, audio_chunk: np.ndarray, reset_state: bool = False
-    ) -> np.ndarray:
+    def apply_filter(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
         """
         Applies only the FIR frequency correction filter. O(n * taps) operation.
 
@@ -296,9 +292,7 @@ class CalibratorTransformer:
             self.reset_state()
         return self._fir_transformer.process_audio(audio_chunk)
 
-    def apply(
-        self, audio_chunk: np.ndarray, reset_state: bool = False
-    ) -> np.ndarray:
+    def apply(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
         """
         Applies both sensitivity gain AND FIR frequency correction.
 

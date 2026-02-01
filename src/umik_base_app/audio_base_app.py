@@ -58,9 +58,7 @@ class AudioBaseApp(BaseThreadApp):
                 zmq_host=app_config.zmq_host,
                 zmq_port=app_config.zmq_port,
             )
-        logger.info(
-            f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode."
-        )
+        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode.")
 
     def _setup_threads(self):
         """

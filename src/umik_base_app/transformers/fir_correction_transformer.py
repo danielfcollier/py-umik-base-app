@@ -61,9 +61,7 @@ class FirCorrectionTransformer(AudioTransformer):
         """
         original_dtype = audio_chunk.dtype
 
-        filtered_chunk, self._filter_state = lfilter(
-            self._filter_taps, 1.0, audio_chunk, zi=self._filter_state
-        )
+        filtered_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, audio_chunk, zi=self._filter_state)
 
         if filtered_chunk.dtype != original_dtype:
             filtered_chunk = filtered_chunk.astype(original_dtype)

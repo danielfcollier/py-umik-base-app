@@ -31,9 +31,7 @@ from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
 from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
-logging.basicConfig(
-    level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
@@ -70,10 +68,7 @@ class AudioMetricsSink(AudioSink):
 
         if self._interval_seconds > 0:
             self._target_samples = int(self._interval_seconds * sample_rate)
-            logger.info(
-                f"Metrics Sink: Buffered Mode "
-                f"({self._interval_seconds}s / {self._target_samples} samples)."
-            )
+            logger.info(f"Metrics Sink: Buffered Mode ({self._interval_seconds}s / {self._target_samples} samples).")
         else:
             self._target_samples = 0
             logger.info("Metrics Sink: Immediate Mode (Per-Chunk).")
@@ -113,26 +108,15 @@ class AudioMetricsSink(AudioSink):
     def _log_calibration_state(self, ctx: PipelineContext) -> None:
         """Log the calibration state for transparency."""
         if ctx.is_fully_calibrated():
-            logger.info(
-                "Calibration: FULL (gain + FIR) - "
-                "dBSPL accurate across frequency spectrum"
-            )
+            logger.info("Calibration: FULL (gain + FIR) - dBSPL accurate across frequency spectrum")
         elif ctx.is_gain_calibrated():
-            logger.info(
-                "Calibration: GAIN ONLY - "
-                "dBSPL accurate for broadband levels, not frequency-specific"
-            )
+            logger.info("Calibration: GAIN ONLY - dBSPL accurate for broadband levels, not frequency-specific")
         elif ctx.can_calculate_dbspl():
-            logger.info(
-                "Calibration: METADATA ONLY - "
-                "dBSPL calculated from raw audio (less accurate)"
-            )
+            logger.info("Calibration: METADATA ONLY - dBSPL calculated from raw audio (less accurate)")
         else:
             logger.info("Calibration: NONE - dBSPL not available")
 
-    def _process_and_log(
-        self, audio_data: np.ndarray, timestamp: datetime, ctx: PipelineContext
-    ) -> None:
+    def _process_and_log(self, audio_data: np.ndarray, timestamp: datetime, ctx: PipelineContext) -> None:
         """
         Calculates core metrics and calls the display method.
 

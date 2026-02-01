@@ -31,4 +31,3 @@ class OperationalMode(Enum):
             return OperationalMode(mode_str.lower())
         except ValueError as e:
             raise ValueError(f"Invalid operational mode: {mode_str}") from e
-

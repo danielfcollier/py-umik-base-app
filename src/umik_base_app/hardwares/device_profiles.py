@@ -287,7 +287,6 @@ def validate_sample_rate(profile: MicrophoneProfile, sample_rate: int) -> bool:
         return True
 
     logger.warning(
-        f"Sample rate {sample_rate}Hz not supported by {profile.name}. "
-        f"Supported rates: {profile.sample_rates}"
+        f"Sample rate {sample_rate}Hz not supported by {profile.name}. Supported rates: {profile.sample_rates}"
     )
     return False

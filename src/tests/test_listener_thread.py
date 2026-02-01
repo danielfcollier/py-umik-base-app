@@ -6,7 +6,6 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-import threading
 from unittest.mock import MagicMock, patch, sentinel
 
 import pytest

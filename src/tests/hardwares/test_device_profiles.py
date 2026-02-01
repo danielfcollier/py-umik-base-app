@@ -9,10 +9,10 @@ Year: 2025
 import pytest
 
 from umik_base_app.hardwares.device_profiles import (
+    DAYTON_UMM6,
     PROFILES,
     UMIK_1,
     UMIK_2,
-    DAYTON_UMM6,
     USB_PROFILES,
     CalibrationFormat,
     ConnectionType,

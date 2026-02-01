@@ -23,6 +23,6 @@ class CalibrationConfig:
 
     calibration_file_path: str
     sensitivity_dbfs: float  # Calculated from file (nominal + sens_factor)
-    reference_dbspl: float   # Reference SPL (typically 94.0 dBSPL)
+    reference_dbspl: float  # Reference SPL (typically 94.0 dBSPL)
     num_taps: int
     transformer: CalibratorTransformer

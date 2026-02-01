@@ -130,18 +130,14 @@ def discover_capabilities(device_id: int) -> DeviceCapabilities:
     profile = find_profile_by_name(device_name)
 
     if profile:
-        logger.info(
-            f"Device '{device_name}' matched profile: {profile.manufacturer} {profile.name}"
-        )
+        logger.info(f"Device '{device_name}' matched profile: {profile.manufacturer} {profile.name}")
         # Use profile rates if available (more authoritative)
         # But verify against discovered rates
         profile_rates = set(profile.sample_rates)
         discovered_rates = set(supported_rates)
         if not profile_rates.issubset(discovered_rates):
             missing = profile_rates - discovered_rates
-            logger.warning(
-                f"Profile claims rates {missing} but device doesn't support them"
-            )
+            logger.warning(f"Profile claims rates {missing} but device doesn't support them")
     else:
         logger.info(f"Device '{device_name}' not in known profiles. Using discovered rates.")
 
@@ -178,8 +174,7 @@ def select_best_sample_rate(
 
     if preferred_rate:
         logger.warning(
-            f"Preferred rate {preferred_rate}Hz not supported. "
-            f"Available: {capabilities.supported_sample_rates}"
+            f"Preferred rate {preferred_rate}Hz not supported. Available: {capabilities.supported_sample_rates}"
         )
 
     # Use profile default if available
