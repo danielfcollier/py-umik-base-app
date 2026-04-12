@@ -17,3 +17,5 @@ canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .snr-ok { color: #2ecc71; }
 .snr-low { color: #f39c12; }
 .snr-noise { color: #e74c3c; }
+.wf-export-btn { position: absolute; background: #0f3460; color: #eee; border: 1px solid #00ffcc; padding: 3px 10px; cursor: pointer; font-family: monospace; font-size: 11px; z-index: 10; }
+.wf-export-btn:hover { background: #1a5276; }
