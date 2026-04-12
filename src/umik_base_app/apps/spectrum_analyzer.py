@@ -1,10 +1,14 @@
 import logging
+import os
 import sys
+import tempfile
 import webbrowser
 
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
+from umik_base_app.settings import get_settings
 from umik_base_app.sinks.websocket_sink import WebSocketSink
 from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
+from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -34,6 +38,30 @@ class SpectrumAnalyzerApp(AudioBaseApp):
 
     def close(self):
         super().close()
+
+    def load_calibration(self, content: str) -> bool:
+        settings = get_settings()
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(content)
+            cal_path = f.name
+
+        try:
+            calibrator = CalibratorTransformer(
+                calibration_file_path=cal_path,
+                sample_rate=self._config.sample_rate,
+                num_taps=self._config.num_taps or settings.AUDIO.NUM_TAPS,
+                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
+            )
+            adapter = CalibratorAdapter(calibrator)
+            self._pipeline._processors = [adapter]
+            logger.info("Calibration loaded from web UI")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load calibration: {e}")
+            return False
+        finally:
+            os.unlink(cal_path)
 
 
 def main():

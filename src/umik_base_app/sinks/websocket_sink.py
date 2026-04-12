@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -57,40 +58,60 @@ class WebSocketSink:
         logger.info(f"WebSocketSink server thread started on port {self._ws_port}")
 
     def _run_ws_server(self):
-        import websockets
+        from aiohttp import web
 
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._queue = asyncio.Queue(maxsize=100)
 
-        async def handler(websocket):
-            self._clients.add(websocket)
+        web_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web")
+
+        async def ws_handler(request):
+            ws = web.WebSocketResponse()
+            await ws.prepare(request)
+            self._clients.add(ws)
             logger.info(f"Client connected. Total: {len(self._clients)}")
             try:
-                async for message in websocket:
-                    await self._handle_client_message(message)
-            except websockets.exceptions.ConnectionClosed:
+                async for msg in ws:
+                    if msg.type == 1:  # TEXT
+                        await self._handle_client_message(msg.data)
+            except Exception:
                 pass
             finally:
-                self._clients.discard(websocket)
+                self._clients.discard(ws)
                 logger.info(f"Client disconnected. Total: {len(self._clients)}")
+            return ws
+
+        async def index_handler(request):
+            return web.FileResponse(os.path.join(web_dir, "index.html"))
 
         async def broadcaster():
             while True:
                 msg = await self._queue.get()
                 if self._clients:
-                    await asyncio.gather(
-                        *[c.send(msg) for c in list(self._clients)],
-                        return_exceptions=True,
-                    )
+                    closed = set()
+                    for ws in list(self._clients):
+                        try:
+                            await ws.send_str(msg)
+                        except Exception:
+                            closed.add(ws)
+                    self._clients -= closed
 
-        async def main():
-            import websockets.server
+        app = web.Application()
+        app.router.add_get("/ws", ws_handler)
+        app.router.add_get("/", index_handler)
+        app.router.add_static("/css", os.path.join(web_dir, "css"))
+        app.router.add_static("/js", os.path.join(web_dir, "js"))
 
-            async with websockets.server.serve(handler, "0.0.0.0", self._ws_port):
-                await broadcaster()
+        async def on_startup(app):
+            app["broadcaster_task"] = asyncio.ensure_future(broadcaster())
 
-        self._loop.run_until_complete(main())
+        app.on_startup.append(on_startup)
+
+        self._loop.run_until_complete(
+            web.TCPSite(web.AppRunner(app), "0.0.0.0", self._ws_port).start()
+        )
+        self._loop.run_forever()
 
     async def _handle_client_message(self, message: str):
         try:
@@ -109,8 +130,20 @@ class WebSocketSink:
                 await self._stop_recording()
             elif msg_type == "export_csv":
                 self._export_csv()
+            elif msg_type == "load_calibration":
+                await self._handle_load_calibration(data.get("content", ""))
         except Exception as e:
             logger.error(f"Error handling client message: {e}")
+
+    async def _handle_load_calibration(self, content: str):
+        from umik_base_app.apps.spectrum_analyzer import SpectrumAnalyzerApp
+
+        app = SpectrumAnalyzerApp._instance
+        if app is None:
+            logger.error("SpectrumAnalyzerApp instance not found")
+            return
+        success = app.load_calibration(content)
+        await self._broadcast(json.dumps({"type": "calibration_loaded", "success": success}))
 
     async def _stop_recording(self):
         if not self._recording:
@@ -170,7 +203,11 @@ class WebSocketSink:
             "db_spl": db_spl,
             "snr_avg": avg_snr,
             "snr_status": snr_status,
-            "noise_floor": self._noise_tracker.noise_floor_db.tolist() if self._noise_tracker.noise_floor_db is not None else None,
+            "noise_floor": (
+                self._noise_tracker.noise_floor_db.tolist()
+                if self._noise_tracker.noise_floor_db is not None
+                else None
+            ),
             "capturing": self._noise_tracker.capturing,
         })
 
