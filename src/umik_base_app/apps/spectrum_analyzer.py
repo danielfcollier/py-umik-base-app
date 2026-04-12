@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import tempfile
+import threading
 import webbrowser
 
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
@@ -62,6 +63,52 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             return False
         finally:
             os.unlink(cal_path)
+
+    def switch_device(self, device_id: int) -> bool:
+        try:
+            import sounddevice as sd
+            from umik_base_app.hardware_config import HardwareConfig
+
+            device_info = sd.query_devices(device_id)
+            if device_info["max_input_channels"] <= 0:
+                logger.error(f"Device {device_id} has no input channels")
+                return False
+
+            self._stop_event.clear()
+
+            old_threads = [t for t in self._threads if t.name == "ListenerThread"]
+            self._stop_event.set()
+            for t in old_threads:
+                if t.is_alive():
+                    t.join(timeout=3)
+
+            self._config.audio_device.id = device_id
+            self._config.audio_device.name = device_info["name"]
+            self._config.audio_device.native_rate = device_info["default_samplerate"]
+
+            hw_config = HardwareConfig(
+                target_audio_device=self._config.audio_device,
+                sample_rate=self._config.sample_rate,
+                buffer_seconds=self._config.buffer_seconds,
+            )
+
+            from umik_base_app.listener_thread import ListenerThread
+
+            listener = ListenerThread(
+                audio_device_config=hw_config,
+                transport=self._transport,
+                stop_event=self._stop_event,
+            )
+            self._threads = [t for t in self._threads if t.name != "ListenerThread"]
+            new_thread = threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread")
+            self._threads.append(new_thread)
+            new_thread.start()
+
+            logger.info(f"Switched to device {device_id}: {device_info['name']}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to switch device: {e}")
+            return False
 
 
 def main():

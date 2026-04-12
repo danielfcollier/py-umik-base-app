@@ -19,6 +19,7 @@ const App = {
         this.ws.onopen = () => {
             console.log('WebSocket connected');
             document.getElementById('stat-mic').textContent = 'Mic: connected';
+            this.send({ type: 'list_devices' });
         };
 
         this.ws.onmessage = (event) => {
@@ -36,6 +37,14 @@ const App = {
                 const el = document.getElementById('cal-status');
                 el.textContent = 'Calibrated \u2713';
                 el.className = 'ok';
+            } else if (msg.type === 'device_list') {
+                this.populateDevices(msg.devices);
+            } else if (msg.type === 'device_changed') {
+                if (msg.success) {
+                    const sel = document.getElementById('device-select');
+                    const opt = sel.querySelector(`option[value="${msg.device_id}"]`);
+                    document.getElementById('stat-mic').textContent = opt ? opt.textContent : 'Mic: connected';
+                }
             }
         };
 
@@ -110,6 +119,25 @@ const App = {
             };
             reader.readAsText(file);
         });
+
+        document.getElementById('device-select').addEventListener('change', (e) => {
+            const deviceId = parseInt(e.target.value);
+            if (!isNaN(deviceId)) {
+                this.send({ type: 'change_device', device_id: deviceId });
+            }
+        });
+    },
+
+    populateDevices(devices) {
+        const sel = document.getElementById('device-select');
+        sel.innerHTML = '';
+        for (const d of devices) {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            const shortName = d.name.length > 35 ? d.name.substring(0, 32) + '...' : d.name;
+            opt.textContent = `[${d.id}] ${shortName}`;
+            sel.appendChild(opt);
+        }
     }
 };
 

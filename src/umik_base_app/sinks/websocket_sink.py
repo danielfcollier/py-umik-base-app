@@ -233,6 +233,10 @@ class WebSocketSink:
                 self._export_csv()
             elif msg_type == "load_calibration":
                 await self._handle_load_calibration(data.get("content", ""))
+            elif msg_type == "list_devices":
+                await self._handle_list_devices()
+            elif msg_type == "change_device":
+                await self._handle_change_device(data.get("device_id"))
         except Exception as e:
             logger.error(f"Error handling client message: {e}")
 
@@ -245,6 +249,35 @@ class WebSocketSink:
             return
         success = app.load_calibration(content)
         await self._broadcast(json.dumps({"type": "calibration_loaded", "success": success}))
+
+    async def _handle_list_devices(self):
+        import sounddevice as sd
+
+        devices = []
+        try:
+            for d in sd.query_devices():
+                if d["max_input_channels"] > 0:
+                    devices.append({
+                        "id": d["index"],
+                        "name": d["name"],
+                        "sample_rate": int(d["default_samplerate"]),
+                        "channels": d["max_input_channels"],
+                    })
+        except Exception as e:
+            logger.error(f"Error listing devices: {e}")
+        await self._broadcast(json.dumps({"type": "device_list", "devices": devices}))
+
+    async def _handle_change_device(self, device_id):
+        from umik_base_app.apps.spectrum_analyzer import SpectrumAnalyzerApp
+
+        if device_id is None:
+            return
+        device_id = int(device_id)
+        app = SpectrumAnalyzerApp._instance
+        if app is None:
+            return
+        success = app.switch_device(device_id)
+        await self._broadcast(json.dumps({"type": "device_changed", "success": success, "device_id": device_id}))
 
     async def _stop_recording(self):
         if not self._recording:
