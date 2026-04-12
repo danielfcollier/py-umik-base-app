@@ -140,6 +140,8 @@ const FFTPlot = {
             const y = this.dbToY(data[i]);
             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
+        ctx.stroke();
+
         const peakInput = document.getElementById('peak-count');
         if (peakInput) this.peakCount = Math.max(1, Math.min(20, parseInt(peakInput.value) || 5));
 
@@ -165,7 +167,5 @@ const FFTPlot = {
             ctx.fillStyle = '#00ffcc';
             ctx.fillText(label, x, y + offsetY);
         }
-
-        ctx.lineWidth = 1.5;
     }
 };

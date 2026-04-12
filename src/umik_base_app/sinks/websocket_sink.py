@@ -140,7 +140,16 @@ class WebSocketSink:
                     continue
                 self._process_and_broadcast(frame)
 
-        app = web.Application()
+        @web.middleware
+        async def no_cache(request, handler):
+            resp = await handler(request)
+            if request.path.startswith("/css/") or request.path.startswith("/js/") or request.path == "/":
+                resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                resp.headers["Pragma"] = "no-cache"
+                resp.headers["Expires"] = "0"
+            return resp
+
+        app = web.Application(middlewares=[no_cache])
         app.router.add_get("/ws", ws_handler)
         app.router.add_get("/", index_handler)
         app.router.add_static("/css", os.path.join(web_dir, "css"))
