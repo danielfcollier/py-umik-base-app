@@ -75,6 +75,8 @@ def main():
     app = None
     try:
         config = AppArgs.validate_args(args)
+        config.buffer_seconds = 0.1
+        logger.info(f"Spectrum analyzer: buffer override to {config.buffer_seconds}s for low latency")
         app = SpectrumAnalyzerApp(config, ws_port=args.port)
         if not args.no_open:
             url = f"http://localhost:{args.port}"
