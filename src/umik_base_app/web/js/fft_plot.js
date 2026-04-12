@@ -10,6 +10,9 @@ const FFTPlot = {
     dbMax: 0,
     freqMin: 20,
     freqMax: 22000,
+    peaks: [],
+    peakLabels: [],
+    peakCount: 5,
 
     init(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -39,6 +42,23 @@ const FFTPlot = {
         const p = this.padding;
         const plotH = this.height - p.top - p.bottom;
         return p.top + plotH * (1.0 - (db - this.dbMin) / (this.dbMax - this.dbMin));
+    },
+
+    formatFreq(freq) {
+        if (freq >= 1000) return (freq / 1000).toFixed(1) + 'kHz';
+        return Math.round(freq) + 'Hz';
+    },
+
+    detectPeaks(data, freqs) {
+        const peaks = [];
+        for (let i = 1; i < data.length - 1; i++) {
+            if (data[i] - data[i - 1] >= 3 && data[i] - data[i + 1] >= 3) {
+                peaks.push({ idx: i, freq: freqs[i], db: data[i] });
+            }
+        }
+        peaks.sort((a, b) => b.db - a.db);
+        this.peaks = peaks;
+        this.peakLabels = peaks.slice(0, this.peakCount);
     },
 
     draw(data, freqs, noiseFloor) {
@@ -120,6 +140,32 @@ const FFTPlot = {
             const y = this.dbToY(data[i]);
             i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
         }
-        ctx.stroke();
+        const peakInput = document.getElementById('peak-count');
+        if (peakInput) this.peakCount = Math.max(1, Math.min(20, parseInt(peakInput.value) || 5));
+
+        this.detectPeaks(data, freqs);
+
+        for (const pk of this.peaks) {
+            const x = this.freqToX(pk.freq);
+            const y = this.dbToY(pk.db);
+            ctx.fillStyle = 'rgba(0, 255, 200, 0.6)';
+            ctx.beginPath();
+            ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        for (let i = 0; i < this.peakLabels.length; i++) {
+            const pk = this.peakLabels[i];
+            const x = this.freqToX(pk.freq);
+            const y = this.dbToY(pk.db);
+            const label = this.formatFreq(pk.freq) + ' / ' + pk.db.toFixed(0) + 'dB';
+            const offsetY = (i % 2 === 0) ? -12 : -24;
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillText(label, x, y + offsetY);
+        }
+
+        ctx.lineWidth = 1.5;
     }
 };
