@@ -67,6 +67,7 @@ class ListenerThread:
         self._audio_device_config = audio_device_config
         self._transport = transport
         self._stop_event = stop_event
+        self.restart_event = threading.Event()
 
         self._class_name = self.__class__.__name__
         logger.debug(f"{self._class_name} initialized.")
@@ -163,8 +164,8 @@ class ListenerThread:
                 logger.debug(f"Microphone stream started on Device ID {device_id} at {sample_rate}Hz.")
 
                 try:
-                    # --- 2. Wait Loop — wakes on stop signal or silence timeout ---
-                    while not self._stop_event.is_set():
+                    # --- 2. Wait Loop — wakes on stop signal, restart signal, or silence timeout ---
+                    while not self._stop_event.is_set() and not self.restart_event.is_set():
                         self._stop_event.wait(timeout=self._silence_check_interval)
                         silence = time.monotonic() - last_audio[0]
                         if silence > self._reconnect_delay_seconds:
@@ -172,6 +173,10 @@ class ListenerThread:
                 finally:
                     with self._suppress_alsa_stderr():
                         stream.close()
+
+                    if self.restart_event.is_set():
+                        self.restart_event.clear()
+                        logger.info(f"Restarting stream with new device config (ID={self._audio_device_config.id})...")
 
             except (sd.PortAudioError, OSError) as e:
                 if self._stop_event.is_set():

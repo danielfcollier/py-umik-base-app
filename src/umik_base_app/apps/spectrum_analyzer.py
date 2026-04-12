@@ -35,7 +35,52 @@ class SpectrumAnalyzerApp(AudioBaseApp):
 
         super().__init__(app_config=config, pipeline=pipeline)
         self._ws_sink.start()
+        self._listener = None
+        self._hw_config = None
         logger.info(f"SpectrumAnalyzerApp initialized. WebSocket on port {ws_port}")
+
+    def _setup_threads(self):
+        from umik_base_app.hardware_config import HardwareConfig
+        from umik_base_app.listener_thread import ListenerThread
+        from umik_base_app.consumer_thread import ConsumerThread
+        from umik_base_app.settings import get_settings as _get_settings
+
+        settings = _get_settings()
+        mode = self._config.run_mode
+
+        if mode in ["monolithic", "producer"]:
+            if not self._config.audio_device:
+                logger.error("Cannot start Listener: No audio device configured.")
+                return
+
+            self._hw_config = HardwareConfig(
+                target_audio_device=self._config.audio_device,
+                sample_rate=self._config.sample_rate,
+                buffer_seconds=self._config.buffer_seconds,
+                high_priority=settings.AUDIO.HIGH_PRIORITY,
+            )
+
+            logger.info("Starting Audio Listener (Producer)...")
+            self._listener = ListenerThread(
+                audio_device_config=self._hw_config,
+                transport=self._transport,
+                stop_event=self._stop_event,
+            )
+            self._threads.append(
+                threading.Thread(target=self._thread_guard(self._listener.run), name="ListenerThread")
+            )
+
+        if mode in ["monolithic", "consumer"]:
+            logger.info("Starting Audio Consumer (Processor)...")
+            consumer = ConsumerThread(
+                transport=self._transport,
+                stop_event=self._stop_event,
+                pipeline=self._pipeline,
+                consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
+            )
+            self._threads.append(
+                threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread")
+            )
 
     def close(self):
         super().close()
@@ -67,42 +112,20 @@ class SpectrumAnalyzerApp(AudioBaseApp):
     def switch_device(self, device_id: int) -> bool:
         try:
             import sounddevice as sd
-            from umik_base_app.hardware_config import HardwareConfig
 
             device_info = sd.query_devices(device_id)
             if device_info["max_input_channels"] <= 0:
                 logger.error(f"Device {device_id} has no input channels")
                 return False
 
-            self._stop_event.clear()
-
-            old_threads = [t for t in self._threads if t.name == "ListenerThread"]
-            self._stop_event.set()
-            for t in old_threads:
-                if t.is_alive():
-                    t.join(timeout=3)
-
             self._config.audio_device.id = device_id
             self._config.audio_device.name = device_info["name"]
             self._config.audio_device.native_rate = device_info["default_samplerate"]
 
-            hw_config = HardwareConfig(
-                target_audio_device=self._config.audio_device,
-                sample_rate=self._config.sample_rate,
-                buffer_seconds=self._config.buffer_seconds,
-            )
+            self._hw_config.id = device_id
 
-            from umik_base_app.listener_thread import ListenerThread
-
-            listener = ListenerThread(
-                audio_device_config=hw_config,
-                transport=self._transport,
-                stop_event=self._stop_event,
-            )
-            self._threads = [t for t in self._threads if t.name != "ListenerThread"]
-            new_thread = threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread")
-            self._threads.append(new_thread)
-            new_thread.start()
+            if self._listener:
+                self._listener.restart_event.set()
 
             logger.info(f"Switched to device {device_id}: {device_info['name']}")
             return True
