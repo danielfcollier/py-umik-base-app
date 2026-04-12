@@ -14,6 +14,7 @@ from .noise_floor_tracker import NoiseFloorTracker
 
 EPS = 1e-12
 logger = logging.getLogger(__name__)
+_app_instance = None
 
 
 class WebSocketSink:
@@ -241,9 +242,7 @@ class WebSocketSink:
             logger.error(f"Error handling client message: {e}")
 
     async def _handle_load_calibration(self, content: str):
-        from umik_base_app.apps.spectrum_analyzer import SpectrumAnalyzerApp
-
-        app = SpectrumAnalyzerApp._instance
+        app = _app_instance
         if app is None:
             logger.error("SpectrumAnalyzerApp instance not found")
             return
@@ -265,18 +264,21 @@ class WebSocketSink:
                     })
         except Exception as e:
             logger.error(f"Error listing devices: {e}")
+        logger.info(f"Sending device list: {len(devices)} devices")
         await self._broadcast(json.dumps({"type": "device_list", "devices": devices}))
 
     async def _handle_change_device(self, device_id):
-        from umik_base_app.apps.spectrum_analyzer import SpectrumAnalyzerApp
-
+        logger.info(f"change_device request: device_id={device_id}")
         if device_id is None:
+            logger.error("change_device: device_id is None")
             return
         device_id = int(device_id)
-        app = SpectrumAnalyzerApp._instance
+        app = _app_instance
+        logger.info(f"app instance: {'None' if app is None else 'found'}")
         if app is None:
             return
         success = app.switch_device(device_id)
+        logger.info(f"switch_device result: {success}")
         await self._broadcast(json.dumps({"type": "device_changed", "success": success, "device_id": device_id}))
 
     async def _stop_recording(self):

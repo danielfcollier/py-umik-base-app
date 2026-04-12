@@ -14,13 +14,18 @@ from umik_base_app.transformers.calibrator_transformer import CalibratorTransfor
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
 
+import umik_base_app.sinks.websocket_sink as _ws_mod
+_ws_mod._app_instance = None
+
 
 class SpectrumAnalyzerApp(AudioBaseApp):
     _instance = None
 
     def __init__(self, config: AppConfig, ws_port: int = 8767):
-        SpectrumAnalyzerApp._instance = self
+        import umik_base_app.sinks.websocket_sink as _ws_mod
+        _ws_mod._app_instance = self
         self._config = config
+        logger.info(f"App instance registered in websocket_sink module")
 
         self._ws_sink = WebSocketSink(
             sample_rate=config.sample_rate,
