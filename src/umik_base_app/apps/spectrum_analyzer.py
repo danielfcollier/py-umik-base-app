@@ -69,15 +69,17 @@ def main():
 
     parser = AppArgs.get_parser()
     parser.add_argument("--port", type=int, default=8767, help="WebSocket/HTTP port (default: 8767)")
+    parser.add_argument("--no-open", action="store_true", help="Do not open browser automatically")
     args = parser.parse_args()
 
     app = None
     try:
         config = AppArgs.validate_args(args)
         app = SpectrumAnalyzerApp(config, ws_port=args.port)
-        url = f"http://localhost:{args.port}"
-        logger.info(f"Opening browser: {url}")
-        webbrowser.open(url)
+        if not args.no_open:
+            url = f"http://localhost:{args.port}"
+            logger.info(f"Opening browser: {url}")
+            webbrowser.open(url)
         app.run()
     except KeyboardInterrupt:
         logger.info("Stopped by user.")

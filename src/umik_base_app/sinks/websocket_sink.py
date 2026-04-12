@@ -108,9 +108,10 @@ class WebSocketSink:
 
         app.on_startup.append(on_startup)
 
-        self._loop.run_until_complete(
-            web.TCPSite(web.AppRunner(app), "0.0.0.0", self._ws_port).start()
-        )
+        runner = web.AppRunner(app)
+        self._loop.run_until_complete(runner.setup())
+        site = web.TCPSite(runner, "0.0.0.0", self._ws_port)
+        self._loop.run_until_complete(site.start())
         self._loop.run_forever()
 
     async def _handle_client_message(self, message: str):
