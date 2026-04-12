@@ -98,22 +98,26 @@ const Waterfall = {
 
         const freqMap = this.getFreqMap(freqs);
 
-        if (this.timeZoom === 1.0 && !this.frozen && !this.selectionRect) {
-            this._drawFast(data, freqMap, p, plotW, plotH);
+        if (!this.frozen) {
+            this._drawLive(data, freqMap, p, plotW, plotH);
         } else {
             this._drawZoomed(freqMap, p, plotW, plotH);
         }
     },
 
-    _drawFast(data, freqMap, p, plotW, plotH) {
+    _drawLive(data, freqMap, p, plotW, plotH) {
         const ctx = this.ctx;
-        ctx.drawImage(this.canvas, 0, 0, this.width, this.height, 0, 1, this.width, this.height);
+        const rowH = Math.max(1, Math.round(this.timeZoom));
 
-        for (let px = 0; px < plotW; px++) {
-            const db = data[freqMap[px]] || this.dbMin;
-            const t = (db - this.dbMin) / (this.dbMax - this.dbMin);
-            ctx.fillStyle = this.viridis(t);
-            ctx.fillRect(p.left + px, p.top, 1, 1);
+        ctx.drawImage(this.canvas, 0, 0, this.width, this.height, 0, rowH, this.width, this.height);
+
+        for (let py = 0; py < rowH; py++) {
+            for (let px = 0; px < plotW; px++) {
+                const db = data[freqMap[px]] || this.dbMin;
+                const t = (db - this.dbMin) / (this.dbMax - this.dbMin);
+                ctx.fillStyle = this.viridis(t);
+                ctx.fillRect(p.left + px, p.top + py, 1, 1);
+            }
         }
         this.drawAxes();
     },
@@ -174,31 +178,34 @@ const Waterfall = {
 
     redrawFromHistory() {
         if (this.history.length === 0) return;
-        const sample = this.history[this.history.length - 1];
         const p = this.padding;
         const plotW = this.width - p.left - p.right;
         const plotH = this.height - p.top - p.bottom;
         if (plotW <= 0 || plotH <= 0) return;
-        const freqMap = this.getFreqMap(sample.freqs);
-        if (this.timeZoom === 1.0 && !this.frozen && !this.selectionRect) {
-            this.ctx.fillStyle = '#0d0d1a';
-            this.ctx.fillRect(0, 0, this.width, this.height);
-            const viewRows = Math.min(this.history.length, plotH);
-            const startIdx = this.history.length - viewRows;
-            for (let r = 0; r < viewRows; r++) {
-                const row = this.history[startIdx + r];
-                const y = p.top + r;
-                for (let cpx = 0; cpx < plotW; cpx++) {
-                    const db = row.data[freqMap[cpx]] || this.dbMin;
-                    const t = (db - this.dbMin) / (this.dbMax - this.dbMin);
-                    this.ctx.fillStyle = this.viridis(t);
-                    this.ctx.fillRect(p.left + cpx, y, 1, 1);
-                }
-            }
-            this.drawAxes();
-        } else {
+        if (this.frozen || this.selectionRect) {
+            const sample = this.history[this.history.length - 1];
+            const freqMap = this.getFreqMap(sample.freqs);
             this._drawZoomed(freqMap, p, plotW, plotH);
+            return;
         }
+        const sample = this.history[this.history.length - 1];
+        const freqMap = this.getFreqMap(sample.freqs);
+        const rowH = Math.max(1, Math.round(this.timeZoom));
+        const viewRows = Math.min(this.history.length, Math.round(plotH / rowH));
+        const startIdx = this.history.length - viewRows;
+        this.ctx.fillStyle = '#0d0d1a';
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        for (let r = 0; r < viewRows; r++) {
+            const row = this.history[startIdx + r];
+            const y = p.top + r * rowH;
+            for (let cpx = 0; cpx < plotW; cpx++) {
+                const db = row.data[freqMap[cpx]] || this.dbMin;
+                const t = (db - this.dbMin) / (this.dbMax - this.dbMin);
+                this.ctx.fillStyle = this.viridis(t);
+                this.ctx.fillRect(p.left + cpx, y, 1, rowH);
+            }
+        }
+        this.drawAxes();
     },
 
     onWheel(e) {
