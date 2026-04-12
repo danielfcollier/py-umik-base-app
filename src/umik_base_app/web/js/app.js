@@ -5,8 +5,10 @@ const App = {
     init() {
         FFTPlot.init('fft-canvas');
         Waterfall.init('waterfall-canvas');
+        TimeGraph.init('time-canvas');
         this.connect();
         this.bindControls();
+        setInterval(() => TimeGraph.draw(), 50);
     },
 
     connect() {
@@ -24,6 +26,7 @@ const App = {
             if (msg.type === 'fft') {
                 FFTPlot.draw(msg.data, msg.freqs, msg.noise_floor);
                 Waterfall.draw(msg.data, msg.freqs);
+                TimeGraph.push(msg.db_spl, msg.snr_avg);
                 this.updateStatus(msg);
             } else if (msg.type === 'recording_stopped') {
                 document.getElementById('btn-record').classList.remove('active');
