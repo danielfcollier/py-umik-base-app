@@ -5,7 +5,7 @@ const TimeGraph = {
     height: 0,
     buffer: [],
     maxEntries: 600,
-    windowSeconds: 30,
+    defaultWindowSeconds: 30,
     padding: { top: 8, right: 50, bottom: 20, left: 50 },
     splMin: -100,
     splMax: 0,
@@ -91,7 +91,9 @@ const TimeGraph = {
         if (this.buffer.length < 2) return;
 
         const tMax = this.buffer[this.buffer.length - 1].t;
-        const tMin = tMax - this.windowSeconds;
+        const zoom = (typeof Waterfall !== 'undefined' && Waterfall.timeZoom) ? Waterfall.timeZoom : 1.0;
+        const windowSeconds = this.defaultWindowSeconds / zoom;
+        const tMin = tMax - windowSeconds;
 
         ctx.strokeStyle = '#2ecc71';
         ctx.lineWidth = 1.2;
@@ -129,6 +131,13 @@ const TimeGraph = {
             if (x >= p.left && x <= w - p.right) {
                 ctx.fillText(s === 0 ? 'now' : '-' + s + 's', x, h - p.bottom + 14);
             }
+        }
+        
+        if (zoom > 1.05) {
+            ctx.fillStyle = '#444';
+            ctx.font = '8px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(zoom.toFixed(1) + 'x', w - p.right + 4, p.top + 10);
         }
     }
 };
