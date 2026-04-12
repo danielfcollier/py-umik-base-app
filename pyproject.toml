@@ -24,6 +24,7 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "pyzmq>=24.0.0",
     "textual>=0.60.0",
+    "websockets>=12.0",
 ]
 
 [build-system]
@@ -70,6 +71,7 @@ audio-tools-plot = "umik_base_app.apps.metrics_plotter:main"
 audio-tools-batch = "umik_base_app.scripts.audio_batch_analysis:main"
 audio-tools-enhance = "umik_base_app.scripts.enhance_voice:main"
 audio-tools-convert = "umik_base_app.scripts.convert_audio:main"
+audio-tools-spectrum = "umik_base_app.apps.spectrum_analyzer:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
