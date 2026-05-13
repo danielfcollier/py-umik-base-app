@@ -13,10 +13,12 @@ from .app_config import AppConfig
 from .audio_pipeline import AudioPipeline
 from .base_thread_app import BaseThreadApp
 from .consumer_thread import ConsumerThread
+from .core.operational_mode import OperationalMode
 from .create_transport import create_transport
 from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
 from .settings import get_settings
+from .transports.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -28,22 +30,35 @@ class AudioBaseApp(BaseThreadApp):
     Orchestrates Listener (Producer) and Consumer (Pipeline) threads based on Topology.
     """
 
-    def __init__(self, app_config: AppConfig, pipeline: AudioPipeline):
+    def __init__(
+        self,
+        app_config: AppConfig,
+        pipeline: AudioPipeline,
+        transport: AudioTransport | None = None,
+    ):
         """
         Initializes the application with a unified configuration object.
 
-        :param app_config: Validated AppConfig containing topology and hardware settings.
-        :param pipeline:   Configured AudioPipeline.
+        :param app_config: Validated AppConfig containing topology and hardware
+            settings.
+        :param pipeline: Configured AudioPipeline.
+        :param transport: Optional transport for dependency injection. If None,
+            creates transport via create_transport() based on app_config.
         """
         super().__init__()
         self._config = app_config
         self._pipeline = pipeline
 
-        # Create Transport (ZMQ or In-Memory)
-        self._transport = create_transport(
-            mode=app_config.run_mode, zmq_host=app_config.zmq_host, zmq_port=app_config.zmq_port
-        )
-        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode}' mode.")
+        # Use injected transport or create one based on config
+        if transport is not None:
+            self._transport = transport
+        else:
+            self._transport = create_transport(
+                mode=app_config.run_mode,
+                zmq_host=app_config.zmq_host,
+                zmq_port=app_config.zmq_port,
+            )
+        logger.info(f"AudioBaseApp initialized in '{app_config.run_mode.value}' mode.")
 
     def _setup_threads(self):
         """
@@ -52,8 +67,8 @@ class AudioBaseApp(BaseThreadApp):
         mode = self._config.run_mode
 
         # --- Producer Logic (Listener) ---
-        # Active in "monolithic" or "producer" mode.
-        if mode in ["monolithic", "producer"]:
+        # Active in MONOLITHIC or PRODUCER mode.
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.PRODUCER):
             if not self._config.audio_device:
                 logger.error("Cannot start Listener: No audio device configured.")
                 return
@@ -63,7 +78,6 @@ class AudioBaseApp(BaseThreadApp):
                 target_audio_device=self._config.audio_device,
                 sample_rate=self._config.sample_rate,
                 buffer_seconds=self._config.buffer_seconds,
-                high_priority=settings.AUDIO.HIGH_PRIORITY,
             )
 
             logger.info("Starting Audio Listener (Producer)...")
@@ -75,8 +89,8 @@ class AudioBaseApp(BaseThreadApp):
             self._threads.append(threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread"))
 
         # --- Consumer Logic (Brain) ---
-        # Active in "monolithic" or "consumer" mode.
-        if mode in ["monolithic", "consumer"]:
+        # Active in MONOLITHIC or CONSUMER mode.
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.CONSUMER):
             logger.info("Starting Audio Consumer (Processor)...")
             consumer = ConsumerThread(
                 transport=self._transport,

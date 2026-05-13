@@ -18,6 +18,8 @@ import os
 import sys
 
 from .app_config import AppConfig
+from .calibration_config import CalibrationConfig
+from .core.operational_mode import OperationalMode
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
 from .transformers.calibrator_transformer import CalibratorTransformer
@@ -135,11 +137,11 @@ class AppArgs:
             logger.error("Cannot be both Producer and Consumer separately. Do not set flags for Monolithic mode.")
             sys.exit(1)
 
-        run_mode = "monolithic"
+        run_mode = OperationalMode.MONOLITHIC
         if args.producer:
-            run_mode = "producer"
+            run_mode = OperationalMode.PRODUCER
         elif args.consumer:
-            run_mode = "consumer"
+            run_mode = OperationalMode.CONSUMER
 
         # --- 2. Resolve Calibration File (Arg > Env) ---
         if args.calibration_file is None and not args.default:
@@ -153,7 +155,7 @@ class AppArgs:
         # --- 3. Hardware Selection (Skip if Consumer) ---
         selected_audio_device = None
 
-        if run_mode != "consumer":
+        if run_mode != OperationalMode.CONSUMER:
             # Auto-Detect Target Device (e.g. UMIK-1) if needed
             if args.calibration_file and args.device_id is None and not args.default:
                 target_name = settings.HARDWARE.TARGET_DEVICE_NAME
@@ -203,67 +205,70 @@ class AppArgs:
             )
             buffer_seconds = new_buffer
 
+        # --- 5. Calibration Setup & Final Sample Rate ---
+        calibration = None
         final_sample_rate = float(args.sample_rate)
 
-        config = AppConfig(
-            audio_device=selected_audio_device,
-            sample_rate=final_sample_rate,
-            buffer_seconds=buffer_seconds,
-            run_mode=run_mode,
-            zmq_host=args.zmq_host,
-            zmq_port=args.zmq_port,
-        )
-
-        # --- 5. Calibration Setup ---
         if args.calibration_file:
             logger.info(f"Calibration file provided: {args.calibration_file}. Enabling calibration.")
 
-            # Attempt to use native rate if device is available (Producer/Monolithic)
-            if config.audio_device:
+            # Determine sample rate for calibration
+            if selected_audio_device:
                 try:
-                    native_rate = float(config.audio_device.native_rate)
+                    native_rate = float(selected_audio_device.native_rate)
                     if native_rate > 0:
-                        config.sample_rate = native_rate
-                        logger.info(f"Using device native sample rate for calibration: {config.sample_rate:.0f} Hz.")
+                        final_sample_rate = native_rate
+                        logger.info(f"Using device native sample rate for calibration: {final_sample_rate:.0f} Hz.")
                     else:
                         raise ValueError(f"Invalid native rate: {native_rate}")
-
                 except (AttributeError, ValueError, TypeError) as e:
                     logger.error(f"Could not use native rate from device. Error: {e}")
                     logger.warning(f"Falling back to requested sample rate: {final_sample_rate:.0f} Hz.")
-                    config.sample_rate = final_sample_rate
             else:
-                # Consumer mode with calibration (e.g., calibrating raw stream)
-                logger.info(
-                    f"Consumer mode: Using requested sample rate for calibration context: {final_sample_rate:.0f} Hz."
-                )
-                config.sample_rate = final_sample_rate
+                logger.info(f"Consumer mode: Using requested sample rate: {final_sample_rate:.0f} Hz.")
 
+            # Get calculated sensitivity from calibration file
             sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(
-                args.calibration_file,
-                settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-                settings.HARDWARE.REFERENCE_DBSPL,
+                file_path=args.calibration_file,
+                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
+                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
-            config.audio_calibrator = CalibratorTransformer(
+            transformer = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
-                sample_rate=config.sample_rate,
+                sample_rate=final_sample_rate,
                 num_taps=args.num_taps,
                 nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
                 reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
 
-            config.sensitivity_dbfs = sensitivity_dbfs
-            config.reference_dbspl = reference_dbspl
-            config.num_taps = args.num_taps
+            calibration = CalibrationConfig(
+                calibration_file_path=args.calibration_file,
+                sensitivity_dbfs=sensitivity_dbfs,
+                reference_dbspl=reference_dbspl,
+                num_taps=args.num_taps,
+                transformer=transformer,
+            )
             logger.info("Calibration enabled and initialized.")
-
         else:
-            logger.info("No calibration file provided (Arg or Env). Calibration disabled.")
-            logger.info(f"Using specified/default sample rate: {config.sample_rate:.0f} Hz.")
+            logger.info("No calibration file provided. Calibration disabled.")
+            logger.info(f"Using sample rate: {final_sample_rate:.0f} Hz.")
+
+        # --- 6. Create AppConfig in a single call ---
+        config = AppConfig(
+            sample_rate=final_sample_rate,
+            buffer_seconds=buffer_seconds,
+            run_mode=run_mode,
+            audio_device=selected_audio_device,
+            zmq_host=args.zmq_host,
+            zmq_port=args.zmq_port,
+            calibration=calibration,
+        )
 
         logger.info(
-            f"Final Configuration: Mode={run_mode}, SR={config.sample_rate:.0f}Hz, "
-            f"Buffer={config.buffer_seconds:.1f}s, Calibrated={config.audio_calibrator is not None}"
+            f"Final Configuration: Mode={run_mode.value}, "
+            f"SR={config.sample_rate:.0f}Hz, "
+            f"Buffer={config.buffer_seconds:.1f}s, "
+            f"Calibrated={config.calibration is not None}"
         )
         return config

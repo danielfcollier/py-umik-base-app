@@ -69,7 +69,7 @@ The process has three phases:
 
 ### Phase 2: Application Startup (Filter Design & Caching)
 
-This happens once, every time your `umik-base-app` starts.
+This happens once, every time the application starts.
 
 1. **Check for Cache:** The `CalibratorTransformer` looks for a pre-computed filter file (e.g., `..._fir_1024taps_48000hz.npy`).
 2. **Design Filter (First Run):** If no cache is found, the `CalibratorTransformer`:

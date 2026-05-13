@@ -9,17 +9,23 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
-from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-import numpy as np
+from ..core.pipeline_context import PipelineContext
 
 
 @runtime_checkable
 class AudioSink(Protocol):
     """
     Protocol for components that consume audio data (e.g., Recorder, Meter, GUI).
-    Input: Final Audio -> Output: None (Side Effect)
+
+    Sinks receive a PipelineContext containing the final audio
+    and all metadata annotations from the transformer chain.
+
+    Example:
+        def handle(self, ctx: PipelineContext) -> None:
+            if ctx.sensitivity_dbfs is not None:
+                dbspl = calculate_dbspl(ctx.audio, ctx.sensitivity_dbfs)
     """
 
-    def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None: ...
+    def handle(self, ctx: PipelineContext) -> None: ...

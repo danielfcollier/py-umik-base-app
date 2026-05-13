@@ -16,6 +16,7 @@ from datetime import datetime
 
 import numpy as np
 
+from .core.pipeline_context import PipelineContext
 from .sinks.sinks_protocol import AudioSink
 from .transformers.transformers_protocol import AudioTransformer
 
@@ -25,7 +26,13 @@ class AudioPipeline:
     Orchestrates the flow of audio through processors and into sinks.
     """
 
-    def __init__(self):
+    def __init__(self, sample_rate: float):
+        """
+        Initialize the pipeline.
+
+        :param sample_rate: Audio sample rate (Hz). Used when creating context.
+        """
+        self._sample_rate = sample_rate
         self._processors: list[AudioTransformer] = []
         self._sinks: list[AudioSink] = []
 
@@ -40,12 +47,21 @@ class AudioPipeline:
     def execute(self, audio_chunk: np.ndarray, timestamp: datetime):
         """
         Runs the pipeline for a single audio chunk.
-        """
-        # 1. Transform: Pass audio through all processors sequentially
-        processed_chunk = audio_chunk
-        for processor in self._processors:
-            processed_chunk = processor.process_audio(processed_chunk)
 
-        # 2. Fan-out: Deliver the final audio to all sinks
+        Creates a PipelineContext, passes it through all transformers
+        sequentially, then fans out to all sinks.
+        """
+        # Create context at pipeline entry point
+        ctx = PipelineContext(
+            audio=audio_chunk,
+            timestamp=timestamp,
+            sample_rate=self._sample_rate,
+        )
+
+        # Transform: pass context through processor chain
+        for processor in self._processors:
+            ctx = processor.process(ctx)
+
+        # Fan-out: deliver to all sinks
         for sink in self._sinks:
-            sink.handle_audio(processed_chunk, timestamp)
+            sink.handle(ctx)

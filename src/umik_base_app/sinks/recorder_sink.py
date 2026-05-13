@@ -12,9 +12,9 @@ Year: 2025
 
 import logging
 import wave
+from datetime import datetime
 from pathlib import Path
 
-from ..core.datetime_stamp import DatetimeStamp
 from ..settings import get_settings
 
 settings = get_settings()
@@ -57,7 +57,7 @@ class RecorderSink:
 
     def _generate_filename(self) -> str:
         """Generates a filename with the current timestamp."""
-        timestamp = DatetimeStamp.get()
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         if self._base_path.suffix:
             name = f"{self._base_path.stem}_{timestamp}{self._base_path.suffix}"

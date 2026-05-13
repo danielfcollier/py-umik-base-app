@@ -1,9 +1,10 @@
 """
-Handles the loading of a microphone calibration file, designing a correction filter,
-and providing methods to apply the filter and retrieve sensitivity data.
+Handles the loading of a microphone calibration file, designing a correction
+filter, and providing methods to apply the filter and retrieve sensitivity data.
 
-This class manages the frequency response correction for calibrated microphones like the UMIK-1.
-It includes caching for the designed filter coefficients to optimize startup time.
+This class manages the frequency response correction for calibrated microphones
+like the UMIK-1. It composes GainTransformer and FirCorrectionTransformer for
+flexible calibration strategies.
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -14,9 +15,11 @@ import logging
 import os
 
 import numpy as np
-from scipy.signal import firwin2, lfilter
+from scipy.signal import firwin2
 
 from .calibrator_cache_strategy import CalibratorCacheStrategy, FileCalibratorCache
+from .fir_correction_transformer import FirCorrectionTransformer
+from .gain_transformer import GainTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +70,12 @@ class CalibratorTransformer:
             nominal_sensitivity_dbfs=nominal_sensitivity_dbfs,
             reference_dbspl=reference_dbspl,
         )
-        self._sensitivity_gain = 10 ** (sens_db / 20.0)
+        # Invert the sensitivity: mic at -18.5 dBFS/Pa needs +18.5 dB boost so
+        # that 94 dBSPL -> 0 dBFS, making dBSPL = dBFS + reference_dbspl.
+        self._sensitivity_gain = 10 ** (-sens_db / 20.0)
+        gain_db = -sens_db
 
-        logger.info(f"🎚️ Calculated Gain: {self._sensitivity_gain:.4f} ({sens_db}dB)")
+        logger.info(f"🎚️ Calculated Gain: {self._sensitivity_gain:.4f} ({gain_db:+.3f}dB)")
 
         # Use provided strategy or default to File System cache
         self._cache_strategy = cache_strategy or FileCalibratorCache()
@@ -114,7 +120,9 @@ class CalibratorTransformer:
                 f"Failed to initialize calibration filter for {calibration_file_path}. Filter design returned None."
             )
 
-        self._filter_state = np.zeros(len(self._filter_taps) - 1)
+        # Create component transformers
+        self._gain_transformer = GainTransformer(self._sensitivity_gain)
+        self._fir_transformer = FirCorrectionTransformer(self._filter_taps)
 
         logger.info(
             f"✅ CalibratorTransformer ready. Gain: {self._sensitivity_gain:.4f}x, Taps: {len(self._filter_taps)}"
@@ -241,42 +249,64 @@ class CalibratorTransformer:
 
         return filter_taps
 
-    def reset_state(self):
+    @property
+    def gain_transformer(self) -> GainTransformer:
+        """Access the gain transformer for selective pipeline composition."""
+        return self._gain_transformer
+
+    @property
+    def fir_transformer(self) -> FirCorrectionTransformer:
+        """Access the FIR transformer for selective pipeline composition."""
+        return self._fir_transformer
+
+    def reset_state(self) -> None:
         """
         Resets the internal filter state (zi) to zeros.
 
-        This is necessary when starting to process a new, discontinuous audio stream
-        (e.g., jumping from a pre-roll buffer to a new recording event) to avoid
-        filter ringing artifacts caused by the state of previous, unrelated audio.
+        This is necessary when starting to process a new, discontinuous audio
+        stream to avoid filter ringing artifacts from previous audio.
         """
-        if self._filter_taps is not None:
-            self._filter_state = np.zeros(len(self._filter_taps) - 1)
+        self._fir_transformer.reset_state()
+
+    def apply_gain(self, audio_chunk: np.ndarray) -> np.ndarray:
+        """
+        Applies only the sensitivity gain correction. O(n) operation.
+
+        Use this for cheap real-time metrics (dBFS, RMS, peak) that only
+        need level correction, not frequency response correction.
+
+        :param audio_chunk: A numpy array of raw audio samples.
+        :return: A numpy array with gain applied.
+        """
+        return self._gain_transformer.process_audio(audio_chunk)
+
+    def apply_filter(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
+        """
+        Applies only the FIR frequency correction filter. O(n * taps) operation.
+
+        Note: This maintains internal filter state for streaming continuity.
+        If chunks are not contiguous, use reset_state=True to avoid artifacts.
+
+        :param audio_chunk: Audio samples (typically gain-corrected).
+        :param reset_state: If True, resets filter state before processing.
+        :return: A numpy array with frequency response correction applied.
+        """
+        if reset_state:
+            self.reset_state()
+        return self._fir_transformer.process_audio(audio_chunk)
 
     def apply(self, audio_chunk: np.ndarray, reset_state: bool = False) -> np.ndarray:
         """
-        Applies Sensitivity Gain AND FIR correction.
+        Applies both sensitivity gain AND FIR frequency correction.
+
+        Equivalent to: apply_filter(apply_gain(audio_chunk), reset_state)
 
         :param audio_chunk: A numpy array of raw audio samples.
-        :param reset_state: If True, resets the filter state (zi) to zeros before processing.
-        :return: A numpy array of calibrated (frequency-corrected + level-corrected) audio.
+        :param reset_state: If True, resets the filter state before processing.
+        :return: Fully calibrated audio (level + frequency corrected).
         """
-        # 0. Optional: Reset State
-        if reset_state:
-            self.reset_state()
-
-        # 1. Apply Scalar Gain (Absolute Level)
-        # We apply this FIRST so the filter acts on the "True Level" signal.
-        gained_chunk = audio_chunk * self._sensitivity_gain
-
-        # 2. Apply Vector Filter (Frequency Response)
-        # `zi` provides the initial state from the previous chunk.
-        # `zo` (returned as the second element) becomes the state for the *next* chunk.
-        calibrated_chunk, self._filter_state = lfilter(self._filter_taps, 1.0, gained_chunk, zi=self._filter_state)
-
-        if calibrated_chunk.dtype != audio_chunk.dtype:
-            calibrated_chunk = calibrated_chunk.astype(audio_chunk.dtype)
-
-        return calibrated_chunk
+        gained_chunk = self.apply_gain(audio_chunk)
+        return self.apply_filter(gained_chunk, reset_state=reset_state)
 
     @staticmethod
     def get_sensitivity_values(
