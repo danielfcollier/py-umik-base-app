@@ -113,11 +113,12 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     fake_path = "/fake/path/cal.txt"
 
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
-        # 0dB gain (1.0x) by canceling -1.23dB sens factor
+        # nominal=-18.0, sens_factor=-1.23 → sensitivity=-19.23 dBFS
+        # Correct gain = 10^(+19.23/20) ≈ 9.152x (boosts so 94 dBSPL → 0 dBFS)
         calibrator = CalibratorTransformer(
             calibration_file_path=fake_path,
             sample_rate=48000,
-            nominal_sensitivity_dbfs=1.23,
+            nominal_sensitivity_dbfs=-18.0,
             reference_dbspl=94.0,
             num_taps=1024,
             cache_strategy=NoOpCalibratorCache(),
@@ -125,8 +126,10 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
 
         output = calibrator.apply(mock_input_audio)
 
-        # 1. Verify Gain Application
-        mock_input_audio.__mul__.assert_called_with(1.0)
+        # 1. Verify gain BOOSTS (not attenuates) to normalize mic sensitivity
+        expected_gain = 10 ** (19.23 / 20.0)
+        args, _ = mock_input_audio.__mul__.call_args
+        assert abs(args[0] - expected_gain) < 1e-3
 
         # 2. Verify lfilter was called with the GAINED chunk
         mock_lfilter.assert_called_once()

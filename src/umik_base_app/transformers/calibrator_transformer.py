@@ -70,9 +70,12 @@ class CalibratorTransformer:
             nominal_sensitivity_dbfs=nominal_sensitivity_dbfs,
             reference_dbspl=reference_dbspl,
         )
-        self._sensitivity_gain = 10 ** (sens_db / 20.0)
+        # Invert the sensitivity: mic at -18.5 dBFS/Pa needs +18.5 dB boost so
+        # that 94 dBSPL -> 0 dBFS, making dBSPL = dBFS + reference_dbspl.
+        self._sensitivity_gain = 10 ** (-sens_db / 20.0)
+        gain_db = -sens_db
 
-        logger.info(f"🎚️ Calculated Gain: {self._sensitivity_gain:.4f} ({sens_db}dB)")
+        logger.info(f"🎚️ Calculated Gain: {self._sensitivity_gain:.4f} ({gain_db:+.3f}dB)")
 
         # Use provided strategy or default to File System cache
         self._cache_strategy = cache_strategy or FileCalibratorCache()

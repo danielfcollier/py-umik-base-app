@@ -153,7 +153,7 @@ def process_directory(input_dir, output_csv, chunk_ms, sensitivity, reference):
     logger.info(f"✅ Batch analysis complete. Data saved to {output_csv}")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Batch process WAV files.")
     parser.add_argument("input_dir", help="Directory containing WAV files")
     parser.add_argument("--window", type=int, default=100, help="Window size in ms (default: 100)")
@@ -177,3 +177,7 @@ if __name__ == "__main__":
         out_csv = os.path.join(args.input_dir, "batch_metrics.csv")
 
     process_directory(args.input_dir, out_csv, args.window, sens, ref)
+
+
+if __name__ == "__main__":
+    main()

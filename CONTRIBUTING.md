@@ -1,6 +1,6 @@
-# Contributing to umik-base-app
+# Contributing to the Audio Measurement Framework
 
-Thank you for your interest in contributing to the **umik-base-app**! I welcome contributions to help improve this audio analysis framework.
+Thank you for your interest in contributing! I welcome contributions to help improve this audio analysis framework.
 
 This guide will help you set up your development environment and understand the workflows.
 
@@ -8,7 +8,7 @@ This guide will help you set up your development environment and understand the 
 
 Before you begin, ensure you have the following installed on your system:
 
-* **Python 3.12+**: [Download Python](https://www.python.org/downloads/)
+* **Python 3.9+**: [Download Python](https://www.python.org/downloads/)
 * **uv**: An extremely fast Python package installer and resolver.
     * [Installation Guide for uv](https://github.com/astral-sh/uv) (e.g., `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 * **Make**: Standard build tool (usually pre-installed on Linux/macOS).

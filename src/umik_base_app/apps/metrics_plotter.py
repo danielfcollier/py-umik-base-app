@@ -142,8 +142,9 @@ class MetricsVisualizer:
         """Returns (x_data_series, is_absolute_bool)."""
         if "timestamp" in self.df.columns:
             try:
-                # Attempt to parse absolute timestamps
-                return pd.to_datetime(self.df["timestamp"]), True
+                ts = pd.to_datetime(self.df["timestamp"])
+                if ts.notna().any():
+                    return ts, True
             except Exception:
                 pass
         return self.df["time_sec"], False
