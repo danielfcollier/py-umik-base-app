@@ -26,16 +26,11 @@ def main():
     It parses command line arguments to either list all devices or find a specific UMIK-1 ID.
     """
     parser = argparse.ArgumentParser(description="List available audio input devices.")
-    parser.add_argument(
-        "--only",
-        action="store_true",
-        help="If set, searches specifically for a 'UMIK-1' device and prints ONLY its ID.",
-    )
     target_name = settings.HARDWARE.TARGET_DEVICE_NAME
     parser.add_argument(
         "--only",
         action="store_true",
-        help=f"If set, searches specifically for a '{target_name}' device and prints ONLY its ID.",
+        help=f"If set, searches for a '{target_name}' device and prints ONLY its ID.",
     )
 
     args = parser.parse_args()

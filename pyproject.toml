@@ -54,6 +54,8 @@ umik-real-time-meter = "umik_base_app.apps.real_time_meter:main"
 umik-recorder = "umik_base_app.apps.basic_recorder:main"
 umik-metrics-analyzer = "umik_base_app.apps.metrics_analyzer:main"
 umik-metrics-plotter = "umik_base_app.apps.metrics_plotter:main"
+umik-batch-analyze = "scripts.audio_batch_analysis:main"
+umik-enhance-audio = "scripts.enhance_voice:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

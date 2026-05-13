@@ -158,7 +158,11 @@ class AudioMetrics:
         :param metrics: A variable number of keyword arguments (e.g., rms=0.1, dbfs=-25.3).
         """
 
-        formatted_metrics = {key: f"{value:.4f}" for key, value in metrics.items() if key != "measured_at"}
+        formatted_metrics = {
+            key: f"{float(value):.4f}" if np.isscalar(value) and not isinstance(value, str) else value
+            for key, value in metrics.items()
+            if key != "measured_at"
+        }
         measured_at = metrics["measured_at"]
 
         logger.info(f"[measured_at: {measured_at}] {formatted_metrics} [audio-metrics]")

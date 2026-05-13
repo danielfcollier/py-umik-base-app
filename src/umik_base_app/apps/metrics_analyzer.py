@@ -46,7 +46,7 @@ class MetricsAnalyzer:
         self.is_calibrated = is_calibrated
 
         # 1. Load Calibration
-        self.sensitivity: float | None = None
+        self.sensitivity: float = settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS
         self.reference: float = settings.HARDWARE.REFERENCE_DBSPL
 
         if calibration_file:
@@ -176,10 +176,9 @@ class MetricsAnalyzer:
                 except ValueError:
                     pass
 
-            # dBSPL (Calibrated)
-            if self.sensitivity is not None:
-                spl = self.metrics_engine.dBSPL(metrics["dbfs"], self.sensitivity, self.reference)
-                metrics["dbspl"] = round(spl, 2)
+            # dBSPL
+            spl = self.metrics_engine.dBSPL(metrics["dbfs"], self.sensitivity, self.reference)
+            metrics["dbspl"] = round(spl, 2)
 
             results.append(metrics)
 

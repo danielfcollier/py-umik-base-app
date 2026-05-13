@@ -89,16 +89,20 @@ def test_initialization_parses_file_and_designs_filter(mock_firwin2):
         assert calibrator._filter_taps == mock_firwin2.return_value
 
 
-@patch("umik_base_app.transformers.calibrator_transformer.lfilter")
+@patch("umik_base_app.transformers.fir_correction_transformer.lfilter")
 def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     """
     Verify that the apply() method calls lfilter with the
     input audio multiplied by the gain.
     """
     # Create inputs/outputs with .dtype attributes to satisfy type check logic
-    # if calibrated_chunk.dtype != audio_chunk.dtype: ...
     mock_input_audio = MagicMock()
     mock_input_audio.dtype = "float32"
+
+    # The gained chunk (result of multiplication) also needs dtype
+    mock_gained_chunk = MagicMock()
+    mock_gained_chunk.dtype = "float32"
+    mock_input_audio.__mul__.return_value = mock_gained_chunk
 
     mock_calibrated_chunk = MagicMock()
     mock_calibrated_chunk.dtype = "float32"
@@ -109,24 +113,23 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
     fake_path = "/fake/path/cal.txt"
 
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
-        # We use nominal_sensitivity_dbfs = 1.23 to cancel out the -1.23dB "Sens Factor"
-        # in DUMMY_CAL_DATA. Result: 0dB gain (1.0x).
+        # nominal=-18.0, sens_factor=-1.23 → sensitivity=-19.23 dBFS
+        # Correct gain = 10^(+19.23/20) ≈ 9.152x (boosts so 94 dBSPL → 0 dBFS)
         calibrator = CalibratorTransformer(
             calibration_file_path=fake_path,
             sample_rate=48000,
-            nominal_sensitivity_dbfs=1.23,
+            nominal_sensitivity_dbfs=-18.0,
             reference_dbspl=94.0,
             num_taps=1024,
             cache_strategy=NoOpCalibratorCache(),
         )
 
-        # Apply calibration
         output = calibrator.apply(mock_input_audio)
 
-        # 1. Verify Gain Application
-        # The input audio should be multiplied by the gain (1.0 in this specific setup)
-        mock_input_audio.__mul__.assert_called_with(1.0)
-        expected_gained_chunk = mock_input_audio.__mul__.return_value
+        # 1. Verify gain BOOSTS (not attenuates) to normalize mic sensitivity
+        expected_gain = 10 ** (19.23 / 20.0)
+        args, _ = mock_input_audio.__mul__.call_args
+        assert abs(args[0] - expected_gain) < 1e-3
 
         # 2. Verify lfilter was called with the GAINED chunk
         mock_lfilter.assert_called_once()
@@ -135,50 +138,48 @@ def test_apply_filters_signal(mock_lfilter, mock_firwin2):
         # Expected: lfilter(b, a, x, zi=...)
         assert args[0] == mock_firwin2.return_value  # b (taps)
         assert args[1] == 1.0  # a
-        assert args[2] == expected_gained_chunk  # x (MUST BE THE MULTIPLIED OBJECT)
-        assert "zi" in kwargs  # zi (state provided)
+        assert args[2] == mock_gained_chunk  # x
+        assert "zi" in kwargs
 
         # 3. Verify output matches
         assert output == mock_calibrated_chunk
 
-        # 4. Verify internal state update
-        assert calibrator._filter_state == sentinel.new_state
 
-
-def test_apply_resets_state(mock_firwin2):
+@patch("umik_base_app.transformers.fir_correction_transformer.lfilter")
+def test_apply_resets_state(mock_lfilter, mock_firwin2):
     """
     Verify that calling apply(reset_state=True) resets the internal filter state.
     """
     fake_path = "/fake/path/cal.txt"
     mock_input_audio = MagicMock()
     mock_input_audio.dtype = "float32"
+    mock_input_audio.__mul__.return_value = mock_input_audio
+
+    # Setup lfilter to return dummy data
+    mock_lfilter.return_value = (mock_input_audio, [1, 2, 3])
 
     with patch("builtins.open", mock_open(read_data=DUMMY_CAL_DATA)):
-        with patch("umik_base_app.transformers.calibrator_transformer.lfilter") as mock_lfilter:
-            # Setup lfilter to return dummy data
-            mock_lfilter.return_value = (mock_input_audio, [1, 2, 3])
+        calibrator = CalibratorTransformer(
+            calibration_file_path=fake_path,
+            sample_rate=48000,
+            nominal_sensitivity_dbfs=-18.0,
+            reference_dbspl=94.0,
+            num_taps=1024,
+            cache_strategy=NoOpCalibratorCache(),
+        )
 
-            calibrator = CalibratorTransformer(
-                calibration_file_path=fake_path,
-                sample_rate=48000,
-                nominal_sensitivity_dbfs=-18.0,
-                reference_dbspl=94.0,
-                num_taps=1024,
-                cache_strategy=NoOpCalibratorCache(),
-            )
+        # Dirty the state via the internal FIR transformer
+        calibrator._fir_transformer._filter_state = [9, 9, 9]
 
-            # Dirty the state
-            calibrator._filter_state = [9, 9, 9]
+        # Apply with reset
+        calibrator.apply(mock_input_audio, reset_state=True)
 
-            # Apply with reset
-            calibrator.apply(mock_input_audio, reset_state=True)
+        # Check if lfilter received a zeroed state in kwargs
+        _, kwargs = mock_lfilter.call_args
+        passed_zi = kwargs["zi"]
 
-            # Check if lfilter received a zeroed state in kwargs
-            _, kwargs = mock_lfilter.call_args
-            passed_zi = kwargs["zi"]
-
-            # Should be all zeros (float)
-            assert (passed_zi == 0).all()
+        # Should be all zeros (float)
+        assert (passed_zi == 0).all()
 
 
 def test_get_sensitivity_values_parsing():

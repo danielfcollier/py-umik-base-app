@@ -27,6 +27,7 @@ from umik_base_app import (
     AudioPipeline,
     AudioSink,
 )
+from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
 from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
@@ -36,18 +37,29 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-class AudioMetricsAudioSink(AudioSink):
+class AudioMetricsSink(AudioSink):
     """
     A sink component that accumulates audio and calculates metrics
     over a specified time interval (or per chunk if interval is 0).
+
+    Reads calibration metadata from PipelineContext instead of AppConfig,
+    enabling decoupled operation from calibration configuration.
+
+    Calibration-aware dBSPL calculation:
+    - Requires sensitivity_dbfs and reference_dbspl from context
+    - Accuracy depends on calibration applied (gain-only vs full)
+    - Logs calibration state for transparency
     """
 
-    def __init__(self, config: AppConfig):
+    def __init__(self, sample_rate: float):
         """
         Initializes the metrics sink with buffering logic.
+
+        :param sample_rate: Audio sample rate in Hz.
         """
-        self._config = config
-        self._audio_metrics = AudioMetrics(sample_rate=config.sample_rate)
+        self._sample_rate = sample_rate
+        self._audio_metrics = AudioMetrics(sample_rate=sample_rate)
+        self._calibration_logged = False  # Log calibration state once
 
         # Buffering Config
         self._interval_seconds = settings.METRICS.INTERVAL_SECONDS
@@ -55,29 +67,36 @@ class AudioMetricsAudioSink(AudioSink):
         self._accumulated_samples = 0
 
         if self._interval_seconds > 0:
-            self._target_samples = int(self._interval_seconds * config.sample_rate)
+            self._target_samples = int(self._interval_seconds * sample_rate)
             logger.info(f"Metrics Sink: Buffered Mode ({self._interval_seconds}s / {self._target_samples} samples).")
         else:
             self._target_samples = 0
             logger.info("Metrics Sink: Immediate Mode (Per-Chunk).")
 
-    def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
+    def handle(self, ctx: PipelineContext) -> None:
         """
         Buffers audio chunks. When full, calculates and logs metrics.
+
+        :param ctx: The pipeline context containing audio and metadata.
         """
+        # Log calibration state on first chunk
+        if not self._calibration_logged:
+            self._log_calibration_state(ctx)
+            self._calibration_logged = True
+
         try:
             # Immediate Mode
             if self._target_samples <= 0:
-                self._process_and_log(audio_chunk, timestamp)
+                self._process_and_log(ctx.audio, ctx.timestamp, ctx)
                 return
 
             # Windowed Mode
-            self._audio_buffer.append(audio_chunk)
-            self._accumulated_samples += len(audio_chunk)
+            self._audio_buffer.append(ctx.audio)
+            self._accumulated_samples += len(ctx.audio)
 
             if self._accumulated_samples >= self._target_samples:
                 full_block = np.concatenate(self._audio_buffer)
-                self._process_and_log(full_block, datetime.now())
+                self._process_and_log(full_block, datetime.now(), ctx)
 
                 # Reset buffer
                 self._audio_buffer = []
@@ -86,43 +105,133 @@ class AudioMetricsAudioSink(AudioSink):
         except Exception as e:
             logger.error(f"Sink Error: {e}", exc_info=True)
 
-    def _process_and_log(self, audio_data: np.ndarray, timestamp: datetime):
-        """Calculates core metrics and calls the display method."""
+    def _log_calibration_state(self, ctx: PipelineContext) -> None:
+        """Log the calibration state for transparency."""
+        if ctx.is_fully_calibrated():
+            logger.info("Calibration: FULL (gain + FIR) - dBSPL accurate across frequency spectrum")
+        elif ctx.is_gain_calibrated():
+            logger.info("Calibration: GAIN ONLY - dBSPL accurate for broadband levels, not frequency-specific")
+        elif ctx.can_calculate_dbspl():
+            logger.info("Calibration: METADATA ONLY - dBSPL calculated from raw audio (less accurate)")
+        else:
+            logger.info("Calibration: NONE - dBSPL not available")
+
+    def _process_and_log(self, audio_data: np.ndarray, timestamp: datetime, ctx: PipelineContext) -> None:
+        """
+        Calculates core metrics and calls the display method.
+
+        dBSPL Calculation Logic:
+        - If gain was applied: audio levels are sensitivity-corrected,
+          dBFS directly maps to acoustic level relative to reference
+        - If gain was NOT applied: need to offset dBFS by sensitivity
+          to get true acoustic level
+
+        :param audio_data: Audio samples to analyze.
+        :param timestamp: Measurement timestamp.
+        :param ctx: Pipeline context with calibration metadata.
+        """
+        dbfs = self._audio_metrics.dBFS(audio_data)
+
         metrics_data = {
             "measured_at": timestamp,
-            "interval_s": (len(audio_data) / self._config.sample_rate),
+            "interval_s": len(audio_data) / self._sample_rate,
             "rms": self._audio_metrics.rms(audio_data),
-            "flux": self._audio_metrics.flux(audio_data, self._config.sample_rate),
-            "dBFS": self._audio_metrics.dBFS(audio_data),
+            "flux": self._audio_metrics.flux(audio_data, self._sample_rate),
+            "dBFS": dbfs,
             "LUFS": self._audio_metrics.lufs(audio_data),
         }
 
-        # Calculate dBSPL (if calibrated)
-        if self._config.audio_calibrator and self._config.sensitivity_dbfs is not None:
-            metrics_data["dBSPL"] = self._audio_metrics.dBSPL(
-                dbfs_level=metrics_data["dBFS"],
-                sensitivity_dbfs=self._config.sensitivity_dbfs,
-                reference_dbspl=self._config.reference_dbspl,
-            )
+        # Calculate dBSPL if calibration metadata is available
+        if ctx.can_calculate_dbspl():
+            dbspl = self._calculate_dbspl(dbfs, ctx)
+            metrics_data["dBSPL"] = dbspl
+
+            # Add accuracy indicator based on calibration level
+            if ctx.is_fully_calibrated():
+                metrics_data["calibration"] = "full"
+            elif ctx.is_gain_calibrated():
+                metrics_data["calibration"] = "gain"
+            else:
+                metrics_data["calibration"] = "raw"
 
         self._audio_metrics.show_metrics(**metrics_data)
+
+    def _calculate_dbspl(self, dbfs: float, ctx: PipelineContext) -> float:
+        """
+        Calculate dBSPL from dBFS using calibration metadata.
+
+        The calculation depends on whether gain calibration was applied:
+
+        - WITH gain applied: The audio has been scaled by the sensitivity
+          factor. dBFS of the processed audio directly represents the
+          acoustic level relative to 0 dBFS = reference_dbspl.
+          Formula: dBSPL = dBFS + reference_dbspl
+
+        - WITHOUT gain applied (raw audio with metadata): We have the
+          sensitivity value but it wasn't applied to the audio.
+          Formula: dBSPL = dBFS - sensitivity_dbfs + reference_dbspl
+
+        :param dbfs: Measured dBFS level from audio.
+        :param ctx: Pipeline context with calibration values.
+        :return: Calculated dBSPL value.
+        """
+        sensitivity = ctx.sensitivity_dbfs
+        reference = ctx.reference_dbspl
+
+        if ctx.is_gain_calibrated():
+            # Gain was applied - audio is sensitivity-corrected
+            # The gain transformer scaled audio by 10^(sensitivity_dbfs/20)
+            # So dBFS now represents: original_dbfs + sensitivity_dbfs
+            # To get dBSPL: add reference (since 0 dBFS = reference_dbspl)
+            #
+            # Actually, looking at the gain calculation:
+            # gain = 10^(sens_db/20) where sens_db is the calculated sensitivity
+            # After gain: audio_level_dbfs = original_dbfs + sens_db
+            #
+            # For dBSPL: we need original_dbfs - sensitivity + reference
+            # Since audio is already gained: dbfs = original + sensitivity
+            # So: dBSPL = dbfs - sensitivity + reference... wait, that's wrong
+            #
+            # Let me reconsider: the gain normalizes the mic response.
+            # A mic with -18 dBFS sensitivity at 94 dBSPL means:
+            # At 94 dBSPL input -> mic outputs -18 dBFS
+            # After gain of 10^(18/20) = ~8x, output becomes ~0 dBFS
+            # So 0 dBFS (after gain) = 94 dBSPL
+            # Therefore: dBSPL = dBFS + reference_dbspl
+            return dbfs + reference
+        else:
+            # Raw audio - need full sensitivity offset
+            # dBSPL = dBFS - sensitivity_dbfs + reference_dbspl
+            return self._audio_metrics.dBSPL(
+                dbfs_level=dbfs,
+                sensitivity_dbfs=sensitivity,
+                reference_dbspl=reference,
+            )
 
 
 class DecibelMeterApp(AudioBaseApp):
     """
-    The main application class that stitches together hardware, pipeline, and sink.
+    The main application class for real-time SPL measurement.
+
+    Stitches together hardware, calibration pipeline, and metrics sink.
     """
 
     def __init__(self, config: AppConfig):
         logger.debug("Initializing DecibelMeterApp...")
 
-        pipeline = AudioPipeline()
+        pipeline = AudioPipeline(sample_rate=config.sample_rate)
 
-        if config.audio_calibrator:
+        if config.calibration:
             logger.info("Adding Calibration Processor to pipeline.")
-            pipeline.add_transformer(CalibratorAdapter(config.audio_calibrator))
+            pipeline.add_transformer(
+                CalibratorAdapter(
+                    config.calibration.transformer,
+                    config.calibration.sensitivity_dbfs,
+                    config.calibration.reference_dbspl,
+                )
+            )
 
-        pipeline.add_sink(AudioMetricsAudioSink(config))
+        pipeline.add_sink(AudioMetricsSink(sample_rate=config.sample_rate))
 
         super().__init__(app_config=config, pipeline=pipeline)
         logger.info("DecibelMeterApp initialized.")

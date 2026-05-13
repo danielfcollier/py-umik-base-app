@@ -1,6 +1,6 @@
 # Architecture Overview
 
-This document describes the high-level software architecture of the `umik-base-app`. The application is designed for mission-critical audio monitoring using a **Producer-Consumer** pattern that can operate in two modes: **Monolithic** (Threaded) or **Distributed** (Process-Isolated).
+This document describes the high-level software architecture of the Audio Measurement Framework. The application is designed for mission-critical audio monitoring using a **Producer-Consumer** pattern that can operate in two modes: **Monolithic** (Threaded) or **Distributed** (Process-Isolated).
 
 ## 1. Core Philosophy: The "Ear" vs. The "Brain"
 

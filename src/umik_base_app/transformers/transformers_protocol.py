@@ -11,14 +11,22 @@ Year: 2025
 
 from typing import Protocol, runtime_checkable
 
-import numpy as np
+from ..core.pipeline_context import PipelineContext
 
 
 @runtime_checkable
 class AudioTransformer(Protocol):
     """
     Protocol for components that transform audio data (e.g., CalibratorTransformer, Filter).
-    Input: Raw Audio -> Output: Processed Audio
+
+    Transformers receive a PipelineContext, modify ctx.audio in place,
+    optionally annotate ctx.metadata, and return the context.
+
+    Example:
+        def process(self, ctx: PipelineContext) -> PipelineContext:
+            ctx.audio = ctx.audio * self._gain
+            ctx.set("gain_applied", True)
+            return ctx
     """
 
-    def process_audio(self, audio_chunk: np.ndarray) -> np.ndarray: ...
+    def process(self, ctx: PipelineContext) -> PipelineContext: ...

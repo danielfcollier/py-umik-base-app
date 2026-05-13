@@ -224,19 +224,21 @@ def process_audio(input_path, output_path=None, low_freq=200, high_freq=2500, ch
     logger.info("✅ All chunks processed successfully!")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Enhance voice in WAV and convert to MP3 (Chunked + Denoise).")
     parser.add_argument("input_file", help="Path to input WAV file")
     parser.add_argument("--out", help="Path to output MP3 file (optional)")
     parser.add_argument("--low", type=int, default=300, help="Low cutoff Hz")
     parser.add_argument("--high", type=int, default=3400, help="High cutoff Hz")
     parser.add_argument("--split", type=int, default=10, help="Split size in minutes")
-    # New flag to disable noise reduction if needed
     parser.add_argument("--no-denoise", action="store_true", help="Disable spectral noise reduction (faster)")
 
     args = parser.parse_args()
 
-    # Logic inverted: Default is True, if --no-denoise is passed it becomes False
     do_denoise = not args.no_denoise
 
     process_audio(args.input_file, args.out, args.low, args.high, args.split, do_denoise)
+
+
+if __name__ == "__main__":
+    main()
