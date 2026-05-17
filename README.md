@@ -10,7 +10,7 @@ Auto-detects known devices, validates sample rate support, and applies per-unit 
 ### APT — Linux *(Recommended for Raspberry Pi and Ubuntu)*
 
 ```bash
-BASE_URL="https://<your-s3-endpoint>/<bucket>/audio-tools"
+BASE_URL="https://<your-endpoint>/audio-tools"
 curl -fsSL "$BASE_URL/pubkey.gpg" | sudo gpg --dearmor -o /usr/share/keyrings/audio-tools.gpg
 echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] $BASE_URL noble main" \
   | sudo tee /etc/apt/sources.list.d/audio-tools.list
