@@ -8,15 +8,15 @@ import importlib
 import sys
 
 _DISPATCH = {
-    "meter": ("umik_base_app.apps.real_time_meter", "main", "umik-real-time-meter"),
-    "record": ("umik_base_app.apps.basic_recorder", "main", "umik-recorder"),
-    "calibrate": ("umik_base_app.apps.umik1_calibrator", "main", "umik-calibrate"),
-    "devices": ("umik_base_app.apps.list_audio_devices", "main", "umik-list-devices"),
-    "analyze": ("umik_base_app.apps.metrics_analyzer", "main", "umik-metrics-analyzer"),
-    "plot": ("umik_base_app.apps.metrics_plotter", "main", "umik-metrics-plotter"),
-    "batch": ("scripts.audio_batch_analysis", "main", "umik-batch-analyze"),
-    "enhance": ("scripts.enhance_voice", "main", "umik-enhance-audio"),
-    "convert": ("umik_base_app.scripts.convert_audio", "main", "umik-convert"),
+    "meter": ("umik_base_app.apps.real_time_meter", "main", "audio-tools-meter"),
+    "record": ("umik_base_app.apps.basic_recorder", "main", "audio-tools-record"),
+    "calibrate": ("umik_base_app.apps.umik1_calibrator", "main", "audio-tools-calibrate"),
+    "devices": ("umik_base_app.apps.list_audio_devices", "main", "audio-tools-devices"),
+    "analyze": ("umik_base_app.apps.metrics_analyzer", "main", "audio-tools-analyze"),
+    "plot": ("umik_base_app.apps.metrics_plotter", "main", "audio-tools-plot"),
+    "batch": ("scripts.audio_batch_analysis", "main", "audio-tools-batch"),
+    "enhance": ("scripts.enhance_voice", "main", "audio-tools-enhance"),
+    "convert": ("umik_base_app.scripts.convert_audio", "main", "audio-tools-convert"),
 }
 
 _HELP = {

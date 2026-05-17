@@ -29,11 +29,11 @@ cat > debian/postinst << 'POSTINST'
 set -e
 # Vendored C extensions require Python 3.12; patch the auto-generated shebangs
 for bin in /usr/bin/audio-tools \
-           /usr/bin/umik-calibrate /usr/bin/umik-list-devices \
-           /usr/bin/umik-real-time-meter /usr/bin/umik-recorder \
-           /usr/bin/umik-metrics-analyzer /usr/bin/umik-metrics-plotter \
-           /usr/bin/umik-batch-analyze /usr/bin/umik-enhance-audio \
-           /usr/bin/umik-convert; do
+           /usr/bin/audio-tools-calibrate /usr/bin/audio-tools-devices \
+           /usr/bin/audio-tools-meter /usr/bin/audio-tools-record \
+           /usr/bin/audio-tools-analyze /usr/bin/audio-tools-plot \
+           /usr/bin/audio-tools-batch /usr/bin/audio-tools-enhance \
+           /usr/bin/audio-tools-convert; do
     [ -f "$bin" ] && sed -i '1s|^#!/usr/bin/python3$|#!/usr/bin/python3.12|' "$bin" || true
 done
 #DEBHELPER#
