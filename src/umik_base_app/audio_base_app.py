@@ -11,7 +11,6 @@ import threading
 
 from .app_config import AppConfig
 from .audio_pipeline import AudioPipeline
-from .transformers.calibrator_adapter import CalibratorAdapter
 from .base_thread_app import BaseThreadApp
 from .consumer_thread import ConsumerThread
 from .core.operational_mode import OperationalMode
@@ -19,6 +18,7 @@ from .create_transport import create_transport
 from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
 from .settings import get_settings
+from .transformers.calibrator_adapter import CalibratorAdapter
 from .transports.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
@@ -60,8 +60,7 @@ class AudioBaseApp(BaseThreadApp):
                 )
             )
             logger.info(
-                f"Calibration auto-injected: {cal.sensitivity_dbfs:.3f} dBFS "
-                f"ref {cal.reference_dbspl:.1f} dBSPL"
+                f"Calibration auto-injected: {cal.sensitivity_dbfs:.3f} dBFS ref {cal.reference_dbspl:.1f} dBSPL"
             )
 
         # Use injected transport or create one based on config

@@ -14,7 +14,6 @@ from importlib.metadata import PackageNotFoundError, version
 from .app_args import AppArgs
 from .app_config import AppConfig
 from .audio_base_app import AudioBaseApp
-from .calibration_config import CalibrationConfig
 from .audio_pipeline import AudioPipeline
 from .calibration_config import CalibrationConfig
 from .core.audio_metrics import AudioMetrics
