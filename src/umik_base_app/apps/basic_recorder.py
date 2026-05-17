@@ -17,7 +17,6 @@ from pathlib import Path
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
 from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
 from umik_base_app.sinks.recorder_sink import RecorderSink
-from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
 logger = logging.getLogger(__name__)
@@ -46,16 +45,6 @@ class RecorderApp(AudioBaseApp):
         self._recorder.open()
 
         pipeline = AudioPipeline(sample_rate=app_config.sample_rate)
-
-        if app_config.calibration:
-            logger.info("Adding Calibration Processor to pipeline.")
-            pipeline.add_transformer(
-                CalibratorAdapter(
-                    app_config.calibration.transformer,
-                    app_config.calibration.sensitivity_dbfs,
-                    app_config.calibration.reference_dbspl,
-                )
-            )
 
         pipeline.add_sink(RecorderSinkAdapter(self._recorder))
 

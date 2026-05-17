@@ -11,11 +11,12 @@ from unittest.mock import ANY, MagicMock, patch, sentinel
 import pytest
 
 from umik_base_app import AudioBaseApp, OperationalMode
+from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 
 
 @pytest.fixture
 def mock_config():
-    """Return a mock AppConfig."""
+    """Return a mock AppConfig with calibration disabled."""
     config = MagicMock()
     config.run_mode = OperationalMode.MONOLITHIC
     config.zmq_host = sentinel.zmq_host
@@ -25,6 +26,7 @@ def mock_config():
     config.audio_device.name = sentinel.device_name
     config.sample_rate = sentinel.sample_rate
     config.buffer_seconds = sentinel.buffer_seconds
+    config.calibration = None
     return config
 
 
@@ -93,3 +95,29 @@ def test_app_creates_transport_when_not_injected(
         zmq_port=sentinel.zmq_port,
     )
     assert app._transport == sentinel.created_transport
+
+
+def test_calibration_auto_injected(mock_config, mock_transport):
+    """CalibratorAdapter is prepended to the pipeline when calibration is configured."""
+    cal = MagicMock()
+    cal.transformer = MagicMock()
+    cal.sensitivity_dbfs = -18.5
+    cal.reference_dbspl = 94.0
+    mock_config.calibration = cal
+
+    mock_pipeline = MagicMock()
+
+    AudioBaseApp(mock_config, mock_pipeline, transport=mock_transport)
+
+    mock_pipeline.prepend_transformer.assert_called_once()
+    adapter = mock_pipeline.prepend_transformer.call_args[0][0]
+    assert isinstance(adapter, CalibratorAdapter)
+
+
+def test_no_auto_inject_when_calibration_none(mock_config, mock_transport):
+    """No transformer is prepended when calibration is not configured."""
+    mock_pipeline = MagicMock()
+
+    AudioBaseApp(mock_config, mock_pipeline, transport=mock_transport)
+
+    mock_pipeline.prepend_transformer.assert_not_called()
