@@ -13,6 +13,7 @@ Year: 2025
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from datetime import datetime
@@ -226,16 +227,47 @@ class DecibelMeterApp(AudioBaseApp):
         logger.info("DecibelMeterApp initialized.")
 
 
+def _run_tui(config: AppConfig, output_dir: str = "recordings") -> None:
+    import queue
+
+    from .real_time_meter_tui import MeterTuiApp, TuiMetricsSink, TuiRecordingSink
+
+    metrics_queue: queue.Queue[dict] = queue.Queue(maxsize=5)
+    recording_sink = TuiRecordingSink(sample_rate=config.sample_rate, output_dir=output_dir)
+
+    pipeline = AudioPipeline(sample_rate=config.sample_rate)
+    pipeline.add_sink(TuiMetricsSink(sample_rate=config.sample_rate, metrics_queue=metrics_queue))
+    pipeline.add_sink(recording_sink)
+
+    audio_app = AudioBaseApp(app_config=config, pipeline=pipeline)
+    tui = MeterTuiApp(
+        audio_app=audio_app,
+        metrics_queue=metrics_queue,
+        config=config,
+        recording_sink=recording_sink,
+    )
+    tui.run()
+
+
 def main():
     logger.info("Initializing Real Time Meter...")
+
+    pre = argparse.ArgumentParser(add_help=False)
+    pre.add_argument("--tui", action="store_true", default=False)
+    pre.add_argument("--output-dir", default="recordings")
+    pre_args, remaining = pre.parse_known_args()
+    sys.argv = [sys.argv[0]] + remaining
 
     args = AppArgs.get_args()
     app = None
 
     try:
         config = AppArgs.validate_args(args)
-        app = DecibelMeterApp(config)
-        app.run()
+        if pre_args.tui:
+            _run_tui(config, output_dir=pre_args.output_dir)
+        else:
+            app = DecibelMeterApp(config)
+            app.run()
     except KeyboardInterrupt:
         logger.info("\nMeter stopped by user.")
     except Exception as e:
