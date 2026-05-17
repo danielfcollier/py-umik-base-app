@@ -40,6 +40,10 @@ class AudioPipeline:
         """Adds a transformer to the chain (order matters)."""
         self._processors.append(processor)
 
+    def prepend_transformer(self, processor: AudioTransformer):
+        """Inserts a transformer at the front of the chain."""
+        self._processors.insert(0, processor)
+
     def add_sink(self, sink: AudioSink):
         """Adds a consumer to the end of the chain."""
         self._sinks.append(sink)

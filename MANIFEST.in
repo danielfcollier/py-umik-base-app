@@ -1,0 +1,11 @@
+include pyproject.toml
+include stdeb.cfg
+include setup.py
+include README.md
+
+recursive-include src/umik_base_app *
+recursive-include src/scripts *
+
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store

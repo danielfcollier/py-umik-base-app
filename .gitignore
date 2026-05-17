@@ -207,3 +207,8 @@ __marimo__/
 
 recordings/
 test_recordings/
+src/umik_base_app/vendor
+deb_dist/
+*gpg.key
+umi_base_app-*
+.env

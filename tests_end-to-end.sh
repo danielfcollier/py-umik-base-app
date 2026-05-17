@@ -68,7 +68,7 @@ mkdir -p "$RECORDING_DIR"
 echo -e "\n${YELLOW}=== Phase 1: Discovery ===${NC}"
 
 # Check for Physical UMIK-1
-if uv run umik-list-devices --only > /dev/null 2>&1; then
+if uv run audio-tools-devices --only > /dev/null 2>&1; then
     HAS_UMIK=true
     log "Physical UMIK-1 detected."
 else
@@ -83,14 +83,14 @@ echo -e "\n${YELLOW}=== Phase 2: Monolithic Runtime ===${NC}"
 
 # A. Default Mic (Should always work if host has audio)
 echo -e "${BLUE}>> Default Microphone${NC}"
-run_app ${TEST_TIME} uv run umik-real-time-meter --default || fail
-run_app ${TEST_TIME} uv run umik-recorder --default --output-dir "$RECORDING_DIR" || fail
+run_app ${TEST_TIME} uv run audio-tools-meter --default || fail
+run_app ${TEST_TIME} uv run audio-tools-record --default --output-dir "$RECORDING_DIR" || fail
 
 # B. UMIK-1 (Only if present)
 if [ "$HAS_UMIK" = true ] && [ -f "$CAL_FILE" ]; then
     echo -e "${BLUE}>> UMIK-1 Hardware${NC}"
-    run_app ${TEST_TIME} uv run umik-recorder --calibration-file "$CAL_FILE" || fail
-    run_app ${TEST_TIME} uv run umik-real-time-meter --calibration-file "$CAL_FILE" || fail
+    run_app ${TEST_TIME} uv run audio-tools-record --calibration-file "$CAL_FILE" || fail
+    run_app ${TEST_TIME} uv run audio-tools-meter --calibration-file "$CAL_FILE" || fail
 else
     warn "Skipping UMIK-1 Monolithic tests."
 fi
@@ -107,7 +107,7 @@ ZMQ_HOST="127.0.0.1"
 # Step 1: Start Producer in Background
 # We use --default so it works on any machine.
 log "Starting Producer Node (Default Mic)..."
-uv run umik-real-time-meter --producer --default --zmq-port $ZMQ_PORT > /dev/null 2>&1 &
+uv run audio-tools-meter --producer --default --zmq-port $ZMQ_PORT > /dev/null 2>&1 &
 PRODUCER_PID=$!
 
 # Give it a moment to bind socket
@@ -120,13 +120,13 @@ if ! kill -0 $PRODUCER_PID 2>/dev/null; then
 else
     # Step 2a: Test Recorder as Consumer
     log ">> Testing Consumer: Recorder..."
-    run_app ${TEST_TIME} uv run umik-recorder --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT --output-dir "$RECORDING_DIR/zmq_rec"
+    run_app ${TEST_TIME} uv run audio-tools-record --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT --output-dir "$RECORDING_DIR/zmq_rec"
     
     if [ $? -ne 0 ]; then fail; fi
 
     # Step 2b: Test Real-Time Meter as Consumer
     log ">> Testing Consumer: Real-Time Meter..."
-    run_app ${TEST_TIME} uv run umik-real-time-meter --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT
+    run_app ${TEST_TIME} uv run audio-tools-meter --consumer --zmq-host $ZMQ_HOST --zmq-port $ZMQ_PORT
     
     if [ $? -ne 0 ]; then fail; fi
     
@@ -152,7 +152,7 @@ fi
 
 # Metrics Analysis
 log "Running Analyzer..."
-run_app ${TEST_TIME} uv run umik-metrics-analyzer "$TEST_WAV" --output-file "$TEST_CSV" || fail
+run_app ${TEST_TIME} uv run audio-tools-analyze "$TEST_WAV" --output-file "$TEST_CSV" || fail
 
 # Verify CSV creation
 if [ ! -s "$TEST_CSV" ]; then
@@ -162,7 +162,7 @@ fi
 
 # Plotting
 log "Running Plotter..."
-run_app ${TEST_TIME} uv run umik-metrics-plotter "$TEST_CSV" --save "$TEST_PLOT" || fail
+run_app ${TEST_TIME} uv run audio-tools-plot "$TEST_CSV" --save "$TEST_PLOT" || fail
 
 # Verify Plot creation
 if [ -f "$TEST_PLOT" ]; then

@@ -18,6 +18,7 @@ from .create_transport import create_transport
 from .hardware_config import HardwareConfig
 from .listener_thread import ListenerThread
 from .settings import get_settings
+from .transformers.calibrator_adapter import CalibratorAdapter
 from .transports.base_transport import AudioTransport
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,19 @@ class AudioBaseApp(BaseThreadApp):
         super().__init__()
         self._config = app_config
         self._pipeline = pipeline
+
+        if app_config.calibration is not None:
+            cal = app_config.calibration
+            pipeline.prepend_transformer(
+                CalibratorAdapter(
+                    calibrator=cal.transformer,
+                    sensitivity_dbfs=cal.sensitivity_dbfs,
+                    reference_dbspl=cal.reference_dbspl,
+                )
+            )
+            logger.info(
+                f"Calibration auto-injected: {cal.sensitivity_dbfs:.3f} dBFS ref {cal.reference_dbspl:.1f} dBSPL"
+            )
 
         # Use injected transport or create one based on config
         if transport is not None:

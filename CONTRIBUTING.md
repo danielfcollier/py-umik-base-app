@@ -108,3 +108,103 @@ You can run the built-in applications directly using `make` targets.
 4.  Open a Pull Request against the `main` branch.
 
 Happy Coding! 🎧
+
+## Building on the Framework
+
+`audio-tools` is installable as a Python library (`umik-base-app`) for building custom audio applications. `AudioBaseApp` handles threading, hardware reconnection, ZMQ transport, and calibration injection — you write the logic.
+
+### Minimal Example
+
+```python
+from umik_base_app import AppArgs, AudioBaseApp, AudioPipeline, AudioSink, PipelineContext
+
+class LoudnessPrinter(AudioSink):
+    def handle(self, ctx: PipelineContext) -> None:
+        if ctx.can_calculate_dbspl():
+            dbspl = ctx.reference_dbspl if ctx.is_gain_calibrated() else None
+            print(f"[{ctx.timestamp}] dBSPL: {dbspl:.1f}")
+
+def main():
+    args = AppArgs.get_args()
+    config = AppArgs.validate_args(args)
+
+    pipeline = AudioPipeline(sample_rate=config.sample_rate)
+    pipeline.add_sink(LoudnessPrinter())
+
+    # If --calibration-file was passed, CalibratorAdapter is auto-injected
+    app = AudioBaseApp(app_config=config, pipeline=pipeline)
+    app.run()
+```
+
+Run it with any `audio-tools` flags:
+
+```bash
+python my_app.py --calibration-file "umik-1/7175488.txt"
+```
+
+### PipelineContext
+
+Every audio chunk is delivered to sinks wrapped in a `PipelineContext`:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ctx.audio` | `np.ndarray` | Audio samples for this buffer |
+| `ctx.timestamp` | `datetime` | Capture time |
+| `ctx.sample_rate` | `float` | Sample rate in Hz |
+| `ctx.gain_applied` | `bool` | Sensitivity gain was applied by `CalibratorAdapter` |
+| `ctx.fir_applied` | `bool` | FIR filter was applied by `CalibratorAdapter` |
+| `ctx.sensitivity_dbfs` | `float \| None` | Mic sensitivity (set when calibration file is loaded) |
+| `ctx.reference_dbspl` | `float \| None` | Reference SPL (e.g. 94 dBSPL) |
+| `ctx.is_gain_calibrated()` | `bool` | `gain_applied` and sensitivity metadata are present |
+| `ctx.is_fully_calibrated()` | `bool` | Both gain and FIR applied |
+| `ctx.can_calculate_dbspl()` | `bool` | `sensitivity_dbfs` and `reference_dbspl` are set |
+
+### dBSPL Calculation
+
+`CalibratorAdapter` applies the sensitivity gain to `ctx.audio` before any sink sees it. Calling `AudioMetrics.dBSPL()` on already-gained audio double-counts the sensitivity offset (~18.5 dB error). Use the correct formula based on calibration state:
+
+```python
+class MetricsSink(AudioSink):
+    def handle(self, ctx: PipelineContext) -> None:
+        dbfs = AudioMetrics.dBFS(ctx.audio)
+
+        if ctx.is_gain_calibrated():
+            # Gain already applied to ctx.audio; do NOT use AudioMetrics.dBSPL()
+            dbspl = dbfs + ctx.reference_dbspl
+        elif ctx.can_calculate_dbspl():
+            # Raw audio — apply the full sensitivity offset
+            dbspl = AudioMetrics.dBSPL(dbfs, ctx.sensitivity_dbfs, ctx.reference_dbspl)
+        else:
+            dbspl = None
+```
+
+### Calibration Architecture
+
+`CalibratorAdapter` wraps two transformers in sequence:
+
+| Transformer | Purpose | CPU Cost | Use Case |
+|-------------|---------|----------|----------|
+| `GainTransformer` | Sensitivity correction (level) | O(n) | Real-time meters |
+| `FirCorrectionTransformer` | Frequency response correction | O(n × taps) | Precision recording |
+
+Use **gain-only** for real-time applications where CPU matters. Use **full calibration** (gain + FIR) when frequency accuracy is critical (e.g. recording for analysis).
+
+### Adding a New Command
+
+1. Create your `main()` in `src/umik_base_app/apps/` or `src/scripts/`.
+2. Register the entry point in `pyproject.toml` under `[project.scripts]`.
+3. Add the flag to `_DISPATCH` and `_HELP` in `src/umik_base_app/cli.py`.
+4. Add a `make` target in `Makefile` under the appropriate section.
+
+### Device Profiles
+
+| Microphone | Manufacturer | Sample Rates | Sensitivity |
+|------------|--------------|--------------|-------------|
+| UMIK-1 | miniDSP | 48kHz | −18 dBFS |
+| UMIK-2 | miniDSP | 48/96/192kHz | −18 dBFS |
+| UMM-6 | Dayton Audio | 48kHz | −18 dBFS |
+| XREF 20 | Sonarworks | 48kHz | −26 dBFS |
+| MM 1 | Beyerdynamic | 44.1–192kHz | −40 dBFS |
+| M23/M30 | Earthworks | 44.1–192kHz | −36 dBFS |
+
+To add a custom microphone profile, see `src/umik_base_app/hardwares/device_profiles.py`.
