@@ -37,7 +37,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio test-end-to-end lock setup
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb
 
 default: help
 
@@ -80,7 +80,7 @@ setup: ## Install system dependencies.
 
 install: setup venv ## Install project dependencies from pyproject.toml
 	@echo -e "$(GREEN)>>> Installing production dependencies...$(NC)"
-	@$(UV) sync --extra dev
+	@$(UV) sync --group dev
 	@echo -e "$(GREEN)>>> All dependencies installed.$(NC)"
 	@$(UV) lock
 	@echo -e "$(GREEN)>>> Lock file updated.$(NC)"
@@ -328,3 +328,87 @@ else
 		$(if $(LOW),--low $(LOW)) \
 		$(if $(HIGH),--high $(HIGH))
 endif
+
+# ==============================================================================
+# Audio Conversion
+# ==============================================================================
+
+convert-audio: ## Convert WAV files. Requires IN=<path>. Optional: FMT=ogg|mp3|aac, OUT=<dir>.
+ifeq ($(HELP),--help)
+	@$(UV) run umik-convert --help
+else
+	@if [ -z "$(IN)" ]; then \
+		echo -e "$(RED)>>> ERROR: Input not set. Use 'make convert-audio IN=recordings/file.wav'$(NC)"; \
+		exit 1; \
+	fi
+	@echo -e "$(YELLOW)>>> Converting: $(IN)...$(NC)"
+	@$(UV) run umik-convert "$(IN)" \
+		$(if $(FMT),-f $(FMT)) \
+		$(if $(OUT),-o "$(OUT)")
+endif
+
+# ==============================================================================
+# VERSION BUMPING
+# ==============================================================================
+CURRENT_VERSION := $(shell grep '^version' pyproject.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+MAJOR := $(word 1,$(subst ., ,$(CURRENT_VERSION)))
+MINOR := $(word 2,$(subst ., ,$(CURRENT_VERSION)))
+PATCH := $(word 3,$(subst ., ,$(CURRENT_VERSION)))
+
+bump-patch: ## Bump patch version (0.1.0 → 0.1.1)
+	$(eval NEW_VERSION := $(MAJOR).$(MINOR).$(shell echo $$(($(PATCH)+1))))
+	@sed -i 's/^version = "$(CURRENT_VERSION)"/version = "$(NEW_VERSION)"/' pyproject.toml
+	@sed -i 's/__version__ = "$(CURRENT_VERSION)"/__version__ = "$(NEW_VERSION)"/' src/umik_base_app/_version.py
+	@printf "%s\n" "Bumped version: $(CURRENT_VERSION) → $(NEW_VERSION)"
+
+bump-minor: ## Bump minor version (0.1.0 → 0.2.0)
+	$(eval NEW_VERSION := $(MAJOR).$(shell echo $$(($(MINOR)+1))).0)
+	@sed -i 's/^version = "$(CURRENT_VERSION)"/version = "$(NEW_VERSION)"/' pyproject.toml
+	@sed -i 's/__version__ = "$(CURRENT_VERSION)"/__version__ = "$(NEW_VERSION)"/' src/umik_base_app/_version.py
+	@printf "%s\n" "Bumped version: $(CURRENT_VERSION) → $(NEW_VERSION)"
+
+bump-major: ## Bump major version (0.1.0 → 1.0.0)
+	$(eval NEW_VERSION := $(shell echo $$(($(MAJOR)+1))).0.0)
+	@sed -i 's/^version = "$(CURRENT_VERSION)"/version = "$(NEW_VERSION)"/' pyproject.toml
+	@sed -i 's/__version__ = "$(CURRENT_VERSION)"/__version__ = "$(NEW_VERSION)"/' src/umik_base_app/_version.py
+	@printf "%s\n" "Bumped version: $(CURRENT_VERSION) → $(NEW_VERSION)"
+
+# ==============================================================================
+# DEB PACKAGING
+# ==============================================================================
+DISTRO ?= noble
+
+install-build-deps: ## Install system dependencies for building .deb packages
+	sudo apt-get update
+	sudo apt-get install -y build-essential debhelper dh-python python3-all python3-setuptools
+
+vendor: ## Populate umik_base_app/vendor with dependencies from uv.lock
+	@printf "%s\n" "Vendoring dependencies from uv.lock..."
+	mkdir -p src/umik_base_app/vendor
+	touch src/umik_base_app/vendor/__init__.py
+	uv export --no-dev --frozen --format requirements-txt | grep -v "file://" > requirements.frozen.txt
+	uv pip install -r requirements.frozen.txt --target src/umik_base_app/vendor --python 3.12
+	rm requirements.frozen.txt
+	@printf "%s\n" "Vendor populated successfully."
+
+build-deb: clean-all vendor ## Build .deb package
+	@printf "%s\n" "Building .deb package..."
+	@bash build_deb.sh
+
+test-deb: ## Test .deb in a clean Docker container (DISTRO=noble|jammy)
+	@printf "%s\n" "Testing package in Docker (ubuntu:$(DISTRO))..."
+	@docker run --rm -v $$(pwd):/dist ubuntu:$(DISTRO) sh -c "\
+		export DEBIAN_FRONTEND=noninteractive && \
+		apt-get update && \
+		apt-get install -y /dist/deb_dist/*.deb && \
+		printf '%s\n' '--- CLI Help ---' && \
+		umik --help"
+
+publish-deb: ## Publish .deb to S3 APT repository (BUCKET=... required)
+	@if [ -z "$(BUCKET)" ]; then \
+		printf "%s\n" "Error: BUCKET=... required. Usage: make publish-deb BUCKET=my-bucket"; \
+		exit 1; \
+	fi
+	@set -a && . ./.env && set +a && \
+	uv run --group publish python publish_repo.py \
+		"$$(find deb_dist -name '*.deb' -type f | head -1)" $(BUCKET)
