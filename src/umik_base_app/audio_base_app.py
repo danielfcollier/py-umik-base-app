@@ -116,6 +116,6 @@ class AudioBaseApp(BaseThreadApp):
 
     def close(self):
         """Clean up transport resources."""
+        super().close()  # sets stop event first so threads exit cleanly
         if hasattr(self, "_transport"):
             self._transport.close()
-        super().close()

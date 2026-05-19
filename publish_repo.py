@@ -13,7 +13,8 @@ GPG Key Setup (one-time):
                   export GPG_PUBKEY_FILE=/path/to/audio-tools-repo.gpg.pub
 
 Usage:
-    uv run --group publish python publish_repo.py <path-to-deb> <s3-bucket>
+    uv run --group publish python publish_repo.py <path-to-deb> [<s3-bucket>]
+    uv run --group publish python publish_repo.py purge [<s3-bucket>]
 
 Environment Variables:
     S3_ENDPOINT             S3-compatible endpoint
@@ -46,6 +47,7 @@ import gnupg
 from botocore.exceptions import ClientError
 from debian.deb822 import Deb822
 from debian.debfile import DebFile
+from debian.debian_support import Version as DebianVersion
 from dotenv import load_dotenv
 
 _user_env = Path.home() / ".config" / "audio-tools" / ".env"
@@ -309,15 +311,123 @@ def export_public_key(gpg_key_id: str, pubkey_file: str | None = None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Purge Old Releases
+# ---------------------------------------------------------------------------
+def purge_old_releases(s3_client, bucket: str, config: dict[str, str], keep: int = 2) -> None:
+    prefix = config["s3_prefix"]
+    component = config["component"]
+    paginator = s3_client.get_paginator("list_objects_v2")
+
+    # Collect all .deb pool objects grouped by (package, arch)
+    pool_root = prefixed_key(prefix, f"pool/{component}/")
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for page in paginator.paginate(Bucket=bucket, Prefix=pool_root):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            filename = key.rsplit("/", 1)[-1]
+            if not filename.endswith(".deb"):
+                continue
+            parts = filename[:-4].split("_")  # package_version_arch
+            if len(parts) < 3:
+                continue
+            pkg, ver, arch = parts[0], parts[1], parts[2]
+            groups.setdefault((pkg, arch), []).append({"version": ver, "key": key})
+
+    if not groups:
+        print("No packages found in pool.")
+        return
+
+    deleted_versions: set[str] = set()
+
+    for (pkg, arch), entries in groups.items():
+        sorted_entries = sorted(entries, key=lambda e: DebianVersion(e["version"]), reverse=True)
+        to_keep = sorted_entries[:keep]
+        to_delete = sorted_entries[keep:]
+
+        print(f"Package {pkg} [{arch}]: keeping {[e['version'] for e in to_keep]}")
+        for entry in to_delete:
+            print(f"  Deleting pool object: {entry['key']}")
+            s3_client.delete_object(Bucket=bucket, Key=entry["key"])
+            deleted_versions.add(entry["version"])
+
+    if not deleted_versions:
+        print("Nothing to purge — already at or below the limit.")
+        return
+
+    # Rebuild and re-sign index for each dist × arch
+    for dist in config["dists"]:
+        binary_prefix = prefixed_key(prefix, f"dists/{dist}/{component}/")
+        arch_set: set[str] = set()
+        for page in paginator.paginate(Bucket=bucket, Prefix=binary_prefix):
+            for obj in page.get("Contents", []):
+                for seg in obj["Key"].split("/"):
+                    if seg.startswith("binary-"):
+                        arch_set.add(seg[len("binary-"):])
+
+        for arch in arch_set:
+            packages_gz_key = prefixed_key(prefix, f"dists/{dist}/{component}/binary-{arch}/Packages.gz")
+            existing = download_existing_packages(s3_client, bucket, packages_gz_key)
+            if not existing.strip():
+                continue
+
+            kept_stanzas = []
+            for block in existing.strip().split("\n\n"):
+                if not block.strip():
+                    continue
+                parsed = Deb822(block)
+                if parsed.get("Version") in deleted_versions:
+                    print(f"  Removing {parsed.get('Package')} {parsed.get('Version')} from {dist}/{arch} index")
+                else:
+                    kept_stanzas.append(block.strip())
+
+            packages_text = "\n\n".join(kept_stanzas) + "\n" if kept_stanzas else ""
+            packages_gz_bytes = compress_packages(packages_text)
+            dist_config = {**config, "dist": dist}
+            release_text = build_release(packages_text, packages_gz_bytes, dist_config, arch)
+
+            print(f"  Re-signing {dist} [{arch}] Release...")
+            inrelease_text, release_gpg_text = sign_release(release_text, config["gpg_key_id"], config["gpg_key_file"])
+
+            packages_key = prefixed_key(prefix, f"dists/{dist}/{component}/binary-{arch}/Packages")
+            upload_text(s3_client, bucket, packages_key, packages_text)
+            upload_bytes(s3_client, bucket, packages_gz_key, packages_gz_bytes, "application/gzip")
+            upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/Release"), release_text)
+            upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/InRelease"), inrelease_text)
+            upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/Release.gpg"), release_gpg_text)
+
+    print(f"\nPurge complete. Removed versions: {sorted(deleted_versions)}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main() -> None:
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <path-to-deb> <s3-bucket>", file=sys.stderr)
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <path-to-deb> [<s3-bucket>]", file=sys.stderr)
+        print(f"       {sys.argv[0]} purge [<s3-bucket>]", file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "purge":
+        bucket = sys.argv[2] if len(sys.argv) == 3 else os.environ.get("DEB_S3_BUCKET", "")
+        if not bucket:
+            print("Error: S3 bucket not specified. Pass as argument or set DEB_S3_BUCKET in .env.", file=sys.stderr)
+            sys.exit(1)
+        config = load_config()
+        print(f"Connecting to {config['s3_endpoint']}...")
+        print(f"  Bucket: {bucket}, Prefix: {config['s3_prefix']}")
+        s3_client = create_s3_client(config)
+        purge_old_releases(s3_client, bucket, config)
+        return
+
+    if len(sys.argv) not in (2, 3):
+        print(f"Usage: {sys.argv[0]} <path-to-deb> [<s3-bucket>]", file=sys.stderr)
         sys.exit(1)
 
     deb_path = sys.argv[1]
-    bucket = sys.argv[2]
+    bucket = sys.argv[2] if len(sys.argv) == 3 else os.environ.get("DEB_S3_BUCKET", "")
+    if not bucket:
+        print("Error: S3 bucket not specified. Pass as argument or set DEB_S3_BUCKET in .env.", file=sys.stderr)
+        sys.exit(1)
 
     if not os.path.isfile(deb_path):
         print(f"Error: .deb file not found: {deb_path}", file=sys.stderr)
@@ -386,9 +496,10 @@ def main() -> None:
     print(f"\nDone! Published {package} {version} to s3://{bucket}/{prefix} (dists: {', '.join(dists)})")
     print("\nClient setup:")
     print(f"  curl -fsSL {base_url}/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/audio-tools.gpg")
-    print(f'  echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] {base_url} <dist> {component}" | \\')
+    print(f'  echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] {base_url} $(lsb_release -cs) {component}" | \\')
     print("    sudo tee /etc/apt/sources.list.d/audio-tools.list")
     print("  sudo apt-get update && sudo apt-get install audio-tools")
+    print(f"  # Supported distributions: {', '.join(dists)}")
 
 
 if __name__ == "__main__":

@@ -134,8 +134,9 @@ class BaseThreadApp(ABC):
         4. Waits indefinitely until a shutdown is signaled.
         5. Joins all threads to ensure a clean exit.
         """
-        signal.signal(signal.SIGINT, self._handle_signal)
-        signal.signal(signal.SIGTERM, self._handle_signal)
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, self._handle_signal)
+            signal.signal(signal.SIGTERM, self._handle_signal)
 
         self._setup_threads()
 

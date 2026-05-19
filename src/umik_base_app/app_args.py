@@ -227,13 +227,6 @@ class AppArgs:
             else:
                 logger.info(f"Consumer mode: Using requested sample rate: {final_sample_rate:.0f} Hz.")
 
-            # Get calculated sensitivity from calibration file
-            sensitivity_dbfs, reference_dbspl = CalibratorTransformer.get_sensitivity_values(
-                file_path=args.calibration_file,
-                nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
-                reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
-            )
-
             transformer = CalibratorTransformer(
                 calibration_file_path=args.calibration_file,
                 sample_rate=final_sample_rate,
@@ -244,8 +237,8 @@ class AppArgs:
 
             calibration = CalibrationConfig(
                 calibration_file_path=args.calibration_file,
-                sensitivity_dbfs=sensitivity_dbfs,
-                reference_dbspl=reference_dbspl,
+                sensitivity_dbfs=transformer.sensitivity_dbfs,
+                reference_dbspl=transformer.reference_dbspl,
                 num_taps=args.num_taps,
                 transformer=transformer,
             )

@@ -130,6 +130,8 @@ class ListenerThread:
                             )
 
             except (sd.PortAudioError, OSError) as e:
+                if self._stop_event.is_set():
+                    break
                 retry_count += 1
                 logger.error(f"Microphone Hardware Error (Attempt {retry_count}/{self._max_retries}): {e}")
 

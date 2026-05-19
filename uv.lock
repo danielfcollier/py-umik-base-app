@@ -3190,7 +3190,7 @@ wheels = [
 
 [[package]]
 name = "umik-base-app"
-version = "0.4.4"
+version = "0.5.5"
 source = { editable = "." }
 dependencies = [
     { name = "librosa" },

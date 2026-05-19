@@ -37,7 +37,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb
 
 default: help
 
@@ -52,7 +52,7 @@ help: ## Show this help message.
 all: install ## Install project dependencies.
 
 clean: ## Remove cache
-	@.venv/bin/pip cache purge
+	@$(UV) cache clean
 	@find . -name "*.pyc" | xargs rm -rf
 	@find . -name "*.pyo" | xargs rm -rf
 	@find . -name "__pycache__" -type d | xargs rm -rf
@@ -391,24 +391,25 @@ vendor: ## Populate umik_base_app/vendor with dependencies from uv.lock
 	rm requirements.frozen.txt
 	@printf "%s\n" "Vendor populated successfully."
 
-build-deb: clean-all vendor ## Build .deb package
+build-deb: clean-all vendor ## Build .deb package (SKIP=1 to bypass version guard)
 	@printf "%s\n" "Building .deb package..."
-	@bash build_deb.sh
+	@bash build_deb.sh $(if $(SKIP),--skip)
 
 test-deb: ## Test .deb in a clean Docker container (DISTRO=noble|jammy)
 	@printf "%s\n" "Testing package in Docker (ubuntu:$(DISTRO))..."
-	@docker run --rm -v $$(pwd):/dist ubuntu:$(DISTRO) sh -c "\
+	@docker run --rm --network=host -v $$(pwd):/dist ubuntu:$(DISTRO) sh -c "\
 		export DEBIAN_FRONTEND=noninteractive && \
 		apt-get update && \
 		apt-get install -y /dist/deb_dist/*.deb && \
 		printf '%s\n' '--- CLI Help ---' && \
-		umik --help"
+		audio-tools --help"
 
-publish-deb: ## Publish .deb to S3 APT repository (BUCKET=... required)
-	@if [ -z "$(BUCKET)" ]; then \
-		printf "%s\n" "Error: BUCKET=... required. Usage: make publish-deb BUCKET=my-bucket"; \
-		exit 1; \
-	fi
+publish-deb: ## Publish .deb to S3 APT repository, then prune old releases (reads DEB_S3_BUCKET from .env)
 	@set -a && . ./.env && set +a && \
 	uv run --group publish python publish_repo.py \
-		"$$(find deb_dist -name '*.deb' -type f | head -1)" $(BUCKET)
+		"$$(find deb_dist -name '*.deb' -type f | head -1)"
+	@$(MAKE) prune-deb
+
+prune-deb: ## Remove old releases from S3 APT repository, keeping the 2 latest versions
+	@set -a && . ./.env && set +a && \
+	uv run --group publish python publish_repo.py purge
