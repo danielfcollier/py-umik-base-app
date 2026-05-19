@@ -17,6 +17,7 @@ import argparse
 import logging
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
@@ -30,6 +31,8 @@ from umik_base_app import (
 )
 from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
+from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
+from umik_base_app.sinks.recorder_sink import RecorderSink
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -215,17 +218,37 @@ class DecibelMeterApp(AudioBaseApp):
     The main application class for real-time SPL measurement.
 
     Stitches together hardware, calibration pipeline, and metrics sink.
+    Optionally adds a WAV recorder sink when output_dir is provided.
     """
 
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: AppConfig, output_dir: str | None = None):
         logger.debug("Initializing DecibelMeterApp...")
 
         pipeline = AudioPipeline(sample_rate=config.sample_rate)
-
         pipeline.add_sink(AudioMetricsSink(sample_rate=config.sample_rate))
+
+        self._recorder: RecorderSink | None = None
+        if output_dir is not None:
+            out_path = Path(output_dir).expanduser().resolve()
+            out_path.mkdir(parents=True, exist_ok=True)
+            self._recorder = RecorderSink(
+                base_path=out_path,
+                sample_rate=int(config.sample_rate),
+                channels=1,
+                sample_width=2,
+            )
+            self._recorder.open()
+            pipeline.add_sink(RecorderSinkAdapter(self._recorder))
+            logger.info(f"Recording enabled. Output: {out_path}")
 
         super().__init__(app_config=config, pipeline=pipeline)
         logger.info("DecibelMeterApp initialized.")
+
+    def close(self):
+        if self._recorder is not None:
+            self._recorder.close()
+            logger.info("WAV recording saved.")
+        super().close()
 
 
 def _run_tui(config: AppConfig, output_dir: str = "recordings") -> None:
@@ -253,7 +276,8 @@ def _run_tui(config: AppConfig, output_dir: str = "recordings") -> None:
 def main():
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument("--tui", action="store_true", default=False)
-    pre.add_argument("--output-dir", default="recordings")
+    pre.add_argument("--record", action="store_true", default=False)
+    pre.add_argument("--output-dir", default=str(Path.home() / "recordings"))
     pre.add_argument("--log-file", default=None)
     pre.add_argument("--log-append", action="store_true", default=False)
     pre_args, remaining = pre.parse_known_args()
@@ -277,7 +301,8 @@ def main():
         if pre_args.tui:
             _run_tui(config, output_dir=pre_args.output_dir)
         else:
-            app = DecibelMeterApp(config)
+            output_dir = pre_args.output_dir if pre_args.record else None
+            app = DecibelMeterApp(config, output_dir=output_dir)
             app.run()
     except KeyboardInterrupt:
         logger.info("\nMeter stopped by user.")

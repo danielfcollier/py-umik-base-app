@@ -62,7 +62,12 @@ def main():
     logger.info("Initializing Audio Recorder Application...")
 
     parser = AppArgs.get_parser()
-    parser.add_argument("-o", "--output-dir", default="recordings", help="Directory to save the recording.")
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        default=str(Path.home() / "recordings"),
+        help="Directory to save the recording (default: ~/recordings).",
+    )
     args = parser.parse_args()
 
     app = None
