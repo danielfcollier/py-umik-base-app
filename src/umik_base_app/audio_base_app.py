@@ -100,7 +100,9 @@ class AudioBaseApp(BaseThreadApp):
                 transport=self._transport,
                 stop_event=self._stop_event,
             )
-            self._threads.append(threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread"))
+            self._threads.append(
+                threading.Thread(target=self._thread_guard(listener.run), name="ListenerThread", daemon=True)
+            )
 
         # --- Consumer Logic (Brain) ---
         # Active in MONOLITHIC or CONSUMER mode.
@@ -112,7 +114,9 @@ class AudioBaseApp(BaseThreadApp):
                 pipeline=self._pipeline,
                 consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
             )
-            self._threads.append(threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread"))
+            self._threads.append(
+                threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread", daemon=True)
+            )
 
     def close(self):
         """Clean up transport resources."""

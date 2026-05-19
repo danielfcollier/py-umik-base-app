@@ -16,6 +16,7 @@ import logging
 import math
 import os
 import sys
+from pathlib import Path
 
 from .app_config import AppConfig
 from .calibration_config import CalibrationConfig
@@ -27,6 +28,33 @@ from .transformers.calibrator_transformer import CalibratorTransformer
 settings = get_settings()
 
 logger = logging.getLogger(__name__)
+
+_CONFIG_DIR = Path.home() / ".config" / "audio-tools"
+
+
+def _resolve_calibration_file() -> str | None:
+    if not _CONFIG_DIR.is_dir():
+        return None
+    cal_files = sorted(_CONFIG_DIR.rglob("*.txt"))
+    if not cal_files:
+        return None
+    if len(cal_files) == 1:
+        logger.info(f"Auto-discovered calibration file: {cal_files[0]}")
+        return str(cal_files[0])
+    print("\nMultiple calibration files found in ~/.config/audio-tools/:", file=sys.stderr)
+    for i, path in enumerate(cal_files, 1):
+        print(f"  [{i}] {path.relative_to(_CONFIG_DIR)}", file=sys.stderr)
+    while True:
+        try:
+            choice = input(f"Select calibration file [1-{len(cal_files)}]: ").strip()
+            idx = int(choice) - 1
+            if 0 <= idx < len(cal_files):
+                selected = str(cal_files[idx])
+                logger.info(f"Selected calibration file: {selected}")
+                return selected
+        except (ValueError, EOFError):
+            pass
+        print(f"Invalid selection. Enter a number between 1 and {len(cal_files)}.", file=sys.stderr)
 
 
 class AppArgs:
@@ -81,8 +109,8 @@ class AppArgs:
             default=None,
             help=(
                 "Path to the microphone calibration file (.txt, e.g., from UMIK-1). "
-                "Can also be set via CALIBRATION_FILE environment variable. "
-                "Argument overrides env var. "
+                "If omitted, falls back to CALIBRATION_FILE env var, then auto-discovers "
+                "from ~/.config/audio-tools/ (prompts a selector if multiple files are found). "
                 "Presence triggers auto-detection of 'UMIK-1' device if --device-id is not set."
             ),
         )
@@ -95,6 +123,20 @@ class AppArgs:
                 "Number of FIR filter taps for calibration filter design (only used with --calibration-file). "
                 f"Affects accuracy vs CPU load. Default: {settings.AUDIO.NUM_TAPS}."
             ),
+        )
+
+        parser.add_argument(
+            "--log-file",
+            type=str,
+            default=argparse.SUPPRESS,
+            metavar="FILE",
+            help="Write logs to FILE instead of stderr. Use --log-append to append rather than overwrite.",
+        )
+        parser.add_argument(
+            "--log-append",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="Append to --log-file instead of overwriting it.",
         )
 
         group = parser.add_argument_group("Topology / ZMQ")
@@ -143,12 +185,14 @@ class AppArgs:
         elif args.consumer:
             run_mode = OperationalMode.CONSUMER
 
-        # --- 2. Resolve Calibration File (Arg > Env) ---
+        # --- 2. Resolve Calibration File (Arg > Env > ~/.config/audio-tools/) ---
         if args.calibration_file is None and not args.default:
             env_cal_file = os.environ.get("CALIBRATION_FILE")
             if env_cal_file:
                 logger.info(f"Found CALIBRATION_FILE env var: {env_cal_file}")
                 args.calibration_file = env_cal_file
+            else:
+                args.calibration_file = _resolve_calibration_file()
         elif args.default and args.calibration_file is None:
             logger.info("Flag --default set. Ignoring CALIBRATION_FILE environment variable.")
 

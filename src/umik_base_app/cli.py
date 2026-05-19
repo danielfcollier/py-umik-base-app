@@ -38,9 +38,9 @@ def main() -> None:
         description="Audio measurement and processing toolkit.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="Pass additional flags after the mode flag:\n"
-               "  audio-tools --meter --calibration-file umik-1/700.txt\n"
-               "  audio-tools --convert recordings/ --format ogg mp3\n"
-               "  audio-tools --record --output-dir recordings/\n",
+        "  audio-tools --meter --calibration-file umik-1/700.txt\n"
+        "  audio-tools --convert recordings/ --format ogg mp3\n"
+        "  audio-tools --record --output-dir recordings/\n",
     )
 
     mode = parser.add_mutually_exclusive_group(required=True)

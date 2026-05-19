@@ -76,16 +76,18 @@ class BaseThreadApp(ABC):
         """
         pass
 
-    def _join_threads(self):
+    def _join_threads(self, timeout: float = 5.0):
         """
         Waits for all registered threads to complete their execution.
-        This is a blocking call that ensures the main program doesn't exit
-        before background tasks have cleaned up.
+        Each thread is given `timeout` seconds; threads that don't stop in time
+        are logged as warnings and left to die as daemons.
         """
         logger.debug("Waiting for threads to finish...")
         for thread in self._threads:
             if thread.is_alive():
-                thread.join()
+                thread.join(timeout=timeout)
+                if thread.is_alive():
+                    logger.warning(f"Thread '{thread.name}' did not stop within {timeout}s — forcing exit.")
         logger.info("✅ All threads have been stopped.")
 
     def _thread_guard(self, target_function):

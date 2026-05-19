@@ -55,6 +55,7 @@ class HardwareConfig:
                               Defaults to False.
         """
         self.id = target_audio_device.id
+        self.name = target_audio_device.name
         self.native_rate = target_audio_device.native_rate
         self.sample_rate = sample_rate
         self.buffer_seconds = buffer_seconds

@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     ZMQ: ZmqSettings = ZmqSettings()
 
     RECONNECT_DELAY_SECONDS: int = 5
-    RECONNECT_MAX_RETRIES: int = 10
+    RECONNECT_MAX_RETRIES: int | None = None  # None means retry indefinitely
     CONSUMER_QUEUE_TIMEOUT_SECONDS: int = 1
 
 

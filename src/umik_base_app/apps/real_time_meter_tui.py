@@ -37,6 +37,7 @@ class TuiLogHandler(logging.Handler):
         except queue.Full:
             pass
 
+
 from ..app_config import AppConfig
 from ..audio_base_app import AudioBaseApp
 from ..core.pipeline_context import PipelineContext
@@ -301,9 +302,7 @@ class MeterTuiApp(App[None]):
 
     def _refresh_display(self, data: dict) -> None:
         cal = data.get("calibration", "NONE")
-        self.query_one("#header", Static).update(
-            f"audio-tools --meter   Calibration: {cal}"
-        )
+        self.query_one("#header", Static).update(f"audio-tools --meter   Calibration: {cal}")
 
         self.query_one(LevelMeter).level = data["dbfs"]
 
@@ -324,9 +323,7 @@ class MeterTuiApp(App[None]):
         sr = int(self._config.sample_rate)
         is_rec = self._recording_sink is not None and self._recording_sink.is_recording()
         rec_part = "  [bold red]● REC[/bold red]   [R] Stop" if is_rec else "  [R] Record"
-        self.query_one("#status", Static).update(
-            f"Mode: {mode}   SR: {sr} Hz   {ts}{rec_part}   [Q] Quit"
-        )
+        self.query_one("#status", Static).update(f"Mode: {mode}   SR: {sr} Hz   {ts}{rec_part}   [Q] Quit")
 
     def action_toggle_record(self) -> None:
         if self._recording_sink is None:

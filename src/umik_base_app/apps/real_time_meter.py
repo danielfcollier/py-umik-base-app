@@ -96,11 +96,12 @@ class AudioMetricsSink(AudioSink):
 
             if self._accumulated_samples >= self._target_samples:
                 full_block = np.concatenate(self._audio_buffer)
-                self._process_and_log(full_block, datetime.now(), ctx)
+                self._process_and_log(full_block[: self._target_samples], datetime.now(), ctx)
 
-                # Reset buffer
-                self._audio_buffer = []
-                self._accumulated_samples = 0
+                # Carry overshoot into the next window
+                remainder = full_block[self._target_samples :]
+                self._audio_buffer = [remainder] if len(remainder) > 0 else []
+                self._accumulated_samples = len(remainder)
 
         except Exception as e:
             logger.error(f"Sink Error: {e}", exc_info=True)
@@ -250,13 +251,23 @@ def _run_tui(config: AppConfig, output_dir: str = "recordings") -> None:
 
 
 def main():
-    logger.info("Initializing Real Time Meter...")
-
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument("--tui", action="store_true", default=False)
     pre.add_argument("--output-dir", default="recordings")
+    pre.add_argument("--log-file", default=None)
+    pre.add_argument("--log-append", action="store_true", default=False)
     pre_args, remaining = pre.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
+
+    if pre_args.log_file:
+        mode = "a" if pre_args.log_append else "w"
+        fh = logging.FileHandler(pre_args.log_file, mode=mode, encoding="utf-8")
+        fh.setFormatter(logging.Formatter("%(levelname)s %(threadName)s %(message)s"))
+        root = logging.getLogger()
+        root.handlers.clear()
+        root.addHandler(fh)
+
+    logger.info("Initializing Real Time Meter...")
 
     args = AppArgs.get_args()
     app = None
