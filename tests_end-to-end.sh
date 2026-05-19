@@ -38,7 +38,7 @@ run_app() {
     local duration=$1
     shift
     local cmd="$@"
-    
+
     log "Running: $cmd (Timeout: ${duration})"
     timeout "$duration" $cmd > /dev/null 2>&1
     local status=$?
@@ -48,6 +48,28 @@ run_app() {
         return 0
     else
         echo -e "${RED}App crashed with exit code $status${NC}"
+        return 1
+    fi
+}
+
+# Helper: Run a command that must complete within the timeout (no timeout = fail).
+run_cmd() {
+    local duration=$1
+    shift
+    local cmd="$@"
+
+    log "Running: $cmd (Timeout: ${duration})"
+    timeout "$duration" $cmd > /dev/null 2>&1
+    local status=$?
+
+    if [ $status -eq 0 ]; then
+        pass
+        return 0
+    elif [ $status -eq 124 ]; then
+        echo -e "${RED}Command timed out after ${duration}${NC}"
+        return 1
+    else
+        echo -e "${RED}Command failed with exit code $status${NC}"
         return 1
     fi
 }
@@ -140,19 +162,21 @@ fi
 # ==============================================================================
 echo -e "\n${YELLOW}=== Phase 4: Analysis & Plotting ===${NC}"
 
-SAMPLE_WAV="sample_recording.wav"
+# Always generate a fresh 1-second synthetic WAV using the venv Python so
+# scipy is guaranteed to be available regardless of the system python.
+log "Generating synthetic sine wave for analysis..."
+uv run python3 -c "
+import scipy.io.wavfile as w
+import numpy as n
+fs = 48000
+t = n.linspace(0, 1, fs, endpoint=False)
+data = (n.sin(2 * n.pi * 440 * t) * 32767).astype(n.int16)
+w.write('$TEST_WAV', fs, data)
+" || { echo -e "${RED}WAV generation failed.${NC}"; fail; }
 
-# Generate Dummy WAV if sample missing
-if [ ! -f "$SAMPLE_WAV" ]; then
-    log "Generating synthetic sine wave for analysis..."
-    python3 -c "import scipy.io.wavfile as w; import numpy as n; fs=48000; t=n.linspace(0, 1, fs); data=(n.sin(2*n.pi*440*t)*32767).astype(n.int16); w.write('$TEST_WAV', fs, data)"
-else
-    cp "$SAMPLE_WAV" "$TEST_WAV"
-fi
-
-# Metrics Analysis
+# Metrics Analysis — must complete (timeout = fail, not pass)
 log "Running Analyzer..."
-run_app ${TEST_TIME} uv run audio-tools-analyze "$TEST_WAV" --output-file "$TEST_CSV" || fail
+run_cmd 30s uv run audio-tools-analyze "$TEST_WAV" --output-file "$TEST_CSV" || fail
 
 # Verify CSV creation
 if [ ! -s "$TEST_CSV" ]; then
@@ -160,9 +184,9 @@ if [ ! -s "$TEST_CSV" ]; then
     fail
 fi
 
-# Plotting
+# Plotting — must complete (timeout = fail, not pass)
 log "Running Plotter..."
-run_app ${TEST_TIME} uv run audio-tools-plot "$TEST_CSV" --save "$TEST_PLOT" || fail
+run_cmd 30s uv run audio-tools-plot "$TEST_CSV" --save "$TEST_PLOT" || fail
 
 # Verify Plot creation
 if [ -f "$TEST_PLOT" ]; then
