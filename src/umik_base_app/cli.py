@@ -7,6 +7,8 @@ import argparse
 import importlib
 import sys
 
+from umik_base_app._version import __version__
+
 _DISPATCH = {
     "meter": ("umik_base_app.apps.real_time_meter", "main", "audio-tools-meter"),
     "record": ("umik_base_app.apps.basic_recorder", "main", "audio-tools-record"),
@@ -43,11 +45,17 @@ def main() -> None:
         "  audio-tools --record --output-dir recordings/\n",
     )
 
-    mode = parser.add_mutually_exclusive_group(required=True)
+    parser.add_argument("--version", action="version", version=f"audio-tools {__version__}")
+
+    mode = parser.add_mutually_exclusive_group(required=False)
     for flag, desc in _HELP.items():
         mode.add_argument(f"--{flag}", action="store_true", help=desc)
 
     args, remaining = parser.parse_known_args()
+
+    if not any(getattr(args, flag) for flag in _DISPATCH):
+        parser.print_help()
+        return
 
     for flag, (module_path, func_name, argv0) in _DISPATCH.items():
         if getattr(args, flag):
