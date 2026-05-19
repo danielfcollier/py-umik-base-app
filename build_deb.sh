@@ -1,8 +1,24 @@
 #!/bin/bash
 set -e
 
+SKIP_CHECK=0
+for arg in "$@"; do
+    [ "$arg" = "--skip" ] && SKIP_CHECK=1
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
+
+VERSION=$(grep '^version' pyproject.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+if [ "$SKIP_CHECK" = "0" ] && compgen -G "deb_dist/*${VERSION}*.deb" > /dev/null 2>&1; then
+    printf "\n  Version %s is already built in deb_dist/.\n\n" "$VERSION"
+    printf "  Bump the version first:\n"
+    printf "    make bump-patch    %s -> next patch\n" "$VERSION"
+    printf "    make bump-minor    %s -> next minor\n" "$VERSION"
+    printf "    make bump-major    %s -> next major\n" "$VERSION"
+    printf "\n  Or rebuild anyway: make build-deb SKIP=1\n\n"
+    exit 1
+fi
 
 echo "Cleaning previous builds..."
 rm -rf deb_dist dist build *.egg-info src/*.egg-info

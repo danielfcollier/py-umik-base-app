@@ -6,6 +6,7 @@ Runs audio capture in a background thread and updates the display at 10 Hz.
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import wave
@@ -19,7 +20,23 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Static
+from textual.widgets import RichLog, Static
+
+
+class TuiLogHandler(logging.Handler):
+    """Routes Python log records into a queue for display inside the TUI."""
+
+    def __init__(self, log_queue: queue.Queue[str]) -> None:
+        super().__init__()
+        self._log_queue = log_queue
+        self.setFormatter(logging.Formatter("%(levelname)-8s %(threadName)s  %(message)s"))
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self._log_queue.put_nowait(self.format(record))
+        except queue.Full:
+            pass
+
 
 from ..app_config import AppConfig
 from ..audio_base_app import AudioBaseApp
@@ -95,6 +112,8 @@ class TuiMetricsSink(AudioMetricsSink):
 
     def __init__(self, sample_rate: float, metrics_queue: queue.Queue[dict]) -> None:
         super().__init__(sample_rate=sample_rate)
+        # Override buffered mode: TUI needs per-chunk updates for live display
+        self._target_samples = 0
         self._metrics_queue = metrics_queue
 
     def _log_calibration_state(self, ctx: PipelineContext) -> None:
@@ -206,6 +225,13 @@ class MeterTuiApp(App[None]):
         padding: 2 3;
     }
 
+    #log-panel {
+        height: 5;
+        border-top: solid $primary-darken-1;
+        background: $surface-darken-1;
+        display: none;
+    }
+
     #status {
         height: 1;
         background: $panel;
@@ -217,6 +243,7 @@ class MeterTuiApp(App[None]):
 
     BINDINGS = [
         ("r", "toggle_record", "Record"),
+        ("l", "toggle_log", "Log"),
         ("q", "quit_app", "Quit"),
     ]
 
@@ -233,6 +260,8 @@ class MeterTuiApp(App[None]):
         self._metrics_queue = metrics_queue
         self._config = config
         self._recording_sink = recording_sink
+        self._log_queue: queue.Queue[str] = queue.Queue(maxsize=200)
+        self._log_handler = TuiLogHandler(self._log_queue)
 
     def compose(self) -> ComposeResult:
         yield Static("audio-tools --meter   Calibration: —", id="header")
@@ -240,9 +269,11 @@ class MeterTuiApp(App[None]):
             with Vertical(id="level-panel"):
                 yield LevelMeter()
             yield Static("Waiting for audio...", id="stats-panel")
+        yield RichLog(id="log-panel", highlight=False, markup=False, wrap=True)
         yield Static("", id="status")
 
     def on_mount(self) -> None:
+        logging.getLogger().addHandler(self._log_handler)
         self._audio_thread = threading.Thread(
             target=self._audio_app.run,
             name="AudioPipeline",
@@ -262,11 +293,16 @@ class MeterTuiApp(App[None]):
         if latest is not None:
             self._refresh_display(latest)
 
+        log_widget = self.query_one("#log-panel", RichLog)
+        while True:
+            try:
+                log_widget.write(self._log_queue.get_nowait())
+            except queue.Empty:
+                break
+
     def _refresh_display(self, data: dict) -> None:
         cal = data.get("calibration", "NONE")
-        self.query_one("#header", Static).update(
-            f"audio-tools --meter   Calibration: {cal}"
-        )
+        self.query_one("#header", Static).update(f"audio-tools --meter   Calibration: {cal}")
 
         self.query_one(LevelMeter).level = data["dbfs"]
 
@@ -287,9 +323,7 @@ class MeterTuiApp(App[None]):
         sr = int(self._config.sample_rate)
         is_rec = self._recording_sink is not None and self._recording_sink.is_recording()
         rec_part = "  [bold red]● REC[/bold red]   [R] Stop" if is_rec else "  [R] Record"
-        self.query_one("#status", Static).update(
-            f"Mode: {mode}   SR: {sr} Hz   {ts}{rec_part}   [Q] Quit"
-        )
+        self.query_one("#status", Static).update(f"Mode: {mode}   SR: {sr} Hz   {ts}{rec_part}   [Q] Quit")
 
     def action_toggle_record(self) -> None:
         if self._recording_sink is None:
@@ -305,8 +339,13 @@ class MeterTuiApp(App[None]):
 
         self._update_status_bar(ts="")
 
+    def action_toggle_log(self) -> None:
+        log_panel = self.query_one("#log-panel", RichLog)
+        log_panel.display = not log_panel.display
+
     def action_quit_app(self) -> None:
         if self._recording_sink is not None and self._recording_sink.is_recording():
             self._recording_sink.stop()
+        logging.getLogger().removeHandler(self._log_handler)
         self._audio_app.close()
         self.exit()

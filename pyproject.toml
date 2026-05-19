@@ -1,6 +1,6 @@
 [project]
 name = "umik-base-app"
-version = "0.4.4"
+version = "0.6.0"
 description = "Base utilities for working with the Umik-1 microphone in Python applications."
 authors = [
     {name = "Daniel Collier", email = "danielfcollier@gmail.com"}
@@ -31,10 +31,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/umik_base_app", "src/scripts"]
+packages = ["src/umik_base_app"]
 
 [tool.setuptools]
-packages = { find = { where = ["src"], include = ["umik_base_app*", "scripts*"] } }
+packages = { find = { where = ["src"], include = ["umik_base_app*"] } }
 
 [tool.setuptools.package-data]
 "*" = ["*.sh", "*.json", "*.sql", "*.npy"]
@@ -67,8 +67,8 @@ audio-tools-meter = "umik_base_app.apps.real_time_meter:main"
 audio-tools-record = "umik_base_app.apps.basic_recorder:main"
 audio-tools-analyze = "umik_base_app.apps.metrics_analyzer:main"
 audio-tools-plot = "umik_base_app.apps.metrics_plotter:main"
-audio-tools-batch = "scripts.audio_batch_analysis:main"
-audio-tools-enhance = "scripts.enhance_voice:main"
+audio-tools-batch = "umik_base_app.scripts.audio_batch_analysis:main"
+audio-tools-enhance = "umik_base_app.scripts.enhance_voice:main"
 audio-tools-convert = "umik_base_app.scripts.convert_audio:main"
 
 [tool.pytest.ini_options]
@@ -95,6 +95,10 @@ exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "C90", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/umik_base_app/__init__.py" = ["E402"]
+"src/umik_base_app/apps/real_time_meter_tui.py" = ["E402"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 30

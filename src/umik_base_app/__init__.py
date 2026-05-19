@@ -9,6 +9,17 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import importlib.util
+import os
+import sys
+
+_vendor_dir = os.path.join(os.path.dirname(__file__), "vendor")
+if os.path.isdir(_vendor_dir) and _vendor_dir not in sys.path:
+    # Only use vendored packages when they aren't already available (i.e. installed .deb,
+    # not a dev venv). Avoids loading C-extensions compiled for the wrong Python version.
+    if importlib.util.find_spec("numpy") is None:
+        sys.path.insert(0, _vendor_dir)
+
 from importlib.metadata import PackageNotFoundError, version
 
 from .app_args import AppArgs

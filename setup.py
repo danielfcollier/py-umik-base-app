@@ -1,28 +1,25 @@
+import importlib.util
 import os
-from setuptools import setup, find_packages
 
+_version_file = os.path.join(os.path.dirname(__file__), "src", "umik_base_app", "_version.py")
+_spec = importlib.util.spec_from_file_location("_version", _version_file)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+__version__ = _mod.__version__
 
-def get_scripts_data_files():
-    data_files = []
-    base_install_path = "/usr/lib/umik-tools"
-    for root, _, files in os.walk("scripts"):
-        if files:
-            install_dir = os.path.join(base_install_path, root)
-            file_paths = [os.path.join(root, f) for f in files]
-            data_files.append((install_dir, file_paths))
-    return data_files
+from setuptools import find_packages, setup
 
 
 setup(
+    version=__version__,
     package_dir={"": "src"},
     packages=find_packages(
         where="src",
-        include=["umik_base_app", "umik_base_app.*", "scripts", "scripts.*"],
+        include=["umik_base_app", "umik_base_app.*"],
     ),
-    data_files=get_scripts_data_files(),
     description="Base utilities for audio measurement with UMIK microphones.",
     long_description=(
-        "This package provides the 'umik' CLI for audio measurement and calibration\n"
+        "This package provides the 'audio-tools' CLI for audio measurement and calibration\n"
         "using measurement microphones like the miniDSP UMIK-1 and UMIK-2. It includes:\n"
         "\n"
         " * Real-time SPL / LUFS / dBFS meter\n"
