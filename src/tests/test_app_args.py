@@ -95,8 +95,9 @@ def test_validate_args_with_calibration(mock_calibrator_cls, mock_hardware_selec
     mock_hardware_selector.return_value.is_default = False
     mock_hardware_selector.return_value.native_rate = 48000
 
-    # Mock the static method get_sensitivity_values
-    mock_calibrator_cls.get_sensitivity_values.return_value = (-18.5, 94.0)
+    # Configure the mock instance's attributes read by CalibrationConfig
+    mock_calibrator_cls.return_value.sensitivity_dbfs = -18.5
+    mock_calibrator_cls.return_value.reference_dbspl = 94.0
 
     args = argparse.Namespace(
         device_id=sentinel.device_id,

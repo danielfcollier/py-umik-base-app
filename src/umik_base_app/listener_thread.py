@@ -12,14 +12,19 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import contextlib
 import logging
+import os
 import queue
+import re
 import threading
+import time
 from datetime import datetime
 
 import sounddevice as sd
 
 from .hardware_config import HardwareConfig
+from .hardwares.selector import HardwareSelector
 from .settings import get_settings
 from .transports.base_transport import AudioTransport
 
@@ -68,19 +73,55 @@ class ListenerThread:
 
         self._reconnect_delay_seconds = settings.RECONNECT_DELAY_SECONDS
         self._max_retries = settings.RECONNECT_MAX_RETRIES
+        self._silence_check_interval = 1.0
+
+    # Small callback blocksize so PortAudio fires frequently and disconnect is detected quickly.
+    # The consumer sink handles accumulation to the desired interval independently.
+    _CALLBACK_BLOCK_SIZE = 4096
+
+    @staticmethod
+    @contextlib.contextmanager
+    def _suppress_alsa_stderr():
+        """Redirect C-level fd 2 to /dev/null during PortAudio open/close operations.
+
+        ALSA/PortAudio write error strings directly to the file descriptor, bypassing
+        Python's logging. This context must NOT wrap the wait loop — Python's
+        StreamHandler holds a reference to the original sys.stderr object (not the
+        name), which writes to fd 2. Suppressing fd 2 for the stream lifetime would
+        silently drop all Python log output too.
+        """
+        saved_fd = os.dup(2)
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull_fd, 2)
+        os.close(devnull_fd)
+        try:
+            yield
+        finally:
+            os.dup2(saved_fd, 2)
+            os.close(saved_fd)
+
+    def _rediscover_device_id(self) -> int:
+        # Strip the ALSA hardware address suffix "(hw:N,N)" so the search matches
+        # the device regardless of which card index ALSA assigned after re-enumeration.
+        base_name = re.sub(r"\s*\(hw:\d+,\d+\)\s*$", "", self._audio_device_config.name).strip()
+        new_id = HardwareSelector.find_device_by_name(base_name)
+        if new_id is not None and new_id != self._audio_device_config.id:
+            logger.info(f"Device re-discovered at new ID {new_id} (was {self._audio_device_config.id})")
+        return new_id if new_id is not None else self._audio_device_config.id
 
     def run(self):
         """
         The main execution loop with built-in hardware recovery.
 
-        Continuously reads audio chunks from the configured input device via
-        `sounddevice.InputStream` and puts them onto the queue as tuples containing
-        the audio data (numpy array) and a timestamp.
+        Uses a callback-based InputStream so the main loop never blocks inside
+        stream.read(). PortAudio fires finished_callback when the device disappears
+        (e.g. USB unplug), which sets a local Event and breaks the inner wait loop,
+        causing the reconnection logic to kick in.
 
         1. Enters a 'Reconnection Loop'.
-        2. Tries to open the InputStream.
-        3. If successful, RESETS retry count and enters 'Read Loop'.
-        4. If it fails, increments retry count.
+        2. Opens a callback InputStream.
+        3. If successful, RESETS retry count and waits on stop/stream-end events.
+        4. On stream end (disconnect), raises PortAudioError to trigger retry.
         5. If retries exceed limit, signals app shutdown.
         """
         logger.info(f"{self._class_name} thread started.")
@@ -90,50 +131,56 @@ class ListenerThread:
         # --- 1. Reconnection Loop (The Watchdog) ---
         while not self._stop_event.is_set():
             try:
-                device_id = self._audio_device_config.id
+                device_id = self._rediscover_device_id()
                 sample_rate = self._audio_device_config.sample_rate
                 dtype = self._audio_device_config.dtype
-                block_size = self._audio_device_config.block_size
 
-                with sd.InputStream(
-                    device=device_id,
-                    blocksize=block_size,
-                    samplerate=sample_rate,
-                    dtype=dtype,
-                    channels=1,
-                ) as stream:
-                    retry_count = 0
+                last_audio = [time.monotonic()]
 
-                    logger.debug(f"Microphone stream started on Device ID {device_id} at ({sample_rate}Hz).")
+                def _callback(indata, frames, time_info, status):
+                    last_audio[0] = time.monotonic()
+                    if status.input_overflow:
+                        logger.warning(f"Input overflow on device {device_id}. Audio data lost.")
+                    try:
+                        self._transport.send((indata.flatten().copy(), datetime.now()))
+                    except queue.Full:
+                        logger.warning("Consumer queue is full! Dropping audio chunk.")
 
-                    # --- 2. Read Loop (The Capture) ---
+                # Open and start with ALSA noise suppressed; suppress again on close.
+                # The wait loop runs outside suppression so Python logging is unaffected.
+                with self._suppress_alsa_stderr():
+                    stream = sd.InputStream(
+                        device=device_id,
+                        blocksize=self._CALLBACK_BLOCK_SIZE,
+                        samplerate=sample_rate,
+                        dtype=dtype,
+                        channels=1,
+                        callback=_callback,
+                    )
+                    stream.start()
+
+                retry_count = 0
+                logger.debug(f"Microphone stream started on Device ID {device_id} at {sample_rate}Hz.")
+
+                try:
+                    # --- 2. Wait Loop — wakes on stop signal or silence timeout ---
                     while not self._stop_event.is_set():
-                        audio_chunk, overflow = stream.read(block_size)
-
-                        if overflow:
-                            logger.warning(
-                                f"Input overflow detected on device {device_id}. Audio data lost from hardware buffer."
-                            )
-
-                        timestamp = datetime.now()
-
-                        # --- 3. Buffer Overflow Handling (Software side) ---
-                        try:
-                            if audio_chunk.ndim > 1:
-                                audio_chunk = audio_chunk.flatten()
-
-                            self._transport.send((audio_chunk, timestamp))
-
-                        except queue.Full:
-                            logger.warning(
-                                "Consumer queue is full! Dropping audio chunk to maintain real-time monitoring."
-                            )
+                        self._stop_event.wait(timeout=self._silence_check_interval)
+                        silence = time.monotonic() - last_audio[0]
+                        if silence > self._reconnect_delay_seconds:
+                            raise sd.PortAudioError(f"No audio for {silence:.1f}s — device likely disconnected")
+                finally:
+                    with self._suppress_alsa_stderr():
+                        stream.close()
 
             except (sd.PortAudioError, OSError) as e:
+                if self._stop_event.is_set():
+                    break
                 retry_count += 1
-                logger.error(f"Microphone Hardware Error (Attempt {retry_count}/{self._max_retries}): {e}")
+                max_label = "∞" if self._max_retries is None else self._max_retries
+                logger.error(f"Microphone Hardware Error (Attempt {retry_count}/{max_label}): {e}")
 
-                if retry_count >= self._max_retries:
+                if self._max_retries is not None and retry_count >= self._max_retries:
                     logger.critical(
                         f"❌ Maximum reconnection attempts ({self._max_retries}) reached. "
                         "Assuming permanent hardware failure. Stopping application."

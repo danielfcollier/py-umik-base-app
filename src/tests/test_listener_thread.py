@@ -6,6 +6,7 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch, sentinel
 
 import pytest
@@ -14,86 +15,85 @@ import sounddevice as sd
 from umik_base_app.listener_thread import ListenerThread
 
 
+@contextmanager
+def _noop_ctx():
+    yield
+
+
 @pytest.fixture
 def mock_deps(stop_event):
     config = MagicMock()
-    # Use sentinel for ID to verify exact pass-through
-    config.id = sentinel.device_id
+    config.id = 1
+    config.name = "Test Device (hw:0,0)"
     config.sample_rate = 48000
     config.block_size = 1024
 
-    q = MagicMock()
-    return config, q, stop_event
+    transport = MagicMock()
+    return config, transport, stop_event
 
 
 @patch("umik_base_app.listener_thread.datetime")
-def test_listener_normal_read(mock_datetime_module, mock_deps):
-    """Test normal reading from stream."""
-    config, q, stop = mock_deps
-    listener = ListenerThread(config, q, stop)
-
-    # Setup Timestamp mock
+@patch("umik_base_app.listener_thread.HardwareSelector")
+def test_listener_normal_read(mock_hw_selector, mock_datetime_module, mock_deps):
+    """Test that audio data received via callback is forwarded to the transport."""
+    config, transport, stop = mock_deps
+    mock_hw_selector.find_device_by_name.return_value = config.id
     mock_datetime_module.now.return_value = sentinel.timestamp
 
-    # Mock Stream
-    with patch("sounddevice.InputStream") as mock_stream_cls:
-        # Get the instance returned by the context manager
-        mock_stream = mock_stream_cls.return_value.__enter__.return_value
+    listener = ListenerThread(config, transport, stop)
+    captured = {}
 
-        # We use a MagicMock to simulate the array properties required by logic (e.g., .ndim)
-        mock_audio_data = MagicMock()
-        mock_audio_data.ndim = 1  # Pretend it is already 1D to skip flattening
+    def fake_input_stream(**kwargs):
+        captured["callback"] = kwargs["callback"]
+        return MagicMock()
 
-        # Define side effect to allow one successful read, then stop on the next
-        call_counter = 0
+    with patch.object(ListenerThread, "_suppress_alsa_stderr", staticmethod(_noop_ctx)):
+        with patch("sounddevice.InputStream", side_effect=fake_input_stream):
+            # Simulate one callback firing then stop
+            def on_start(mock_stream):
+                mock_stream.start.side_effect = _fire_callback_then_stop
 
-        def smart_side_effect(*args):
-            nonlocal call_counter
-            call_counter += 1
-            if call_counter > 1:
+            def _fire_callback_then_stop():
+                status = MagicMock()
+                status.input_overflow = False
+                mock_audio = MagicMock()
+                captured["callback"](mock_audio, 4096, None, status)
                 stop.set()
-            # Return (data, overflow_flag)
-            return (mock_audio_data, False)
 
-        mock_stream.read.side_effect = smart_side_effect
+            with patch("sounddevice.InputStream", side_effect=fake_input_stream) as mock_cls:
+                mock_stream = MagicMock()
+                mock_cls.side_effect = lambda **kw: (captured.update({"callback": kw["callback"]}) or mock_stream)
+                mock_stream.start.side_effect = _fire_callback_then_stop
 
-        listener.run()
+                listener.run()
 
-        # Verify put was called with (audio_chunk, timestamp)
-        # The previous failure was expecting (audio_chunk, False), which was incorrect.
-        q.send.assert_called_with((mock_audio_data, sentinel.timestamp))
+    transport.send.assert_called_once()
+    call_args = transport.send.call_args[0][0]
+    assert call_args[1] == sentinel.timestamp
 
 
-def test_listener_reconnects_on_error(mock_deps):
+@patch("umik_base_app.listener_thread.HardwareSelector")
+def test_listener_reconnects_on_error(mock_hw_selector, mock_deps):
     """Test that listener attempts to reconnect on PortAudioError."""
-    config, q, stop = mock_deps
-    listener = ListenerThread(config, q, stop)
-    # Speed up tests
+    config, transport, stop = mock_deps
+    mock_hw_selector.find_device_by_name.return_value = config.id
+
+    listener = ListenerThread(config, transport, stop)
     listener._reconnect_delay_seconds = 0.01
     listener._max_retries = 2
 
-    with patch("sounddevice.InputStream") as mock_stream_cls:
-        # 1. Create the mock for the successful attempt separately
-        success_stream_mock = MagicMock()
+    success_stream = MagicMock()
+    success_stream.start.side_effect = stop.set
 
-        # 2. Configure the successful stream to break the loop immediately
-        valid_stream_instance = success_stream_mock.__enter__.return_value
+    streams = [sd.PortAudioError("Device Lost"), success_stream]
 
-        mock_audio_data = MagicMock()
-        mock_audio_data.ndim = 1
+    def fake_input_stream(**kwargs):
+        result = streams.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
 
-        # On the successful stream, just set stop immediately to exit loop clean
-        # We also need to patch datetime here if we want strictly clean logs,
-        # but for this test we only care about the reconnection logic (mock_stream_cls calls).
-        valid_stream_instance.read.side_effect = lambda x: stop.set() or (mock_audio_data, False)
-
-        # 3. Assign side_effect with the Error first, then the Configured Mock
-        mock_stream_cls.side_effect = [
-            sd.PortAudioError("Device Lost"),  # Attempt 1: Fails
-            success_stream_mock,  # Attempt 2: Succeeds
-        ]
-
-        listener.run()
-
-        # Check that we tried twice (First failed, Second succeeded)
-        assert mock_stream_cls.call_count == 2
+    with patch.object(ListenerThread, "_suppress_alsa_stderr", staticmethod(_noop_ctx)):
+        with patch("sounddevice.InputStream", side_effect=fake_input_stream) as mock_cls:
+            listener.run()
+            assert mock_cls.call_count == 2

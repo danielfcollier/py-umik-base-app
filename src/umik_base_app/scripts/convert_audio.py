@@ -77,7 +77,8 @@ def convert(src: Path, fmt: str, out_dir: Path | None, overwrite: bool) -> bool:
     cmd = [
         "ffmpeg",
         "-y" if overwrite else "-n",
-        "-i", str(src),
+        "-i",
+        str(src),
         *spec["codec_args"],
         str(dest),
     ]
@@ -99,15 +100,23 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="\n".join(f"  {k:<6} {v['label']}" for k, v in FORMATS.items()),
     )
-    parser.add_argument("inputs", nargs="+", metavar="FILE_OR_DIR",
-                        help="WAV file(s), director(ies), or glob pattern(s)")
-    parser.add_argument("--format", "-f", nargs="+", choices=list(FORMATS),
-                        default=DEFAULT_FORMATS, metavar="FMT", dest="formats",
-                        help=f"output format(s): ogg mp3 aac  (default: {' '.join(DEFAULT_FORMATS)})")
-    parser.add_argument("--out", "-o", metavar="DIR",
-                        help="output directory (default: same folder as each source file)")
-    parser.add_argument("--overwrite", action="store_true",
-                        help="overwrite existing output files")
+    parser.add_argument(
+        "inputs", nargs="+", metavar="FILE_OR_DIR", help="WAV file(s), director(ies), or glob pattern(s)"
+    )
+    parser.add_argument(
+        "--format",
+        "-f",
+        nargs="+",
+        choices=list(FORMATS),
+        default=DEFAULT_FORMATS,
+        metavar="FMT",
+        dest="formats",
+        help=f"output format(s): ogg mp3 aac  (default: {' '.join(DEFAULT_FORMATS)})",
+    )
+    parser.add_argument(
+        "--out", "-o", metavar="DIR", help="output directory (default: same folder as each source file)"
+    )
+    parser.add_argument("--overwrite", action="store_true", help="overwrite existing output files")
     return parser
 
 

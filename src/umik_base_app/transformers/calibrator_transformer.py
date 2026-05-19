@@ -70,6 +70,8 @@ class CalibratorTransformer:
             nominal_sensitivity_dbfs=nominal_sensitivity_dbfs,
             reference_dbspl=reference_dbspl,
         )
+        self._sensitivity_dbfs = sens_db
+        self._reference_dbspl = reference_dbspl
         # Invert the sensitivity: mic at -18.5 dBFS/Pa needs +18.5 dB boost so
         # that 94 dBSPL -> 0 dBFS, making dBSPL = dBFS + reference_dbspl.
         self._sensitivity_gain = 10 ** (-sens_db / 20.0)
@@ -127,6 +129,14 @@ class CalibratorTransformer:
         logger.info(
             f"✅ CalibratorTransformer ready. Gain: {self._sensitivity_gain:.4f}x, Taps: {len(self._filter_taps)}"
         )
+
+    @property
+    def sensitivity_dbfs(self) -> float:
+        return self._sensitivity_dbfs
+
+    @property
+    def reference_dbspl(self) -> float:
+        return self._reference_dbspl
 
     def _parse_frequency_response(self, file_path: str) -> tuple[np.ndarray, np.ndarray]:
         """
