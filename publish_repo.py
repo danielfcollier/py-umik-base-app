@@ -60,7 +60,7 @@ load_dotenv(_local_env if _local_env.is_file() else _user_env)
 DEFAULT_S3_ENDPOINT = "https://<your-s3-endpoint>"
 DEFAULT_S3_REGION = "us-east-1"
 DEFAULT_S3_PREFIX = "audio-tools"
-DEFAULT_APT_DISTS = "jammy,noble"
+DEFAULT_APT_DISTS = "jammy,noble,bookworm"
 DEFAULT_APT_COMPONENT = "main"
 DEFAULT_APT_ORIGIN = "audio-tools"
 DEFAULT_APT_LABEL = "audio-tools"
@@ -223,20 +223,36 @@ def compress_packages(packages_text: str) -> bytes:
     return buf.getvalue()
 
 
+def list_dist_arches(s3_client, bucket: str, binary_prefix: str) -> set[str]:
+    paginator = s3_client.get_paginator("list_objects_v2")
+    arches: set[str] = set()
+    for page in paginator.paginate(Bucket=bucket, Prefix=binary_prefix):
+        for obj in page.get("Contents", []):
+            for seg in obj["Key"].split("/"):
+                if seg.startswith("binary-"):
+                    arches.add(seg[len("binary-"):])
+    return arches
+
+
+def fetch_arch_packages(s3_client, bucket: str, gz_key: str) -> tuple[str, bytes] | None:
+    try:
+        response = s3_client.get_object(Bucket=bucket, Key=gz_key)
+        gz_data = response["Body"].read()
+        return gzip.decompress(gz_data).decode("utf-8"), gz_data
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code", "") in ("NoSuchKey", "404"):
+            return None
+        raise
+
+
 # ---------------------------------------------------------------------------
 # Release File
 # ---------------------------------------------------------------------------
-def build_release(packages_text: str, packages_gz_bytes: bytes, config: dict[str, str], arch: str) -> str:
-    component = config["component"]
+def build_release(all_file_data: list[tuple[str, bytes]], arches: set[str], config: dict[str, str]) -> str:
     dist = config["dist"]
-    packages_bytes = packages_text.encode("utf-8")
-    files = [
-        (f"{component}/binary-{arch}/Packages", packages_bytes),
-        (f"{component}/binary-{arch}/Packages.gz", packages_gz_bytes),
-    ]
     md5_lines = []
     sha256_lines = []
-    for rel_path, data in files:
+    for rel_path, data in all_file_data:
         size = len(data)
         md5_lines.append(f" {hashlib.md5(data).hexdigest()} {size:>16} {rel_path}")
         sha256_lines.append(f" {hashlib.sha256(data).hexdigest()} {size:>16} {rel_path}")
@@ -246,10 +262,10 @@ def build_release(packages_text: str, packages_gz_bytes: bytes, config: dict[str
         f"Label: {config['label']}\n"
         f"Suite: {dist}\n"
         f"Codename: {dist}\n"
-        f"Architectures: {arch}\n"
-        f"Components: {component}\n"
+        f"Architectures: {' '.join(sorted(arches))}\n"
+        f"Components: {config['component']}\n"
         f"Date: {now}\n"
-        f"MD5Sum:\n" + "\n".join(md5_lines) + "\n"
+        "MD5Sum:\n" + "\n".join(md5_lines) + "\n"
         "SHA256:\n" + "\n".join(sha256_lines) + "\n"
     )
 
@@ -364,6 +380,8 @@ def purge_old_releases(s3_client, bucket: str, config: dict[str, str], keep: int
                     if seg.startswith("binary-"):
                         arch_set.add(seg[len("binary-"):])
 
+        all_file_data: list[tuple[str, bytes]] = []
+        release_needed = False
         for arch in arch_set:
             packages_gz_key = prefixed_key(prefix, f"dists/{dist}/{component}/binary-{arch}/Packages.gz")
             existing = download_existing_packages(s3_client, bucket, packages_gz_key)
@@ -377,20 +395,27 @@ def purge_old_releases(s3_client, bucket: str, config: dict[str, str], keep: int
                 parsed = Deb822(block)
                 if parsed.get("Version") in deleted_versions:
                     print(f"  Removing {parsed.get('Package')} {parsed.get('Version')} from {dist}/{arch} index")
+                    release_needed = True
                 else:
                     kept_stanzas.append(block.strip())
 
             packages_text = "\n\n".join(kept_stanzas) + "\n" if kept_stanzas else ""
             packages_gz_bytes = compress_packages(packages_text)
-            dist_config = {**config, "dist": dist}
-            release_text = build_release(packages_text, packages_gz_bytes, dist_config, arch)
-
-            print(f"  Re-signing {dist} [{arch}] Release...")
-            inrelease_text, release_gpg_text = sign_release(release_text, config["gpg_key_id"], config["gpg_key_file"])
 
             packages_key = prefixed_key(prefix, f"dists/{dist}/{component}/binary-{arch}/Packages")
             upload_text(s3_client, bucket, packages_key, packages_text)
             upload_bytes(s3_client, bucket, packages_gz_key, packages_gz_bytes, "application/gzip")
+
+            all_file_data.extend([
+                (f"{component}/binary-{arch}/Packages", packages_text.encode("utf-8")),
+                (f"{component}/binary-{arch}/Packages.gz", packages_gz_bytes),
+            ])
+
+        if release_needed and all_file_data:
+            dist_config = {**config, "dist": dist}
+            release_text = build_release(all_file_data, arch_set, dist_config)
+            print(f"  Re-signing {dist} Release for arches: {', '.join(sorted(arch_set))}...")
+            inrelease_text, release_gpg_text = sign_release(release_text, config["gpg_key_id"], config["gpg_key_file"])
             upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/Release"), release_text)
             upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/InRelease"), inrelease_text)
             upload_text(s3_client, bucket, prefixed_key(prefix, f"dists/{dist}/Release.gpg"), release_gpg_text)
@@ -479,8 +504,24 @@ def main() -> None:
         new_entry = build_packages_entry(metadata)
         packages_text = update_packages_content(existing, new_entry, package, version)
         packages_gz_bytes = compress_packages(packages_text)
+        binary_prefix = prefixed_key(prefix, f"dists/{dist}/{component}/")
+        all_file_data: list[tuple[str, bytes]] = [
+            (f"{component}/binary-{arch}/Packages", packages_text.encode("utf-8")),
+            (f"{component}/binary-{arch}/Packages.gz", packages_gz_bytes),
+        ]
+        all_arches = {arch}
+        for other_arch in list_dist_arches(s3_client, bucket, binary_prefix) - {arch}:
+            gz_key = prefixed_key(prefix, f"dists/{dist}/{component}/binary-{other_arch}/Packages.gz")
+            result = fetch_arch_packages(s3_client, bucket, gz_key)
+            if result is not None:
+                other_text, other_gz = result
+                all_file_data.extend([
+                    (f"{component}/binary-{other_arch}/Packages", other_text.encode("utf-8")),
+                    (f"{component}/binary-{other_arch}/Packages.gz", other_gz),
+                ])
+                all_arches.add(other_arch)
         dist_config = {**config, "dist": dist}
-        release_text = build_release(packages_text, packages_gz_bytes, dist_config, arch)
+        release_text = build_release(all_file_data, all_arches, dist_config)
 
         print(f"Signing {dist} with GPG key {gpg_key_id}...")
         inrelease_text, release_gpg_text = sign_release(release_text, gpg_key_id, config["gpg_key_file"])

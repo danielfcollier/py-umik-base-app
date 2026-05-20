@@ -1,0 +1,128 @@
+name: Publish Debian Package
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  verify-ci:
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  build-deb:
+    name: Build .deb (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: verify-ci
+
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Sync version with release tag
+        run: |
+          TAG_NAME=${{ github.event.release.tag_name }}
+          CLEAN_VERSION=${TAG_NAME#v}
+          sed -i "s/^version = \".*\"/version = \"$CLEAN_VERSION\"/" pyproject.toml
+          echo "__version__ = \"$CLEAN_VERSION\"" > src/umik_base_app/_version.py
+
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3.12 python3.12-venv python3-all python3-setuptools \
+            debhelper dh-python build-essential dpkg-dev
+
+      - name: Install Python 3.12 via uv
+        run: uv python install 3.12
+
+      - name: Vendor Python dependencies
+        run: |
+          mkdir -p src/umik_base_app/vendor
+          touch src/umik_base_app/vendor/__init__.py
+          uv export --no-dev --frozen --format requirements-txt | grep -v "file://" > requirements.frozen.txt
+          uv pip install -r requirements.frozen.txt --target src/umik_base_app/vendor --python 3.12
+          rm requirements.frozen.txt
+
+      - name: Build .deb
+        run: bash build_deb.sh --skip
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: deb_dist/*.deb
+          retention-days: 7
+
+  publish-apt:
+    name: Publish to APT Repository
+    runs-on: ubuntu-latest
+    needs: build-deb
+    environment: apt
+
+    env:
+      S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+      S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+      S3_REGION: ${{ vars.S3_REGION }}
+      S3_PREFIX: ${{ vars.S3_PREFIX }}
+      DEB_S3_BUCKET: ${{ vars.DEB_S3_BUCKET }}
+      GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+      GPG_KEY_FILE: audio-tools.gpg.key
+      GPG_PUBKEY_FILE: audio-tools.gpg.pub
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Download amd64 .deb
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-amd64
+          path: deb_dist/
+
+      - name: Download arm64 .deb
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-arm64
+          path: deb_dist/
+
+      - name: Write GPG keys
+        run: |
+          printf '%s' "$GPG_PRIVATE_KEY" > audio-tools.gpg.key
+          printf '%s' "$GPG_PUBLIC_KEY" > audio-tools.gpg.pub
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+
+      - name: Publish amd64 .deb
+        run: |
+          uv run --group publish python publish_repo.py \
+            "$(find deb_dist -name '*amd64*.deb' -type f | head -1)"
+
+      - name: Publish arm64 .deb
+        run: |
+          uv run --group publish python publish_repo.py \
+            "$(find deb_dist -name '*arm64*.deb' -type f | head -1)"
+
+      - name: Prune old releases
+        run: uv run --group publish python publish_repo.py purge

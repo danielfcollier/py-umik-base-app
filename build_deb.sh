@@ -21,7 +21,7 @@ if [ "$SKIP_CHECK" = "0" ] && compgen -G "deb_dist/*${VERSION}*.deb" > /dev/null
 fi
 
 echo "Cleaning previous builds..."
-rm -rf deb_dist dist build *.egg-info src/*.egg-info
+rm -rf deb_dist/umik-base-app-*/ dist build *.egg-info src/*.egg-info
 
 echo "Generating Debian source tree..."
 uv run python3 setup.py --command-packages=stdeb.command sdist_dsc
