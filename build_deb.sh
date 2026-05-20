@@ -21,7 +21,9 @@ if [ "$SKIP_CHECK" = "0" ] && compgen -G "deb_dist/*${VERSION}*.deb" > /dev/null
 fi
 
 echo "Cleaning previous builds..."
-rm -rf deb_dist/umik-base-app-*/ dist build *.egg-info src/*.egg-info
+rm -rf deb_dist/umik-base-app-*/ deb_dist/umik-base-app_* deb_dist/tmp_sdist_dsc \
+       dist build *.egg-info src/*.egg-info
+mkdir -p deb_dist
 
 echo "Generating Debian source tree..."
 uv run python3 setup.py --command-packages=stdeb.command sdist_dsc
@@ -36,8 +38,27 @@ sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 9), dh-python, python3-
 # from being expanded as system dependencies by dh_python3
 sed -i 's/^Depends:.*/Depends: ${misc:Depends}, python3.12, libportaudio2, libsndfile1, ffmpeg, libzmq3-dev/' debian/control
 
+# Vendor dir contains arch-specific .so files; label the package accordingly
+ARCH=$(dpkg --print-architecture)
+sed -i "s/^Architecture:.*/Architecture: $ARCH/" debian/control
+
 echo "Fixed debian/control:"
-grep -E "^(Package|Depends|Build-Depends):" debian/control
+grep -E "^(Package|Architecture|Depends|Build-Depends):" debian/control
+
+# Disable debhelper steps that break on vendored binary extensions:
+# - dh_python3: expects ${python3:Depends} which we replaced with explicit deps
+# - dh_shlibdeps: scans .so files for system lib deps we already list explicitly
+# - dh_dwz: tries to optimize debug symbols in vendored .so files
+cat >> debian/rules << 'RULES_APPEND'
+
+override_dh_python3:
+
+override_dh_shlibdeps:
+
+override_dh_strip:
+
+override_dh_dwz:
+RULES_APPEND
 
 echo "Writing debian/postinst (shebang fix)..."
 cat > debian/postinst << 'POSTINST'
