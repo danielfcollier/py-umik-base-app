@@ -283,9 +283,12 @@ def _make_gpg_client(key_file: str | None = None) -> gnupg.GPG:
     tmpdir = tempfile.mkdtemp(prefix="audio_tools_gpg_")
     os.chmod(tmpdir, 0o700)
     gpg_client = gnupg.GPG(gnupghome=tmpdir)
-    result = gpg_client.import_keys(key_path.read_text())
+    result = gpg_client.import_keys(key_path.read_bytes())
     if result.count == 0:
         print(f"Error: No keys imported from {key_file}.", file=sys.stderr)
+        first_line = key_path.read_text(errors="replace").splitlines()[0] if key_path.stat().st_size else "(empty file)"
+        print(f"  First line of key file: {first_line!r}", file=sys.stderr)
+        print(f"  GPG stderr: {getattr(result, 'stderr', '(unavailable)')}", file=sys.stderr)
         sys.exit(1)
     return gpg_client
 
