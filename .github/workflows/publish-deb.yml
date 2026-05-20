@@ -1,18 +1,21 @@
 name: Publish Debian Package
 
 on:
+  pull_request:
+    branches:
+      - main
   release:
     types: [published]
 
 jobs:
   verify-ci:
+    if: github.event_name == 'release'
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
   build-deb:
     name: Build .deb (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
-    needs: verify-ci
 
     strategy:
       matrix:
@@ -34,6 +37,7 @@ jobs:
           version: "latest"
 
       - name: Sync version with release tag
+        if: github.event_name == 'release'
         run: |
           TAG_NAME=${{ github.event.release.tag_name }}
           CLEAN_VERSION=${TAG_NAME#v}
@@ -71,7 +75,8 @@ jobs:
   publish-apt:
     name: Publish to APT Repository
     runs-on: ubuntu-latest
-    needs: build-deb
+    needs: [verify-ci, build-deb]
+    if: github.event_name == 'release'
     environment: apt
 
     env:
