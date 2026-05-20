@@ -116,11 +116,20 @@ jobs:
 
       - name: Write GPG keys
         run: |
-          printf '%s' "$GPG_PRIVATE_KEY" > audio-tools.gpg.key
-          printf '%s' "$GPG_PUBLIC_KEY" > audio-tools.gpg.pub
+          printf '%s\n' "$GPG_PRIVATE_KEY" > audio-tools.gpg.key
+          printf '%s\n' "$GPG_PUBLIC_KEY" > audio-tools.gpg.pub
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
+
+      - name: Verify GPG key
+        run: |
+          echo "Key file first line: $(head -1 audio-tools.gpg.key)"
+          echo "Key file line count: $(wc -l < audio-tools.gpg.key)"
+          tmpdir=$(mktemp -d) && chmod 700 "$tmpdir"
+          GNUPGHOME="$tmpdir" gpg --batch --import audio-tools.gpg.key \
+            && echo "GPG import: OK" \
+            || { echo "GPG import: FAILED"; exit 1; }
 
       - name: Publish amd64 .deb
         run: |
