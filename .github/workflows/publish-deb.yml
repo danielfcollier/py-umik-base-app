@@ -54,6 +54,9 @@ jobs:
       - name: Install Python 3.12 via uv
         run: uv python install 3.12
 
+      - name: Install Python build tools (stdeb, setuptools)
+        run: uv sync --group dev --no-install-project
+
       - name: Vendor Python dependencies
         run: |
           mkdir -p src/umik_base_app/vendor
