@@ -38,12 +38,13 @@ sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 9), dh-python, python3-
 # from being expanded as system dependencies by dh_python3
 sed -i 's/^Depends:.*/Depends: ${misc:Depends}, python3.12, libportaudio2, libsndfile1, ffmpeg, libzmq3-dev/' debian/control
 
-# Vendor dir contains arch-specific .so files; label the package accordingly
-ARCH=$(dpkg --print-architecture)
-sed -i "s/^Architecture:.*/Architecture: $ARCH/" debian/control
+# Vendor dir contains arch-specific .so files; replace "all" with "any" so
+# dpkg-buildpackage produces the correct arch-specific filename (_amd64 / _arm64).
+sed -i 's/^Architecture:.*/Architecture: any/' debian/control
 
 echo "Fixed debian/control:"
 grep -E "^(Package|Architecture|Depends|Build-Depends):" debian/control
+grep -q "^Architecture: any" debian/control || { echo "ERROR: Architecture patch failed"; exit 1; }
 
 # Disable debhelper steps that break on vendored binary extensions:
 # - dh_python3: expects ${python3:Depends} which we replaced with explicit deps
