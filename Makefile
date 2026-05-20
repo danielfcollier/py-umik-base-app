@@ -37,7 +37,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb setup-qemu build-deb-arm64 test-deb-arm64 publish-deb-arm64
 
 default: help
 
@@ -355,6 +355,19 @@ MAJOR := $(word 1,$(subst ., ,$(CURRENT_VERSION)))
 MINOR := $(word 2,$(subst ., ,$(CURRENT_VERSION)))
 PATCH := $(word 3,$(subst ., ,$(CURRENT_VERSION)))
 
+release-notes: ## Generate RELEASE_NOTES.md from commits on this branch not yet in main
+	$(eval VERSION := $(shell grep '^version' pyproject.toml | head -1 | sed 's/.*"\(.*\)"/\1/'))
+	@printf "# Release Notes — v%s\n\n" "$(VERSION)" > RELEASE_NOTES.md
+	@git log main..HEAD --pretty=format:"%s" | awk '\
+		/^feat/ { print "- " $$0 >> "/tmp/rn_feat.txt" } \
+		/^fix/  { print "- " $$0 >> "/tmp/rn_fix.txt"  } \
+		!/^feat|^fix/ { print "- " $$0 >> "/tmp/rn_other.txt" }'; \
+	if [ -s /tmp/rn_feat.txt ];  then printf "## Features\n\n"  >> RELEASE_NOTES.md && cat /tmp/rn_feat.txt  >> RELEASE_NOTES.md && printf "\n\n" >> RELEASE_NOTES.md; fi; \
+	if [ -s /tmp/rn_fix.txt ];   then printf "## Bug Fixes\n\n" >> RELEASE_NOTES.md && cat /tmp/rn_fix.txt   >> RELEASE_NOTES.md && printf "\n\n" >> RELEASE_NOTES.md; fi; \
+	if [ -s /tmp/rn_other.txt ]; then printf "## Other\n\n"     >> RELEASE_NOTES.md && cat /tmp/rn_other.txt >> RELEASE_NOTES.md && printf "\n"   >> RELEASE_NOTES.md; fi; \
+	rm -f /tmp/rn_feat.txt /tmp/rn_fix.txt /tmp/rn_other.txt
+	@printf "%s\n" "Release notes written to RELEASE_NOTES.md"
+
 bump-patch: ## Bump patch version (0.1.0 → 0.1.1)
 	$(eval NEW_VERSION := $(MAJOR).$(MINOR).$(shell echo $$(($(PATCH)+1))))
 	@sed -i 's/^version = "$(CURRENT_VERSION)"/version = "$(NEW_VERSION)"/' pyproject.toml
@@ -395,19 +408,63 @@ build-deb: clean-all vendor ## Build .deb package (SKIP=1 to bypass version guar
 	@printf "%s\n" "Building .deb package..."
 	@bash build_deb.sh $(if $(SKIP),--skip)
 
-test-deb: ## Test .deb in a clean Docker container (DISTRO=noble|jammy)
-	@printf "%s\n" "Testing package in Docker (ubuntu:$(DISTRO))..."
+setup-qemu: ## Register QEMU binfmt handlers for multi-arch Docker builds (run once per boot)
+	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+test-deb: ## Test amd64 .deb in a clean Docker container (DISTRO=noble|jammy)
+	@printf "%s\n" "Testing amd64 package in Docker (ubuntu:$(DISTRO))..."
 	@docker run --rm --network=host -v $$(pwd):/dist ubuntu:$(DISTRO) sh -c "\
 		export DEBIAN_FRONTEND=noninteractive && \
 		apt-get update && \
-		apt-get install -y /dist/deb_dist/*.deb && \
+		apt-get install -y /dist/deb_dist/*amd64*.deb && \
 		printf '%s\n' '--- CLI Help ---' && \
 		audio-tools --help"
 
-publish-deb: ## Publish .deb to S3 APT repository, then prune old releases (reads DEB_S3_BUCKET from .env)
+build-deb-arm64: ## Build arm64 .deb for Raspberry Pi 4/5 via Docker + QEMU (run setup-qemu first)
+	@printf "%s\n" "Building arm64 .deb via Docker (this takes a few minutes)..."
+	docker run --rm --platform linux/arm64 \
+		-v "$(SCRIPT_DIR):/work" \
+		ubuntu:noble bash -c " \
+			set -e && \
+			export DEBIAN_FRONTEND=noninteractive && \
+			apt-get update -qq && \
+			apt-get install -y -qq curl python3.12 python3.12-venv python3-all \
+			  python3-setuptools debhelper dh-python build-essential \
+			  libportaudio2 libsndfile1 ffmpeg libzmq3-dev && \
+			curl -LsSf https://astral.sh/uv/install.sh | sh && \
+			export PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
+			cd /work && \
+			rm -rf dist build *.egg-info src/*.egg-info src/umik_base_app/vendor && \
+			mkdir -p src/umik_base_app/vendor && \
+			touch src/umik_base_app/vendor/__init__.py && \
+			uv export --no-dev --frozen --format requirements-txt | grep -v 'file://' > requirements.frozen.txt && \
+			uv pip install -r requirements.frozen.txt --target src/umik_base_app/vendor --python 3.12 && \
+			rm requirements.frozen.txt && \
+			bash build_deb.sh --skip \
+		"
+	@printf "%s\n" "arm64 .deb built: $$(find deb_dist -name '*arm64*.deb' -type f | head -1)"
+
+test-deb-arm64: ## Test arm64 .deb in a clean Docker container (DISTRO=noble|bookworm)
+	$(eval IMAGE := $(if $(filter bookworm bullseye,$(DISTRO)),debian:$(DISTRO),ubuntu:$(DISTRO)))
+	@printf "%s\n" "Testing arm64 package in Docker ($(IMAGE))..."
+	docker run --rm --platform linux/arm64 --network=host \
+		-v "$$(pwd):/dist" $(IMAGE) sh -c "\
+			export DEBIAN_FRONTEND=noninteractive && \
+			apt-get update && \
+			apt-get install -y /dist/deb_dist/*arm64*.deb && \
+			printf '%s\n' '--- CLI Help ---' && \
+			audio-tools --help"
+
+publish-deb: ## Publish amd64 .deb to S3 APT repository, then prune old releases (reads DEB_S3_BUCKET from .env)
 	@set -a && . ./.env && set +a && \
 	uv run --group publish python publish_repo.py \
-		"$$(find deb_dist -name '*.deb' -type f | head -1)"
+		"$$(find deb_dist -name '*amd64*.deb' -type f | head -1)"
+	@$(MAKE) prune-deb
+
+publish-deb-arm64: ## Publish arm64 .deb to S3 APT repository, then prune old releases (reads DEB_S3_BUCKET from .env)
+	@set -a && . ./.env && set +a && \
+	uv run --group publish python publish_repo.py \
+		"$$(find deb_dist -name '*arm64*.deb' -type f | head -1)"
 	@$(MAKE) prune-deb
 
 prune-deb: ## Remove old releases from S3 APT repository, keeping the 2 latest versions
