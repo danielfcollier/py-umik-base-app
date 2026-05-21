@@ -369,7 +369,9 @@ class DecibelMeterApp(AudioBaseApp):
         logger.debug("Initializing DecibelMeterApp...")
 
         pipeline = AudioPipeline(sample_rate=config.sample_rate)
-        pipeline.add_sink(metrics_sink if metrics_sink is not None else AudioMetricsSink(sample_rate=config.sample_rate))
+        pipeline.add_sink(
+            metrics_sink if metrics_sink is not None else AudioMetricsSink(sample_rate=config.sample_rate)
+        )
 
         self._recorder: RecorderSink | None = None
         if output_dir is not None:
