@@ -1,3 +1,4 @@
+import glob
 import importlib.util
 import os
 
@@ -10,8 +11,11 @@ __version__ = _mod.__version__
 from setuptools import find_packages, setup
 
 
+_calibration_files = glob.glob("calibration/*.txt")
+
 setup(
     version=__version__,
+    data_files=[("/usr/share/audio-tools/calibration", _calibration_files)] if _calibration_files else [],
     package_dir={"": "src"},
     packages=find_packages(
         where="src",

@@ -117,7 +117,43 @@ audio-tools --meter --consumer --zmq-host 192.168.1.50 --zmq-port 5555
 
 ## 🎛️ Calibration Files
 
-Download the per-unit calibration file for your UMIK from miniDSP. Place it in your project:
+Download the per-unit calibration file for your UMIK from miniDSP.
+
+### Auto-discovery
+
+Place the file in one of these locations and it will be picked up automatically
+on the next run — no `--calibration-file` flag needed:
+
+| Location | Scope |
+|---|---|
+| `~/.config/audio-tools/` | Per-user |
+| `/etc/audio-tools/` | System-wide |
+
+If multiple files are found, the app prompts you to select one interactively.
+If a calibrated microphone is detected but no file is found, the app warns you
+and asks for confirmation before running uncalibrated.
+
+### Sample files (installed with the package)
+
+The `.deb` package ships sample calibration files to:
+
+```
+/usr/share/audio-tools/calibration/
+```
+
+These are **not** auto-discovered — they are reference copies only.
+To activate one, copy it to an auto-discovery location:
+
+```bash
+# Per-user (recommended)
+mkdir -p ~/.config/audio-tools
+cp /usr/share/audio-tools/calibration/7175488_90deg.txt ~/.config/audio-tools/
+
+# Or system-wide
+sudo cp /usr/share/audio-tools/calibration/7175488_90deg.txt /etc/audio-tools/
+```
+
+### File layout
 
 ```
 umik-1/

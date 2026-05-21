@@ -21,6 +21,7 @@ from pathlib import Path
 from .app_config import AppConfig
 from .calibration_config import CalibrationConfig
 from .core.operational_mode import OperationalMode
+from .hardwares.device_profiles import find_profile_by_name
 from .hardwares.selector import HardwareNotFound, HardwareSelector
 from .settings import get_settings
 from .transformers.calibrator_transformer import CalibratorTransformer
@@ -30,20 +31,31 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 _CONFIG_DIR = Path.home() / ".config" / "audio-tools"
+_SYSTEM_CONFIG_DIR = Path("/etc/audio-tools")
 
 
 def _resolve_calibration_file() -> str | None:
-    if not _CONFIG_DIR.is_dir():
+    search_dirs = [d for d in (_CONFIG_DIR, _SYSTEM_CONFIG_DIR) if d.is_dir()]
+    if not search_dirs:
         return None
-    cal_files = sorted(_CONFIG_DIR.rglob("*.txt"))
+    cal_files: list[Path] = []
+    for d in search_dirs:
+        cal_files.extend(sorted(d.rglob("*.txt")))
     if not cal_files:
         return None
     if len(cal_files) == 1:
         logger.info(f"Auto-discovered calibration file: {cal_files[0]}")
         return str(cal_files[0])
-    print("\nMultiple calibration files found in ~/.config/audio-tools/:", file=sys.stderr)
+    print("\nMultiple calibration files found:", file=sys.stderr)
     for i, path in enumerate(cal_files, 1):
-        print(f"  [{i}] {path.relative_to(_CONFIG_DIR)}", file=sys.stderr)
+        for base, label in ((_CONFIG_DIR, "~/.config/audio-tools/"), (_SYSTEM_CONFIG_DIR, "/etc/audio-tools/")):
+            try:
+                print(f"  [{i}] {label}{path.relative_to(base)}", file=sys.stderr)
+                break
+            except ValueError:
+                continue
+        else:
+            print(f"  [{i}] {path}", file=sys.stderr)
     while True:
         try:
             choice = input(f"Select calibration file [1-{len(cal_files)}]: ").strip()
@@ -55,6 +67,35 @@ def _resolve_calibration_file() -> str | None:
         except (ValueError, EOFError):
             pass
         print(f"Invalid selection. Enter a number between 1 and {len(cal_files)}.", file=sys.stderr)
+
+
+def _warn_calibrated_mic_without_file(mic_name: str) -> None:
+    print(
+        f"\n  WARNING: '{mic_name}' is a calibrated microphone but no calibration file was found.\n"
+        f"  Measurements will show dBFS only — dBSPL requires a calibration file.\n"
+        f"\n"
+        f"  Supply one via:\n"
+        f"    --calibration-file /path/to/file.txt\n"
+        f"    CALIBRATION_FILE=...  (environment variable)\n"
+        f"    cp file.txt ~/.config/audio-tools/   (auto-discovery, per-user)\n"
+        f"    cp file.txt /etc/audio-tools/         (auto-discovery, system-wide)\n"
+        f"\n"
+        f"  Sample calibration files shipped with this package:\n"
+        f"    /usr/share/audio-tools/calibration/\n"
+        f"\n"
+        f"  Use --default to bypass this check and run uncalibrated.\n",
+        file=sys.stderr,
+    )
+    if not sys.stdin.isatty():
+        logger.error("Non-interactive mode: refusing to run calibrated mic without calibration file.")
+        sys.exit(1)
+    try:
+        answer = input("  Continue without calibration? [y/N]: ").strip().lower()
+    except EOFError:
+        sys.exit(1)
+    if answer not in ("y", "yes"):
+        sys.exit(0)
+    print("", file=sys.stderr)
 
 
 class AppArgs:
@@ -288,6 +329,10 @@ class AppArgs:
             )
             logger.info("Calibration enabled and initialized.")
         else:
+            if not args.default and selected_audio_device is not None:
+                profile = find_profile_by_name(selected_audio_device.name)
+                if profile is not None:
+                    _warn_calibrated_mic_without_file(profile.name)
             logger.info("No calibration file provided. Calibration disabled.")
             logger.info(f"Using sample rate: {final_sample_rate:.0f} Hz.")
 
