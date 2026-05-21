@@ -117,7 +117,7 @@ jobs:
       - name: Write GPG keys
         run: |
           printf '%s\n' "$GPG_PRIVATE_KEY" > audio-tools.gpg.key
-          printf '%s\n' "$GPG_PUBLIC_KEY" > audio-tools.gpg.pub
+          printf '%s\n' "$GPG_PUBLIC_KEY"  > audio-tools.gpg.pub
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PUBLIC_KEY: ${{ secrets.GPG_PUBLIC_KEY }}
