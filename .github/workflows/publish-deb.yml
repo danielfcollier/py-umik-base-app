@@ -14,16 +14,27 @@ jobs:
     secrets: inherit
 
   build-deb:
-    name: Build .deb (${{ matrix.arch }})
+    name: Build .deb (${{ matrix.arch }}, py${{ matrix.python_version }})
     runs-on: ${{ matrix.runner }}
 
     strategy:
       matrix:
         include:
           - arch: amd64
+            python_version: "3.12"
             runner: ubuntu-24.04
+            artifact: deb-amd64
+            apt_dists: "jammy,noble,bookworm,trixie"
           - arch: arm64
+            python_version: "3.12"
             runner: ubuntu-24.04-arm
+            artifact: deb-arm64-py312
+            apt_dists: "jammy,noble,bookworm"
+          - arch: arm64
+            python_version: "3.13"
+            runner: ubuntu-24.04-arm
+            artifact: deb-arm64-py313
+            apt_dists: "trixie"
 
     steps:
       - name: Checkout code
@@ -48,11 +59,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3.12 python3.12-venv python3-all python3-setuptools \
+            python3-all python3-setuptools \
             debhelper dh-python build-essential dpkg-dev
 
-      - name: Install Python 3.12 via uv
-        run: uv python install 3.12
+      - name: Install Python ${{ matrix.python_version }} via uv
+        run: uv python install ${{ matrix.python_version }}
 
       - name: Install Python build tools (stdeb, setuptools)
         run: uv sync --group dev --no-install-project
@@ -62,7 +73,7 @@ jobs:
           mkdir -p src/umik_base_app/vendor
           touch src/umik_base_app/vendor/__init__.py
           uv export --no-dev --frozen --format requirements-txt | grep -v "file://" > requirements.frozen.txt
-          uv pip install -r requirements.frozen.txt --target src/umik_base_app/vendor --python 3.12
+          uv pip install -r requirements.frozen.txt --target src/umik_base_app/vendor --python ${{ matrix.python_version }}
           rm requirements.frozen.txt
 
       - name: Build .deb
@@ -71,7 +82,7 @@ jobs:
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-${{ matrix.arch }}
+          name: ${{ matrix.artifact }}
           path: deb_dist/*.deb
           retention-days: 7
 
@@ -106,13 +117,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: deb-amd64
-          path: deb_dist/
+          path: deb_dist/amd64/
 
-      - name: Download arm64 .deb
+      - name: Download arm64 .deb (py3.12)
         uses: actions/download-artifact@v4
         with:
-          name: deb-arm64
-          path: deb_dist/
+          name: deb-arm64-py312
+          path: deb_dist/arm64-py312/
+
+      - name: Download arm64 .deb (py3.13 / trixie)
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-arm64-py313
+          path: deb_dist/arm64-py313/
 
       - name: Write GPG keys
         run: |
@@ -131,15 +148,20 @@ jobs:
             && echo "GPG import: OK" \
             || { echo "GPG import: FAILED"; exit 1; }
 
-      - name: Publish amd64 .deb
-        run: |
-          uv run --group publish python publish_repo.py \
-            "$(find deb_dist -name '*amd64*.deb' -type f | head -1)"
+      - name: Publish amd64 .deb (jammy, noble, bookworm, trixie)
+        run: uv run --group publish python publish_repo.py "$(find deb_dist/amd64 -name '*.deb' | head -1)"
+        env:
+          APT_DISTS: "jammy,noble,bookworm,trixie"
 
-      - name: Publish arm64 .deb
-        run: |
-          uv run --group publish python publish_repo.py \
-            "$(find deb_dist -name '*arm64*.deb' -type f | head -1)"
+      - name: Publish arm64 .deb (jammy, noble, bookworm)
+        run: uv run --group publish python publish_repo.py "$(find deb_dist/arm64-py312 -name '*.deb' | head -1)"
+        env:
+          APT_DISTS: "jammy,noble,bookworm"
+
+      - name: Publish arm64 .deb (trixie)
+        run: uv run --group publish python publish_repo.py "$(find deb_dist/arm64-py313 -name '*.deb' | head -1)"
+        env:
+          APT_DISTS: "trixie"
 
       - name: Prune old releases
         run: uv run --group publish python publish_repo.py purge
