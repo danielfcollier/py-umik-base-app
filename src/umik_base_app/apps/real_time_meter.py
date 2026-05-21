@@ -21,7 +21,6 @@ from pathlib import Path
 
 import numpy as np
 
-from umik_base_app._version import __version__
 from umik_base_app import (
     AppArgs,
     AppConfig,
@@ -30,6 +29,7 @@ from umik_base_app import (
     AudioPipeline,
     AudioSink,
 )
+from umik_base_app._version import __version__
 from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
 from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
@@ -445,9 +445,7 @@ def main():
     # Extend the shared AppArgs parser with meter-specific flags so they appear
     # in --help and are validated alongside the standard arguments.
     parser = AppArgs.get_parser()
-    parser.add_argument(
-        "-v", "--version", action="version", version=f"audio-tools-meter {__version__}"
-    )
+    parser.add_argument("-v", "--version", action="version", version=f"audio-tools-meter {__version__}")
     top_group = parser.add_argument_group("Top Metrics")
     top_group.add_argument(
         "--top-metrics",
