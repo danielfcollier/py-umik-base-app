@@ -540,7 +540,7 @@ def main() -> None:
     print(f"\nDone! Published {package} {version} to s3://{bucket}/{prefix} (dists: {', '.join(dists)})")
     print("\nClient setup:")
     print(f"  curl -fsSL {base_url}/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/audio-tools.gpg")
-    print(f'  echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] {base_url} $(lsb_release -cs) {component}" | \\')
+    print(f'  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/audio-tools.gpg] {base_url} $(lsb_release -cs) {component}" | \\')
     print("    sudo tee /etc/apt/sources.list.d/audio-tools.list")
     print("  sudo apt-get update && sudo apt-get install audio-tools")
     print(f"  # Supported distributions: {', '.join(dists)}")
