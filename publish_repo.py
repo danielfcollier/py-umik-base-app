@@ -60,7 +60,7 @@ load_dotenv(_local_env if _local_env.is_file() else _user_env)
 DEFAULT_S3_ENDPOINT = "https://<your-s3-endpoint>"
 DEFAULT_S3_REGION = "us-east-1"
 DEFAULT_S3_PREFIX = "audio-tools"
-DEFAULT_APT_DISTS = "jammy,noble,bookworm"
+DEFAULT_APT_DISTS = "jammy,noble,bookworm,trixie"
 DEFAULT_APT_COMPONENT = "main"
 DEFAULT_APT_ORIGIN = "audio-tools"
 DEFAULT_APT_LABEL = "audio-tools"
