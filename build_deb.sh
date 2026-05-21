@@ -66,6 +66,7 @@ echo "Writing debian/postinst (shebang fix)..."
 cat > debian/postinst << POSTINST_EOF
 #!/bin/sh
 set -e
+mkdir -p /etc/audio-tools
 for bin in /usr/bin/audio-tools /usr/bin/audio-tools-calibrate /usr/bin/audio-tools-devices /usr/bin/audio-tools-meter /usr/bin/audio-tools-record /usr/bin/audio-tools-analyze /usr/bin/audio-tools-plot /usr/bin/audio-tools-batch /usr/bin/audio-tools-enhance /usr/bin/audio-tools-convert; do
     [ -f "\$bin" ] && sed -i "1s|^#!/usr/bin/python3\$|#!/usr/bin/python${PYVER}|" "\$bin" || true
 done
