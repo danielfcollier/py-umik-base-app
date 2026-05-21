@@ -29,6 +29,7 @@ from umik_base_app import (
     AudioPipeline,
     AudioSink,
 )
+from umik_base_app._version import __version__
 from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
 from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
@@ -420,30 +421,14 @@ def _run_tui(config: AppConfig, output_dir: str = "recordings") -> None:
 
 
 def main():
+    # Pre-parse only the flags needed before logging is configured and before
+    # the full parser runs (mode selection + log routing).
     pre = argparse.ArgumentParser(add_help=False)
     pre.add_argument("--tui", action="store_true", default=False)
     pre.add_argument("--record", action="store_true", default=False)
     pre.add_argument("--output-dir", default=str(Path.home() / "recordings"))
     pre.add_argument("--log-file", default=None)
     pre.add_argument("--log-append", action="store_true", default=False)
-    pre.add_argument(
-        "--top-metrics",
-        metavar="METRIC",
-        default=None,
-        help="Emit only the measurement with the highest value for METRIC per window (e.g. dBSPL, LUFS).",
-    )
-    pre.add_argument(
-        "--rate",
-        metavar="DURATION",
-        default="60s",
-        help="Window length for --top-metrics (e.g. 60s, 2m). Default: 60s.",
-    )
-    pre.add_argument(
-        "--output",
-        metavar="FILE",
-        default=None,
-        help="Append top-metrics entries to FILE (created if absent). Requires --top-metrics.",
-    )
     pre_args, remaining = pre.parse_known_args()
     sys.argv = [sys.argv[0]] + remaining
 
@@ -457,7 +442,30 @@ def main():
 
     logger.info("Initializing Real Time Meter...")
 
-    args = AppArgs.get_args()
+    # Extend the shared AppArgs parser with meter-specific flags so they appear
+    # in --help and are validated alongside the standard arguments.
+    parser = AppArgs.get_parser()
+    parser.add_argument("-v", "--version", action="version", version=f"audio-tools-meter {__version__}")
+    top_group = parser.add_argument_group("Top Metrics")
+    top_group.add_argument(
+        "--top-metrics",
+        metavar="METRIC",
+        default=None,
+        help="Emit only the measurement with the highest value for METRIC per window (e.g. dBSPL, LUFS).",
+    )
+    top_group.add_argument(
+        "--rate",
+        metavar="DURATION",
+        default="60s",
+        help="Window length for --top-metrics (e.g. 60s, 2m). Default: 60s.",
+    )
+    top_group.add_argument(
+        "--output",
+        metavar="FILE",
+        default=None,
+        help="Append top-metrics entries to FILE (created if absent). Requires --top-metrics.",
+    )
+    args = parser.parse_args()
     app = None
 
     try:
@@ -466,17 +474,17 @@ def main():
             _run_tui(config, output_dir=pre_args.output_dir)
         else:
             metrics_sink: AudioSink | None = None
-            if pre_args.top_metrics:
+            if args.top_metrics:
                 try:
-                    rate_seconds = _parse_rate(pre_args.rate)
+                    rate_seconds = _parse_rate(args.rate)
                 except ValueError:
-                    logger.error(f"Invalid --rate value: '{pre_args.rate}'. Use e.g. '60s' or '2m'.")
+                    logger.error(f"Invalid --rate value: '{args.rate}'. Use e.g. '60s' or '2m'.")
                     sys.exit(1)
                 metrics_sink = TopMetricsSink(
                     sample_rate=config.sample_rate,
-                    metric_key=pre_args.top_metrics,
+                    metric_key=args.top_metrics,
                     rate_seconds=rate_seconds,
-                    output_file=pre_args.output,
+                    output_file=args.output,
                 )
 
             output_dir = pre_args.output_dir if pre_args.record else None
