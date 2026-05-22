@@ -6,9 +6,9 @@ import threading
 import webbrowser
 
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
+from umik_base_app.core.operational_mode import OperationalMode
 from umik_base_app.settings import get_settings
 from umik_base_app.sinks.websocket_sink import WebSocketSink
-from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
@@ -33,9 +33,7 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             ws_port=ws_port,
         )
 
-        pipeline = AudioPipeline()
-        if config.audio_calibrator:
-            pipeline.add_transformer(CalibratorAdapter(config.audio_calibrator))
+        pipeline = AudioPipeline(sample_rate=config.sample_rate)
         pipeline.add_sink(self._ws_sink)
 
         super().__init__(app_config=config, pipeline=pipeline)
@@ -53,7 +51,7 @@ class SpectrumAnalyzerApp(AudioBaseApp):
         settings = _get_settings()
         mode = self._config.run_mode
 
-        if mode in ["monolithic", "producer"]:
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.PRODUCER):
             if not self._config.audio_device:
                 logger.error("Cannot start Listener: No audio device configured.")
                 return
@@ -62,7 +60,6 @@ class SpectrumAnalyzerApp(AudioBaseApp):
                 target_audio_device=self._config.audio_device,
                 sample_rate=self._config.sample_rate,
                 buffer_seconds=self._config.buffer_seconds,
-                high_priority=settings.AUDIO.HIGH_PRIORITY,
             )
 
             logger.info("Starting Audio Listener (Producer)...")
@@ -72,10 +69,10 @@ class SpectrumAnalyzerApp(AudioBaseApp):
                 stop_event=self._stop_event,
             )
             self._threads.append(
-                threading.Thread(target=self._thread_guard(self._listener.run), name="ListenerThread")
+                threading.Thread(target=self._thread_guard(self._listener.run), name="ListenerThread", daemon=True)
             )
 
-        if mode in ["monolithic", "consumer"]:
+        if mode in (OperationalMode.MONOLITHIC, OperationalMode.CONSUMER):
             logger.info("Starting Audio Consumer (Processor)...")
             consumer = ConsumerThread(
                 transport=self._transport,
@@ -84,7 +81,7 @@ class SpectrumAnalyzerApp(AudioBaseApp):
                 consumer_queue_timeout_seconds=settings.CONSUMER_QUEUE_TIMEOUT_SECONDS,
             )
             self._threads.append(
-                threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread")
+                threading.Thread(target=self._thread_guard(consumer.run), name="ConsumerThread", daemon=True)
             )
 
     def close(self):
@@ -149,9 +146,13 @@ def main():
 
     app = None
     try:
+        _settings = get_settings()
+        user_buffer = float(args.buffer_seconds)
+        spectrum_buffer = user_buffer if user_buffer != _settings.AUDIO.BUFFER_SECONDS else 0.1
+        args.buffer_seconds = 3.0  # pass LUFS validation silently
         config = AppArgs.validate_args(args)
-        config.buffer_seconds = 0.1
-        logger.info(f"Spectrum analyzer: buffer override to {config.buffer_seconds}s for low latency")
+        config.buffer_seconds = spectrum_buffer
+        logger.info(f"Spectrum analyzer buffer: {spectrum_buffer}s")
         app = SpectrumAnalyzerApp(config, ws_port=args.port)
         if not args.no_open:
             url = f"http://localhost:{args.port}"

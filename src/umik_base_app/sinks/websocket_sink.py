@@ -10,6 +10,7 @@ from typing import Optional
 
 import numpy as np
 
+from ..core.pipeline_context import PipelineContext
 from .noise_floor_tracker import NoiseFloorTracker
 
 EPS = 1e-12
@@ -312,6 +313,9 @@ class WebSocketSink:
     async def _broadcast(self, msg: str):
         if self._queue is not None:
             await self._queue.put(msg)
+
+    def handle(self, ctx: PipelineContext) -> None:
+        self.handle_audio(ctx.audio, ctx.timestamp)
 
     def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
         if self._recording:

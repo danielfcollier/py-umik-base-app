@@ -137,11 +137,15 @@ class ListenerThread:
                 dtype = self._audio_device_config.dtype
 
                 last_audio = [time.monotonic()]
+                last_overflow_log = [0.0]
 
                 def _callback(indata, frames, time_info, status):
                     last_audio[0] = time.monotonic()
                     if status.input_overflow:
-                        logger.warning(f"Input overflow on device {device_id}. Audio data lost.")
+                        now = time.monotonic()
+                        if now - last_overflow_log[0] >= 5.0:
+                            logger.debug(f"Input overflow on device {device_id}.")
+                            last_overflow_log[0] = now
                     try:
                         self._transport.send((indata.flatten().copy(), datetime.now()))
                     except queue.Full:
