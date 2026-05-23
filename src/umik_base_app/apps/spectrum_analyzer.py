@@ -7,10 +7,12 @@ import webbrowser
 
 from pathlib import Path
 
+import numpy as np
+
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
 from umik_base_app.core.operational_mode import OperationalMode
+from umik_base_app.core.pipeline_context import PipelineContext
 from umik_base_app.settings import get_settings
-from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
 from umik_base_app.sinks.recorder_sink import RecorderSink
 from umik_base_app.sinks.websocket_sink import WebSocketSink
 from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
@@ -21,6 +23,23 @@ logger = logging.getLogger(__name__)
 
 import umik_base_app.sinks.websocket_sink as _ws_mod
 _ws_mod._app_instance = None
+
+
+class RawRecordingTransformer:
+    """Pass-through transformer that captures raw (pre-calibration) audio into RecorderSink.
+
+    Pinned at the front of the processor chain so recordings are never affected
+    by the sensitivity gain (+18 dB) applied by CalibratorAdapter for dBSPL display.
+    """
+
+    def __init__(self, recorder: RecorderSink):
+        self._recorder = recorder
+
+    def process(self, ctx: PipelineContext) -> PipelineContext:
+        if self._recorder._is_open:
+            int16 = (np.clip(ctx.audio.flatten(), -1.0, 1.0) * 32767).astype(np.int16)
+            self._recorder.write(int16.tobytes())
+        return ctx
 
 
 class SpectrumAnalyzerApp(AudioBaseApp):
@@ -42,12 +61,14 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             base_path=Path("recordings"),
             sample_rate=int(config.sample_rate),
         )
+        self._recording_transformer = RawRecordingTransformer(self._recorder)
 
         pipeline = AudioPipeline(sample_rate=config.sample_rate)
         pipeline.add_sink(self._ws_sink)
-        pipeline.add_sink(RecorderSinkAdapter(self._recorder))
 
         super().__init__(app_config=config, pipeline=pipeline)
+        # Prepend after super() so we stay ahead of any CLI calibrator it injects.
+        self._pipeline.prepend_transformer(self._recording_transformer)
         self._ws_sink.start()
         self._listener = None
         self._hw_config = None
@@ -129,7 +150,7 @@ class SpectrumAnalyzerApp(AudioBaseApp):
                 sensitivity_dbfs=calibrator.sensitivity_dbfs,
                 reference_dbspl=calibrator.reference_dbspl,
             )
-            self._pipeline._processors = [adapter]
+            self._pipeline._processors = [self._recording_transformer, adapter]
             logger.info("Calibration loaded from web UI")
             return True
         except Exception as e:
@@ -156,7 +177,7 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             if self._listener:
                 self._listener.restart_event.set()
 
-            self._pipeline._processors = []
+            self._pipeline._processors = [self._recording_transformer]
             self._ws_sink.notify_calibration_cleared()
             logger.info(f"Switched to device {device_id}: {device_info['name']}")
             return True
