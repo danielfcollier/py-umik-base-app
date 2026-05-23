@@ -117,3 +117,85 @@ The lifecycle of a single audio chunk flows as follows:
 6. **Sinking**:
    - **Recorder Sink**: Writes bytes to disk.
    - **Metrics Sink**: Calculates RMS, flux, or accumulates samples for LUFS measurement.
+
+## 5. Spectrum Analyzer — WebSocket Pipeline
+
+The `audio-tools-spectrum` app adds a browser-based visualization layer on top of the standard pipeline. Its architecture differs from the other apps in two key ways:
+
+1. **A persistent aiohttp server** runs in a dedicated daemon thread, hosting both the WebSocket endpoint (`/ws`) and the static web frontend (`/`).
+2. **A separate FFT tick loop** (20 FPS, asyncio) processes audio frames independently from the audio callback thread, decoupling display rate from capture rate.
+
+### Pipeline Structure
+
+The spectrum analyzer uses a two-sink pipeline. Both sinks receive the same audio — raw when no calibration is active, FIR-corrected and gain-adjusted when a calibration file is loaded.
+
+```
+CalibratorAdapter (optional, loaded via browser UI)
+        │
+        ├──► WebSocketSink      — FFT display, dBSPL, SNR, noise floor
+        └──► RecorderSinkAdapter — WAV recording (active only while REC is pressed)
+```
+
+`WebSocketSink` holds a shared audio buffer that the FFT tick loop reads from. Calibration metadata (`sensitivity_dbfs`, `reference_dbspl`, `is_gain_calibrated`) is read from `PipelineContext` on each audio chunk and used by the tick loop for dBSPL conversion.
+
+### FFT Tick Loop
+
+Audio arrives from `ConsumerThread` at PortAudio callback granularity (~85 ms blocks at 48 kHz). The tick loop runs at 20 FPS in the asyncio event loop:
+
+1. **Frame extraction** (`_consume_next_frame`): reads the next hop-aligned 2048-sample frame from the latest audio block.
+2. **Windowing**: applies a Hann window to reduce spectral leakage.
+3. **FFT**: `np.fft.rfft` → magnitude in dB.
+4. **Log binning**: 256 bins spaced geometrically between 20 Hz and Nyquist; each bin takes the mean of the FFT bins that fall within its range.
+5. **dBSPL**: converts RMS of the raw frame using calibration metadata from `PipelineContext`.
+6. **Broadcast**: serializes to JSON and pushes to the asyncio broadcast queue → all connected WebSocket clients.
+
+### NoiseFloorTracker
+
+A 5-second quiet room baseline is captured on demand ("Capture Quiet Room" button). Once established:
+
+- Per-bin SNR is computed against the live spectrum on every FFT frame.
+- Average SNR classifies microphone state: **OK** (≥ 20 dB), **LOW** (≥ 10 dB), **NOISE** (< 10 dB).
+- The noise floor is overlaid on the FFT plot and exported with the CSV.
+
+### Device Switching
+
+Switching the input device from the browser toolbar triggers a chain of events across thread boundaries:
+
+1. The browser sends `{ type: "change_device", device_id: N }` over WebSocket.
+2. `WebSocketSink` calls `app.switch_device(N)` via a module-level `_app_instance` reference (avoids cross-thread import issues).
+3. `SpectrumAnalyzerApp.switch_device()` updates `HardwareConfig`, sets `listener.restart_event` to trigger reconnect, clears pipeline processors, and calls `ws_sink.notify_calibration_cleared()`.
+4. The browser receives a `calibration_cleared` message and resets the calibration UI and file input.
+
+### Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Browser
+        UI[Web UI — FFT / Waterfall / Time Graph]
+    end
+
+    subgraph "aiohttp daemon thread"
+        HTTP[Static file server]
+        WS[WebSocket handler]
+        BC[Broadcaster task]
+        FFTL[FFT tick loop — 20 FPS]
+        AQ[asyncio.Queue]
+        FFTL --> AQ
+        BC --> AQ
+    end
+
+    subgraph "Consumer thread"
+        CT[ConsumerThread] --> PL[AudioPipeline]
+        PL --> CAL["CalibratorAdapter (optional)"]
+        CAL --> WSS[WebSocketSink]
+        CAL --> REC[RecorderSinkAdapter]
+    end
+
+    Mic((🎤 Mic)) --> LT[ListenerThread] --> Q[queue.Queue] --> CT
+
+    WSS -->|audio buffer + calibration metadata| FFTL
+    AQ -->|JSON frames| BC
+    BC -->|broadcast| UI
+    UI <-->|commands| WS
+    WS -->|device / calibration / record| WSS
+```
