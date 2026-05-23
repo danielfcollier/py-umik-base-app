@@ -52,9 +52,11 @@ class WebSocketSink:
         self._audio_offset = 0
         self._hop = n_fft // 2
 
+        self._sensitivity_dbfs: Optional[float] = None
+        self._reference_dbspl: Optional[float] = None
+        self._gain_calibrated: bool = False
+
         self._recording = False
-        self._recording_path: Optional[Path] = None
-        self._recording_buffer: list[np.ndarray] = []
 
         self._ws_thread: Optional[threading.Thread] = None
 
@@ -190,9 +192,15 @@ class WebSocketSink:
 
         self._noise_tracker.feed(magnitude_db_raw)
 
-        db_spl = float(np.sqrt(np.mean(frame**2)))
-        if db_spl > 0:
-            db_spl = 20.0 * np.log10(db_spl + EPS)
+        rms = float(np.sqrt(np.mean(frame**2)))
+        db_fs = 20.0 * np.log10(rms + EPS)
+        if self._reference_dbspl is not None:
+            if self._gain_calibrated:
+                db_spl = db_fs + self._reference_dbspl
+            else:
+                db_spl = db_fs - (self._sensitivity_dbfs or 0.0) + self._reference_dbspl
+        else:
+            db_spl = db_fs
 
         avg_snr = 0.0
         snr_status = "N/A"
@@ -207,6 +215,7 @@ class WebSocketSink:
             "data": magnitude_db.tolist(),
             "freqs": self._freqs.tolist(),
             "db_spl": db_spl,
+            "calibrated": self._reference_dbspl is not None,
             "snr_avg": avg_snr,
             "snr_status": snr_status,
             "noise_floor": noise_floor_binned,
@@ -224,11 +233,10 @@ class WebSocketSink:
             if msg_type == "capture_quiet_room":
                 self._noise_tracker.start_capture()
             elif msg_type == "start_recording":
-                self._recording = True
-                self._recording_buffer = []
-                ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                self._recording_path = Path("recordings") / f"{ts}.wav"
-                self._recording_path.parent.mkdir(parents=True, exist_ok=True)
+                app = _app_instance
+                if app:
+                    path = app.start_recording()
+                    self._recording = True
             elif msg_type == "stop_recording":
                 await self._stop_recording()
             elif msg_type == "export_csv":
@@ -286,17 +294,13 @@ class WebSocketSink:
         if not self._recording:
             return
         self._recording = False
-        if self._recording_buffer and self._recording_path:
-            import soundfile as sf
-
-            audio = np.concatenate(self._recording_buffer)
-            sf.write(str(self._recording_path), audio, int(self._sample_rate))
-            logger.info(f"Recording saved: {self._recording_path}")
-            self._recording_buffer = []
-            await self._broadcast(json.dumps({
-                "type": "recording_stopped",
-                "path": str(self._recording_path),
-            }))
+        app = _app_instance
+        saved_path = app.stop_recording() if app else ""
+        logger.info(f"Recording saved: {saved_path}")
+        await self._broadcast(json.dumps({
+            "type": "recording_stopped",
+            "path": saved_path,
+        }))
 
     def _export_csv(self):
         if self._noise_tracker.noise_floor_db is None:
@@ -314,13 +318,18 @@ class WebSocketSink:
         if self._queue is not None:
             await self._queue.put(msg)
 
+    def notify_calibration_cleared(self):
+        msg = json.dumps({"type": "calibration_cleared"})
+        if self._loop and not self._loop.is_closed():
+            asyncio.run_coroutine_threadsafe(self._broadcast(msg), self._loop)
+
     def handle(self, ctx: PipelineContext) -> None:
+        self._sensitivity_dbfs = ctx.sensitivity_dbfs
+        self._reference_dbspl = ctx.reference_dbspl
+        self._gain_calibrated = ctx.is_gain_calibrated()
         self.handle_audio(ctx.audio, ctx.timestamp)
 
     def handle_audio(self, audio_chunk: np.ndarray, timestamp: datetime) -> None:
-        if self._recording:
-            self._recording_buffer.append(audio_chunk.copy())
-
         audio = audio_chunk.flatten()
         with self._audio_lock:
             self._latest_audio = audio

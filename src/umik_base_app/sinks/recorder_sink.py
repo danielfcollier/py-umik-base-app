@@ -54,6 +54,7 @@ class RecorderSink:
         self._wave_file: wave.Wave_write | None = None
         self._current_file_frames = 0
         self._is_open = False
+        self.current_file: str = ""
 
     def _generate_filename(self) -> str:
         """Generates a filename with the current timestamp."""
@@ -79,6 +80,7 @@ class RecorderSink:
 
         filename = self._generate_filename()
         try:
+            Path(filename).parent.mkdir(parents=True, exist_ok=True)
             self._wave_file = wave.open(filename, "wb")
             self._wave_file.setnchannels(self._channels)
             self._wave_file.setsampwidth(self._sample_width)
@@ -86,6 +88,7 @@ class RecorderSink:
 
             self._is_open = True
             self._current_file_frames = 0
+            self.current_file = filename
             logger.info(f"Started new recording segment: {filename}")
         except Exception as e:
             logger.error(f"Failed to open WAV file {filename}: {e}")

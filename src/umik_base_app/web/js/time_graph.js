@@ -7,6 +7,7 @@ const TimeGraph = {
     maxEntries: 600,
     defaultWindowSeconds: 30,
     padding: { top: 8, right: 50, bottom: 20, left: 50 },
+    calibrated: false,
     splMin: -100,
     splMax: 0,
     snrMin: 0,
@@ -27,7 +28,13 @@ const TimeGraph = {
         this.height = rect.height;
     },
 
-    push(dbSpl, snrAvg) {
+    push(dbSpl, snrAvg, calibrated) {
+        if (calibrated !== this.calibrated) {
+            this.calibrated = calibrated;
+            this.splMin = calibrated ? 20 : -100;
+            this.splMax = calibrated ? 120 : 0;
+            this.buffer = [];
+        }
         const now = performance.now() / 1000;
         this.buffer.push({ t: now, spl: dbSpl, snr: snrAvg });
         while (this.buffer.length > this.maxEntries) this.buffer.shift();

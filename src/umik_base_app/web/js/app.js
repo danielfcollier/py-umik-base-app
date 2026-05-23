@@ -27,7 +27,7 @@ const App = {
             if (msg.type === 'fft') {
                 FFTPlot.draw(msg.data, msg.freqs, msg.noise_floor);
                 Waterfall.draw(msg.data, msg.freqs);
-                TimeGraph.push(msg.db_spl, msg.snr_avg);
+                TimeGraph.push(msg.db_spl, msg.snr_avg, msg.calibrated);
                 this.updateStatus(msg);
             } else if (msg.type === 'recording_stopped') {
                 document.getElementById('btn-record').classList.remove('active');
@@ -37,6 +37,11 @@ const App = {
                 const el = document.getElementById('cal-status');
                 el.textContent = 'Calibrated \u2713';
                 el.className = 'ok';
+            } else if (msg.type === 'calibration_cleared') {
+                const el = document.getElementById('cal-status');
+                el.textContent = 'No calibration';
+                el.className = '';
+                document.getElementById('cal-file').value = '';
             } else if (msg.type === 'device_list') {
                 this.populateDevices(msg.devices);
             } else if (msg.type === 'device_changed') {
@@ -61,12 +66,13 @@ const App = {
     },
 
     updateStatus(msg) {
-        document.getElementById('stat-spl').textContent = `dBSPL: ${msg.db_spl.toFixed(1)}`;
+        const splLabel = msg.calibrated ? 'dBSPL' : 'dBFS';
+        document.getElementById('stat-spl').textContent = `${splLabel}: ${msg.db_spl.toFixed(1)}`;
         document.getElementById('stat-snr').textContent = `SNR: ${msg.snr_avg.toFixed(1)} dB`;
 
         const micEl = document.getElementById('stat-mic');
         const status = msg.snr_status;
-        micEl.textContent = `Mic: ${status}`;
+        micEl.textContent = status === 'N/A' ? 'Mic: No floor' : `Mic: ${status}`;
         micEl.className = '';
         if (status === 'OK') micEl.classList.add('snr-ok');
         else if (status === 'LOW') micEl.classList.add('snr-low');

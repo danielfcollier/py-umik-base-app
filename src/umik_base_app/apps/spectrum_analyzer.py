@@ -5,10 +5,15 @@ import tempfile
 import threading
 import webbrowser
 
+from pathlib import Path
+
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
 from umik_base_app.core.operational_mode import OperationalMode
 from umik_base_app.settings import get_settings
+from umik_base_app.sinks.recorder_adapter import RecorderSinkAdapter
+from umik_base_app.sinks.recorder_sink import RecorderSink
 from umik_base_app.sinks.websocket_sink import WebSocketSink
+from umik_base_app.transformers.calibrator_adapter import CalibratorAdapter
 from umik_base_app.transformers.calibrator_transformer import CalibratorTransformer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
@@ -33,8 +38,14 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             ws_port=ws_port,
         )
 
+        self._recorder = RecorderSink(
+            base_path=Path("recordings"),
+            sample_rate=int(config.sample_rate),
+        )
+
         pipeline = AudioPipeline(sample_rate=config.sample_rate)
         pipeline.add_sink(self._ws_sink)
+        pipeline.add_sink(RecorderSinkAdapter(self._recorder))
 
         super().__init__(app_config=config, pipeline=pipeline)
         self._ws_sink.start()
@@ -85,7 +96,19 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             )
 
     def close(self):
+        self._recorder.close()
         super().close()
+
+    def start_recording(self) -> str:
+        self._recorder.open()
+        logger.info(f"Recording started: {self._recorder.current_file}")
+        return self._recorder.current_file
+
+    def stop_recording(self) -> str:
+        saved = self._recorder.current_file
+        self._recorder.close()
+        logger.info(f"Recording stopped: {saved}")
+        return saved
 
     def load_calibration(self, content: str) -> bool:
         settings = get_settings()
@@ -97,11 +120,15 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             calibrator = CalibratorTransformer(
                 calibration_file_path=cal_path,
                 sample_rate=self._config.sample_rate,
-                num_taps=self._config.num_taps or settings.AUDIO.NUM_TAPS,
+                num_taps=settings.AUDIO.NUM_TAPS,
                 nominal_sensitivity_dbfs=settings.HARDWARE.NOMINAL_SENSITIVITY_DBFS,
                 reference_dbspl=settings.HARDWARE.REFERENCE_DBSPL,
             )
-            adapter = CalibratorAdapter(calibrator)
+            adapter = CalibratorAdapter(
+                calibrator=calibrator,
+                sensitivity_dbfs=calibrator.sensitivity_dbfs,
+                reference_dbspl=calibrator.reference_dbspl,
+            )
             self._pipeline._processors = [adapter]
             logger.info("Calibration loaded from web UI")
             return True
@@ -129,6 +156,8 @@ class SpectrumAnalyzerApp(AudioBaseApp):
             if self._listener:
                 self._listener.restart_event.set()
 
+            self._pipeline._processors = []
+            self._ws_sink.notify_calibration_cleared()
             logger.info(f"Switched to device {device_id}: {device_info['name']}")
             return True
         except Exception as e:
