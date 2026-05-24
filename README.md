@@ -1,4 +1,4 @@
-# 🎤 audio-tools — Audio Measurement Framework and CLI
+# 🎤 Audio Measurement Framework and CLI
 
 **A Python framework and CLI toolkit for real-time audio measurement with USB microphones.**
 
