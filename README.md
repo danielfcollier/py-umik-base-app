@@ -1,27 +1,112 @@
-# 🎤 audio-tools — Audio Measurement CLI
+# 🎤 Audio Measurement Framework and CLI
 
-**A modular Python CLI for real-time audio measurement with USB microphones.**
+**A Python framework and CLI toolkit for real-time audio measurement with USB microphones.**
 
-Supports UMIK-1, UMIK-2, Dayton UMM-6, Earthworks M23/M30, and other USB measurement mics.
-Auto-detects known devices, validates sample rate support, and applies per-unit calibration files.
+- 📦 Use as a **library** to build custom real-time audio measurement applications
+- 🕹️ Use the **bundled CLI** (`audio-tools`) for out-of-the-box measurement, recording and real-time spectrum analyzer (RTA)
+
+Works with USB measurement microphones out of the box — auto-detects known devices, validates sample rate support, and applies per-unit calibration files.
+
+> **PyPI package:** [`umik-base-app`](https://pypi.org/project/umik-base-app/) *(name reflects the project's origins; a rename is planned as the framework scope expands)*
+
+```bash
+pip install umik-base-app
+```
+
+## 🎛️ Verified Hardware
+
+The framework works with any USB audio input device. The following microphones have built-in device profiles and calibration support:
+
+| Microphone | Manufacturer | Sample Rates | Sensitivity |
+|------------|--------------|--------------|-------------|
+| UMIK-1 | miniDSP | 48 kHz | −18 dBFS |
+| UMIK-2 | miniDSP | 44.1–192 kHz | −18 dBFS |
+| UMM-6 | Dayton Audio | 48 kHz | −18 dBFS |
+| XREF 20 | Sonarworks | 48 kHz | −26 dBFS |
+| MM 1 | Beyerdynamic | 44.1–192 kHz | −40 dBFS |
+| M23/M30 | Earthworks | 44.1–192 kHz | −36 dBFS |
+
+Custom device profiles can be added — see [docs/FRAMEWORK.md](./docs/FRAMEWORK.md).
+
+## ⚡ Quick Start — Library
+
+Subclass `AudioSink`, wire it into an `AudioPipeline`, and let `AudioBaseApp` handle device management, threading, reconnection, and calibration injection:
+
+```python
+from umik_base_app import AppArgs, AudioBaseApp, AudioPipeline, AudioSink, PipelineContext
+
+class LoudnessPrinter(AudioSink):
+    def handle(self, ctx: PipelineContext) -> None:
+        if ctx.can_calculate_dbspl():
+            print(f"[{ctx.timestamp}] dBSPL: {ctx.reference_dbspl:.1f}")
+
+def main():
+    args = AppArgs.get_args()
+    config = AppArgs.validate_args(args)
+
+    pipeline = AudioPipeline(sample_rate=config.sample_rate)
+    pipeline.add_sink(LoudnessPrinter())
+
+    # If --calibration-file was passed, CalibratorAdapter is auto-injected
+    app = AudioBaseApp(app_config=config, pipeline=pipeline)
+    app.run()
+
+if __name__ == "__main__":
+    main()
+```
+
+Run it with any standard flags:
+
+```bash
+python my_app.py --calibration-file "umik-1/7175488.txt"
+python my_app.py --producer --zmq-port 5555   # daemon / distributed mode
+```
+
+## 🏗️ Framework Concepts
+
+| Class | Role |
+|-------|------|
+| `AudioSink` | Protocol — implement `handle(ctx)` to consume audio (metrics, recording, UI) |
+| `AudioTransformer` | Protocol — implement `apply(ctx)` to modify audio (filtering, gain) |
+| `PipelineContext` | Per-chunk envelope: audio samples, timestamp, calibration metadata |
+| `AudioPipeline` | Ordered transformer chain + fan-out sink execution |
+| `AudioBaseApp` | Lifecycle manager: device init, threads, transport, reconnection |
+| `AudioMetrics` | Static helpers: `dBFS`, `dBSPL`, `RMS`, `LUFS`, `spectral_flux` |
+
+Full API reference and examples: [docs/FRAMEWORK.md](./docs/FRAMEWORK.md)
+
+## 🕹️ Bundled Sample Apps (CLI)
+
+The package ships a set of reference applications accessible via `audio-tools`. These demonstrate the framework and are ready to use out of the box:
+
+| Command | Description |
+|---------|-------------|
+| `audio-tools --devices` | 🔍 List available audio input devices |
+| `audio-tools --meter` | 📊 Real-time SPL / LUFS / dBFS meter |
+| `audio-tools --record` | 🎙️ Calibrated audio recorder (WAV) |
+| `audio-tools --calibrate` | 🔧 Generate FIR filter from a calibration file |
+| `audio-tools --analyze` | 🔬 Analyze a WAV file and export metrics to CSV |
+| `audio-tools --plot` | 📈 Plot a metrics CSV as a chart |
+| `audio-tools --batch` | 📁 Batch-analyze a directory of WAV files |
+| `audio-tools --enhance` | ✨ Filter and enhance voice audio |
+| `audio-tools --convert` | 🔄 Convert WAV recordings to OGG / MP3 / AAC |
+| `audio-tools-spectrum` | 🌐 Browser-based real-time spectrum analyzer (RTA) |
+
+### 🌐 Spectrum Analyzer
+
+<img src="spectrum-analyzer.png" width="700" alt="Spectrum Analyzer UI">
+
+A browser-based **Real-Time Analyzer (RTA)** — comparable to the RTA panel in REW — with FFT plot, scrolling waterfall, time-series dBSPL/dBFS, noise floor baseline, and in-browser calibration loading. Opens automatically at `http://localhost:8767`.
+
+```bash
+audio-tools-spectrum --device <id> --calibration-file "umik-1/7175488.txt"
+```
+
+Full CLI reference: [docs/CLI.md](./docs/CLI.md)
 
 ## 📦 Installation
 
-### APT — Linux *(Recommended for Raspberry Pi and Ubuntu)*
-
-```bash
-curl -fsSL "https://br-se1.magaluobjects.com/audio-tools/audio-tools/pubkey.gpg" \
-  | sudo gpg --dearmor -o /usr/share/keyrings/audio-tools.gpg
-echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] https://br-se1.magaluobjects.com/audio-tools/audio-tools $(lsb_release -cs) main" \
-  | sudo tee /etc/apt/sources.list.d/audio-tools.list
-sudo apt-get update && sudo apt-get install audio-tools
-```
-
-System dependencies (`libportaudio2`, `libsndfile1`, `ffmpeg`, `libzmq3-dev`) are installed automatically.
-
-> 🍓 **Raspberry Pi 4B verified.** Perfect headless acoustic monitoring box.
-
-### pip
+### pip *(recommended)*
 
 ```bash
 pip install umik-base-app
@@ -37,258 +122,31 @@ sudo apt install libportaudio2 libsndfile1 ffmpeg libzmq3-dev -y
 brew install portaudio libsndfile zeromq ffmpeg
 ```
 
+### APT — Linux headless deployment
 
-## 🕹️ CLI Reference
-
-```
-audio-tools --<command> [options]
-```
-
-| Command | Description |
-|---------|-------------|
-| `audio-tools --devices` | 🔍 List available audio input devices |
-| `audio-tools --meter` | 📊 Real-time SPL / LUFS / dBFS meter |
-| `audio-tools --record` | 🎙️ Calibrated audio recorder (WAV) |
-| `audio-tools --calibrate` | 🔧 Generate FIR filter from a calibration file |
-| `audio-tools --analyze` | 🔬 Analyze a WAV file and export metrics to CSV |
-| `audio-tools --plot` | 📈 Plot a metrics CSV as a chart |
-| `audio-tools --batch` | 📁 Batch-analyze a directory of WAV files |
-| `audio-tools --enhance` | ✨ Filter and enhance voice audio |
-| `audio-tools --convert` | 🔄 Convert WAV recordings to OGG / MP3 / AAC |
-| `audio-tools-spectrum` | 🌐 Browser-based real-time spectrum analyzer |
-
-Pass `--help` after any command for full options:
+For Raspberry Pi and Ubuntu servers, a `.deb` package installs system dependencies automatically:
 
 ```bash
-audio-tools --meter --help
-audio-tools --convert --help
+curl -fsSL "https://br-se1.magaluobjects.com/audio-tools/audio-tools/pubkey.gpg" \
+  | sudo gpg --dearmor -o /usr/share/keyrings/audio-tools.gpg
+echo "deb [signed-by=/usr/share/keyrings/audio-tools.gpg] https://br-se1.magaluobjects.com/audio-tools/audio-tools $(lsb_release -cs) main" \
+  | sudo tee /etc/apt/sources.list.d/audio-tools.list
+sudo apt-get update && sudo apt-get install audio-tools
 ```
 
-## ⚡ Quick Start
-
-```bash
-# 1. Find your microphone's device ID
-audio-tools --devices
-
-# 2. Run the SPL meter (system default mic)
-audio-tools --meter
-
-# 3. Run with UMIK-1 calibration file
-audio-tools --meter --calibration-file "umik-1/7175488.txt"
-
-# 4. Record calibrated audio
-audio-tools --record --calibration-file "umik-1/7175488.txt" --output-dir recordings/
-```
-
-## 🏃 Run Modes
-
-### Monolithic *(Default)*
-
-Single process — simplest for desktop and testing.
-
-```bash
-audio-tools --meter --calibration-file "umik-1/7175488.txt"
-```
-
-### 👹 Daemon Mode — Unstoppable Ear
-
-Run capture at high priority. Processing crashes never interrupt the audio stream.
-
-```bash
-# Terminal 1: high-priority capture process
-sudo nice -n -20 audio-tools --meter --producer \
-  --calibration-file "umik-1/7175488.txt" --zmq-port 5555
-
-# Terminal 2: connect consumer (safe to open/close/crash)
-audio-tools --meter --consumer --zmq-host localhost --zmq-port 5555
-```
-
-### 🌐 Distributed Mode — Remote Sentry
-
-Capture on a Raspberry Pi, visualize on your laptop.
-
-```bash
-# On the Raspberry Pi
-audio-tools --meter --producer \
-  --calibration-file "umik-1/7175488.txt" --zmq-port 5555
-
-# On your laptop
-audio-tools --meter --consumer --zmq-host 192.168.1.50 --zmq-port 5555
-```
-
-## 🎛️ Calibration Files
-
-Download the per-unit calibration file for your UMIK from miniDSP.
-
-### Auto-discovery
-
-Place the file in one of these locations and it will be picked up automatically
-on the next run — no `--calibration-file` flag needed:
-
-| Location | Scope |
-|---|---|
-| `~/.config/audio-tools/` | Per-user |
-| `/etc/audio-tools/` | System-wide |
-
-If multiple files are found, the app prompts you to select one interactively.
-If a calibrated microphone is detected but no file is found, the app warns you
-and asks for confirmation before running uncalibrated.
-
-### Sample files (installed with the package)
-
-The `.deb` package ships sample calibration files to:
-
-```
-/usr/share/audio-tools/calibration/
-```
-
-These are **not** auto-discovered — they are reference copies only.
-To activate one, copy it to an auto-discovery location:
-
-```bash
-# Per-user (recommended)
-mkdir -p ~/.config/audio-tools
-cp /usr/share/audio-tools/calibration/7175488_90deg.txt ~/.config/audio-tools/
-
-# Or system-wide
-sudo cp /usr/share/audio-tools/calibration/7175488_90deg.txt /etc/audio-tools/
-```
-
-### File layout
-
-```
-umik-1/
-├── 7175488.txt           ← 0° on-axis. Use when pointing at a speaker.
-├── 7175488_90deg.txt     ← 90° ambient. Use when pointing at the ceiling.
-└── 7175488_fir_*.npy     ← [Generated] FIR filter cache (created on first run).
-```
-
-Generate or verify the FIR filter cache:
-
-```bash
-audio-tools --calibrate "umik-1/7175488.txt"
-```
-
-
-## 🖥️ Real-Time Dashboard (TUI)
-
-Add `--tui` to get a live terminal dashboard instead of scrolling log output:
-
-```bash
-audio-tools --meter --tui
-audio-tools --meter --tui --calibration-file "umik-1/7175488.txt"
-```
-
-Built with [Textual](https://textual.textualize.io/):
-
-```
-┌───────────────────────────────────────────────────────┐
-│  audio-tools --meter          Calibration: FULL (FIR) │
-├──────────────────────┬────────────────────────────────┤
-│  dBFS  ████████░░░░  │  dBSPL   72.4 dB               │
-│ -24.3  ████████░░░░  │  LUFS   -28.1 LUFS             │
-│        ████████░░░░  │  RMS     0.0241                │
-│                      │  Flux    38.6                  │
-├──────────────────────┴────────────────────────────────┤
-│  Mode: MONOLITHIC    SR: 48000 Hz   ● REC   [R] Stop  │
-└───────────────────────────────────────────────────────┘
-```
-
-| Key | Action |
-|-----|--------|
-| `R` | 🔴 Toggle recording on/off |
-| `Q` | ❌ Quit |
-
-Press **R** to start recording — audio is saved to `recordings/` as a timestamped WAV. Press **R** again to stop; a notification pops with the filename.
-
-
-## 🌐 Real-Time Spectrum Analyzer
-
-<img src="spectrum-analyzer.png" width="700" alt="Spectrum Analyzer UI">
-
-A browser-based live spectrum analyzer for UMIK-1 and compatible USB measurement microphones. Opens a local web server and launches your browser automatically.
-
-### Quick Start
-
-```bash
-# 1. Find your microphone's device ID
-audio-tools --devices
-
-# 2. Launch (opens browser at http://localhost:8767)
-audio-tools-spectrum --device <id>
-
-# 3. With calibration file
-audio-tools-spectrum --device <id> --calibration-file "umik-1/7175488.txt"
-
-# 4. Custom port, suppress auto-open
-audio-tools-spectrum --device <id> --port 9000 --no-open
-```
-
-### Features
-
-| Feature | Description |
-|---|---|
-| **FFT plot** | 256 log-spaced bins (20 Hz – Nyquist), Hann window, configurable peak labels |
-| **Waterfall** | Scrolling spectrogram with time-zoom and time-range CSV export |
-| **Time-series graph** | Rolling 30 s dBSPL/dBFS and SNR; y-axis auto-scales on calibration load/clear |
-| **Noise floor** | 5-second quiet room baseline; per-bin SNR with OK / LOW / NOISE status |
-| **Calibration** | Load a UMIK-1 `.txt` calibration file directly from the browser toolbar |
-| **Device selector** | Switch microphone input from the toolbar without restarting |
-| **Recording** | WAV recording via the REC button; calibration is applied to the saved file |
-
-> **Calibration note:** When a file is loaded the status bar switches to **dBSPL** and the time graph rescales to 20–120 dB. Switching devices automatically clears the loaded calibration.
-
-## 🔬 Analysis & Visualization
-
-```bash
-# Analyze one file → CSV
-audio-tools --analyze "recording.wav" --calibration-file "umik-1/7175488.txt"
-
-# Batch analyze a directory → CSV per file
-audio-tools --batch recordings/ --calibration-file "umik-1/7175488.txt"
-
-# View chart (popup window)
-audio-tools --plot "recording_metrics.csv"
-
-# Save chart to PNG
-audio-tools --plot "recording_metrics.csv" --save
-```
-
-## 🔄 Convert Audio
-
-Convert WAV recordings to share-friendly formats. Requires `ffmpeg`.
-
-```bash
-# OGG/Opus — smallest, WhatsApp-compatible
-audio-tools --convert recordings/ --format ogg
-
-# Multiple formats in one pass
-audio-tools --convert recordings/session.wav --format ogg mp3
-
-# Output to a different directory
-audio-tools --convert recordings/ --format ogg --out converted/
-
-# Overwrite existing files
-audio-tools --convert recordings/ --format ogg --overwrite
-```
-
-| Format | Use Case |
-|--------|----------|
-| `ogg` | 📱 WhatsApp voice notes (smallest) |
-| `mp3` | 🎵 Universal |
-| `aac` | 🍎 Apple-friendly (`.m4a`) |
-
+> 🍓 Raspberry Pi 4B verified. Suitable for headless acoustic monitoring boxes.
 
 ## 🔗 Related Projects
 
-**AI Acoustic Monitor** — adds ML sound classification (chainsaws, glass breaking, birds) on embedded devices, built on this framework:
-[py-edge-ai-acoustic-monitoring-app](https://github.com/danielfcollier/py-edge-ai-acoustic-monitoring-app)
+[**py-edge-ai-acoustic-monitoring-app**](https://github.com/danielfcollier/py-edge-ai-acoustic-monitoring-app) — adds ML sound classification (chainsaws, glass breaking, birds) on embedded devices, built on top of this framework.
 
-## 🛠️ For Developers
+## 📚 Documentation
 
-Building a custom app on this framework? See [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-Full technical documentation: [docs/](./docs/)
-- [Architecture](./docs/ARCHITECTURE.md) — Producer-Consumer design, pipeline internals
-- [Audio Metrics](./docs/METRICS.md) — RMS, LUFS, dBFS, dBSPL explained
-- [UMIK Series Guide](./docs/UMIK-Series.md) — Hardware-specific details
+| Doc | Description |
+|-----|-------------|
+| [docs/FRAMEWORK.md](./docs/FRAMEWORK.md) | Library API, custom sinks/transformers, device profiles |
+| [docs/CLI.md](./docs/CLI.md) | Full CLI reference, run modes, calibration, TUI, spectrum analyzer |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Producer-Consumer design, transport layer, pipeline internals |
+| [docs/METRICS.md](./docs/METRICS.md) | RMS, LUFS, dBFS, dBSPL formulas explained |
+| [docs/UMIK-Series.md](./docs/UMIK-Series.md) | Hardware-specific calibration details |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Dev setup, testing, CI workflow |
