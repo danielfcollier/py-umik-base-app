@@ -138,8 +138,7 @@ sudo apt-get update && sudo apt-get install audio-tools
 
 ## 🔗 Related Projects
 
-**py-edge-ai-acoustic-monitoring-app** — adds ML sound classification (chainsaws, glass breaking, birds) on embedded devices, built on this framework:
-[github.com/danielfcollier/py-edge-ai-acoustic-monitoring-app](https://github.com/danielfcollier/py-edge-ai-acoustic-monitoring-app)
+[**py-edge-ai-acoustic-monitoring-app**](https://github.com/danielfcollier/py-edge-ai-acoustic-monitoring-app) — adds ML sound classification (chainsaws, glass breaking, birds) on embedded devices, built on top of this framework.
 
 ## 📚 Documentation
 
