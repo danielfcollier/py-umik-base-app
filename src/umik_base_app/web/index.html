@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMIK-1 Spectrum Analyzer</title>
+    <link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+    <div id="toolbar">
+        <label>Peaks:</label>
+        <input type="number" id="peak-count" value="5" min="1" max="20" style="width:50px;font-size:12px;background:#0d0d1a;color:#eee;border:1px solid #444;padding:2px 4px;">
+        <label>Device:</label>
+        <select id="device-select" style="font-size:11px;background:#0d0d1a;color:#eee;border:1px solid #444;padding:2px 4px;max-width:220px;"></select>
+        <label>Calibration:</label>
+        <input type="file" id="cal-file" accept=".txt">
+        <button id="btn-load-cal">Load</button>
+        <span id="cal-status">Not loaded</span>
+        <span style="flex:1"></span>
+        <button id="btn-record">&#9679; REC</button>
+        <button id="btn-export">Export CSV</button>
+    </div>
+    <div id="plots">
+        <div id="fft-container">
+            <canvas id="fft-canvas"></canvas>
+        </div>
+        <div id="time-graph-container">
+            <canvas id="time-canvas"></canvas>
+        </div>
+        <div id="waterfall-container">
+            <canvas id="waterfall-canvas"></canvas>
+        </div>
+    </div>
+    <div id="status">
+        <span id="stat-spl">dB: --</span>
+        <span id="stat-snr">SNR: --</span>
+        <span id="stat-mic">Mic: --</span>
+        <span style="flex:1"></span>
+        <button id="btn-quiet-room">Capture Quiet Room</button>
+    </div>
+    <script src="js/fft_plot.js?v=4"></script>
+    <script src="js/time_graph.js?v=4"></script>
+    <script src="js/waterfall.js?v=4"></script>
+    <script src="js/app.js?v=4"></script>
+</body>
+</html>

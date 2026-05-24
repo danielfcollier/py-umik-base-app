@@ -55,6 +55,7 @@ audio-tools --<command> [options]
 | `audio-tools --batch` | 📁 Batch-analyze a directory of WAV files |
 | `audio-tools --enhance` | ✨ Filter and enhance voice audio |
 | `audio-tools --convert` | 🔄 Convert WAV recordings to OGG / MP3 / AAC |
+| `audio-tools-spectrum` | 🌐 Browser-based real-time spectrum analyzer |
 
 Pass `--help` after any command for full options:
 
@@ -200,6 +201,42 @@ Built with [Textual](https://textual.textualize.io/):
 
 Press **R** to start recording — audio is saved to `recordings/` as a timestamped WAV. Press **R** again to stop; a notification pops with the filename.
 
+
+## 🌐 Real-Time Spectrum Analyzer
+
+<img src="spectrum-analyzer.png" width="700" alt="Spectrum Analyzer UI">
+
+A browser-based live spectrum analyzer for UMIK-1 and compatible USB measurement microphones. Opens a local web server and launches your browser automatically.
+
+### Quick Start
+
+```bash
+# 1. Find your microphone's device ID
+audio-tools --devices
+
+# 2. Launch (opens browser at http://localhost:8767)
+audio-tools-spectrum --device <id>
+
+# 3. With calibration file
+audio-tools-spectrum --device <id> --calibration-file "umik-1/7175488.txt"
+
+# 4. Custom port, suppress auto-open
+audio-tools-spectrum --device <id> --port 9000 --no-open
+```
+
+### Features
+
+| Feature | Description |
+|---|---|
+| **FFT plot** | 256 log-spaced bins (20 Hz – Nyquist), Hann window, configurable peak labels |
+| **Waterfall** | Scrolling spectrogram with time-zoom and time-range CSV export |
+| **Time-series graph** | Rolling 30 s dBSPL/dBFS and SNR; y-axis auto-scales on calibration load/clear |
+| **Noise floor** | 5-second quiet room baseline; per-bin SNR with OK / LOW / NOISE status |
+| **Calibration** | Load a UMIK-1 `.txt` calibration file directly from the browser toolbar |
+| **Device selector** | Switch microphone input from the toolbar without restarting |
+| **Recording** | WAV recording via the REC button; calibration is applied to the saved file |
+
+> **Calibration note:** When a file is loaded the status bar switches to **dBSPL** and the time graph rescales to 20–120 dB. Switching devices automatically clears the loaded calibration.
 
 ## 🔬 Analysis & Visualization
 
