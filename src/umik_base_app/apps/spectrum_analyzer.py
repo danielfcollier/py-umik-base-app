@@ -4,9 +4,9 @@ import sys
 import tempfile
 import threading
 import webbrowser
-
 from pathlib import Path
 
+import umik_base_app.sinks.websocket_sink as _ws_mod
 from umik_base_app import AppArgs, AppConfig, AudioBaseApp, AudioPipeline
 from umik_base_app.core.operational_mode import OperationalMode
 from umik_base_app.settings import get_settings
@@ -19,7 +19,6 @@ from umik_base_app.transformers.calibrator_transformer import CalibratorTransfor
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(threadName)s %(message)s")
 logger = logging.getLogger(__name__)
 
-import umik_base_app.sinks.websocket_sink as _ws_mod
 _ws_mod._app_instance = None
 
 
@@ -28,9 +27,10 @@ class SpectrumAnalyzerApp(AudioBaseApp):
 
     def __init__(self, config: AppConfig, ws_port: int = 8767):
         import umik_base_app.sinks.websocket_sink as _ws_mod
+
         _ws_mod._app_instance = self
         self._config = config
-        logger.info(f"App instance registered in websocket_sink module")
+        logger.info("App instance registered in websocket_sink module")
 
         self._ws_sink = WebSocketSink(
             sample_rate=config.sample_rate,
@@ -54,9 +54,9 @@ class SpectrumAnalyzerApp(AudioBaseApp):
         logger.info(f"SpectrumAnalyzerApp initialized. WebSocket on port {ws_port}")
 
     def _setup_threads(self):
+        from umik_base_app.consumer_thread import ConsumerThread
         from umik_base_app.hardware_config import HardwareConfig
         from umik_base_app.listener_thread import ListenerThread
-        from umik_base_app.consumer_thread import ConsumerThread
         from umik_base_app.settings import get_settings as _get_settings
 
         settings = _get_settings()

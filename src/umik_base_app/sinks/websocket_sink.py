@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import threading
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -33,9 +32,7 @@ class WebSocketSink:
         self._chunk_size = chunk_size
         self._n_fft = n_fft
         self._ws_port = ws_port
-        self._noise_tracker = noise_tracker or NoiseFloorTracker(
-            sample_rate=sample_rate, chunk_size=chunk_size
-        )
+        self._noise_tracker = noise_tracker or NoiseFloorTracker(sample_rate=sample_rate, chunk_size=chunk_size)
 
         self._clients: set = set()
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -210,17 +207,19 @@ class WebSocketSink:
             snr_status = NoiseFloorTracker.snr_status(avg_snr)
             noise_floor_binned = self._bin_spectrum(self._noise_tracker.noise_floor_db).tolist()
 
-        msg = json.dumps({
-            "type": "fft",
-            "data": magnitude_db.tolist(),
-            "freqs": self._freqs.tolist(),
-            "db_spl": db_spl,
-            "calibrated": self._reference_dbspl is not None,
-            "snr_avg": avg_snr,
-            "snr_status": snr_status,
-            "noise_floor": noise_floor_binned,
-            "capturing": self._noise_tracker.capturing,
-        })
+        msg = json.dumps(
+            {
+                "type": "fft",
+                "data": magnitude_db.tolist(),
+                "freqs": self._freqs.tolist(),
+                "db_spl": db_spl,
+                "calibrated": self._reference_dbspl is not None,
+                "snr_avg": avg_snr,
+                "snr_status": snr_status,
+                "noise_floor": noise_floor_binned,
+                "capturing": self._noise_tracker.capturing,
+            }
+        )
 
         if self._loop and not self._loop.is_closed():
             asyncio.run_coroutine_threadsafe(self._broadcast(msg), self._loop)
@@ -235,7 +234,7 @@ class WebSocketSink:
             elif msg_type == "start_recording":
                 app = _app_instance
                 if app:
-                    path = app.start_recording()
+                    app.start_recording()
                     self._recording = True
             elif msg_type == "stop_recording":
                 await self._stop_recording()
@@ -265,12 +264,14 @@ class WebSocketSink:
         try:
             for d in sd.query_devices():
                 if d["max_input_channels"] > 0:
-                    devices.append({
-                        "id": d["index"],
-                        "name": d["name"],
-                        "sample_rate": int(d["default_samplerate"]),
-                        "channels": d["max_input_channels"],
-                    })
+                    devices.append(
+                        {
+                            "id": d["index"],
+                            "name": d["name"],
+                            "sample_rate": int(d["default_samplerate"]),
+                            "channels": d["max_input_channels"],
+                        }
+                    )
         except Exception as e:
             logger.error(f"Error listing devices: {e}")
         logger.info(f"Sending device list: {len(devices)} devices")
@@ -297,10 +298,14 @@ class WebSocketSink:
         app = _app_instance
         saved_path = app.stop_recording() if app else ""
         logger.info(f"Recording saved: {saved_path}")
-        await self._broadcast(json.dumps({
-            "type": "recording_stopped",
-            "path": saved_path,
-        }))
+        await self._broadcast(
+            json.dumps(
+                {
+                    "type": "recording_stopped",
+                    "path": saved_path,
+                }
+            )
+        )
 
     def _export_csv(self):
         if self._noise_tracker.noise_floor_db is None:
