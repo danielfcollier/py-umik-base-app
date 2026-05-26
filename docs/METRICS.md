@@ -205,3 +205,76 @@ The full LUFS calculation is complex, involving multiple stages:
 ### Purpose
 
 To provide a consistent, perceptually relevant measure of loudness, crucial for broadcast audio, streaming services, and accurately quantifying the subjective impact of noise. It correlates much better with human perception than simple dB levels.
+
+
+## 7. A-Weighted Sound Pressure Level (dBSPL(A))
+
+### Definition
+
+dBSPL(A) — also written dB(A) — is the standard metric for environmental noise regulation. It combines two corrections:
+
+1. **A-weighting filter (IEC 61672):** a frequency-shaping filter that attenuates low (< 1 kHz) and very high (> 6 kHz) frequencies to match the sensitivity of the human ear at moderate sound pressure levels.
+2. **Microphone calibration:** converts the digital signal level to an absolute acoustic level in Pascals.
+
+### Formula
+
+$$
+\text{dBSPL(A)} = \underbrace{20 \times \log_{10}(\text{RMS}(x_A[n]))}_{\text{dBFS(A)}} - \text{Sensitivity}_{\text{dBFS}} + \text{Reference}_{\text{dBSPL}}
+$$
+
+where $x_A[n]$ is the audio signal after the A-weighting IIR filter has been applied.
+
+The A-weighting filter is an 8-pole IIR designed from the IEC 61672 analog prototype (poles at 20.6, 107.7, 737.9, and 12194 Hz), converted to digital via the bilinear transform and normalised to 0 dB at 1 kHz.
+
+| Frequency | A-weighting gain (IEC 61672) |
+|---|---|
+| 31.5 Hz | −39.4 dB |
+| 100 Hz | −19.1 dB |
+| 1 000 Hz | 0.0 dB (reference) |
+| 4 000 Hz | +1.0 dB |
+| 10 000 Hz | −2.5 dB |
+
+### Purpose
+
+The primary metric for noise regulations worldwide: OSHA (USA), WHO Environmental Noise Guidelines, EU Directive 2002/49/EC, and ABNT NBR 10151 (Brazil). When the source says "85 dB(A)" or "L_Aeq < 55 dB", they mean dBSPL(A).
+
+> **Important:** dBSPL(A) requires a calibrated microphone. Without calibration, the A-weighting filter can be applied but the result is relative to digital full scale — not comparable to regulatory thresholds.
+
+
+## 8. Equivalent Continuous Sound Level (L_Aeq,T)
+
+### Definition
+
+L_Aeq,T is the steady-state dBSPL(A) level that would deliver the same total acoustic energy as the actual time-varying signal over a measurement period T. It is the single most important metric in environmental noise law.
+
+### Formula
+
+$$
+L_{\text{Aeq},T} = 10 \times \log_{10} \left( \frac{1}{N} \sum_{i=1}^{N} 10^{L_i / 10} \right)
+$$
+
+where $L_i$ is each calibrated dBSPL(A) sample collected over the period T, and N is the total number of samples.
+
+This is **energy averaging**, not arithmetic averaging. A single loud event contributes far more to L_Aeq than the same duration of quiet — which is exactly the physical and perceptual reality being captured.
+
+### Example
+
+Two measurements: 90 dB(A) and 80 dB(A).
+
+* Arithmetic mean: (90 + 80) / 2 = **85.0 dB(A)** — incorrect.
+* Energy average: $10 \times \log_{10}\left(\frac{10^9 + 10^8}{2}\right)$ = **87.4 dB(A)** — correct.
+
+The 90 dB(A) event carries 10× the acoustic power of the 80 dB(A) event, so it dominates the average.
+
+### Measurement periods
+
+| Standard | Period T | Context |
+|---|---|---|
+| ABNT NBR 10151 | ≥ 10 minutes | Environmental noise disputes |
+| ISO 1996 | Site-specific | Acoustic impact assessments |
+| OSHA | 8 hours | Occupational dose (L_Aeq,8h) |
+| EU Directive 2002/49/EC | Day / Evening / Night | L_den (weighted 24 h average) |
+
+### Purpose
+
+The legally required metric for noise impact assessments, planning permits, occupational health compliance, and environmental monitoring. Collect `dBSPL_A()` samples over T, then call `AudioMetrics.L_Aeq()` to obtain L_Aeq,T.

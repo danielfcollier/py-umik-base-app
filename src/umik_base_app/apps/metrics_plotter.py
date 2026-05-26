@@ -56,12 +56,12 @@ class MetricsVisualizer:
 
         # Identify valid level metrics
         level_metrics = []
-        for m in ["dbfs", "lufs", "dbspl"]:
+        for m in ["dbfs", "lufs", "dbspl", "dbspl_a"]:
             if m in [rm.lower() for rm in requested_metrics] and m in available_cols:
-                # Specific check for dBSPL data validity
-                if m == "dbspl" and not pd.to_numeric(self.df["dbspl"], errors="coerce").notna().any():
-                    logger.warning("dBSPL column is empty/invalid. Skipping.")
-                    continue
+                if m in ("dbspl", "dbspl_a"):
+                    if not pd.to_numeric(self.df[m], errors="coerce").notna().any():
+                        logger.warning(f"{m.upper()} column is empty/invalid. Skipping.")
+                        continue
                 level_metrics.append(m)
 
         show_flux = "flux" in [rm.lower() for rm in requested_metrics] and "flux" in available_cols
@@ -89,9 +89,10 @@ class MetricsVisualizer:
         # 4. Plot Levels
         if ax_levels:
             styles = {
-                "dbfs": {"label": "dBFS", "color": "#3498db", "alpha": 0.7, "style": "-"},
-                "lufs": {"label": "LUFS", "color": "#2c3e50", "alpha": 1.0, "style": "-"},
-                "dbspl": {"label": "dBSPL", "color": "#e74c3c", "alpha": 1.0, "style": "--"},
+                "dbfs":    {"label": "dBFS",     "color": "#3498db", "alpha": 0.7, "style": "-"},
+                "lufs":    {"label": "LUFS",     "color": "#2c3e50", "alpha": 1.0, "style": "-"},
+                "dbspl":   {"label": "dBSPL",   "color": "#e74c3c", "alpha": 1.0, "style": "--"},
+                "dbspl_a": {"label": "dBSPL(A)", "color": "#e67e22", "alpha": 1.0, "style": "-."},
             }
 
             for metric in level_metrics:
@@ -154,7 +155,7 @@ def main():
     parser = argparse.ArgumentParser(description="Visualize audio metrics from CSV.")
     parser.add_argument("csv_file", help="Path to analysis CSV")
     parser.add_argument("--save", nargs="?", const=True, default=None, help="Save to image instead of showing")
-    parser.add_argument("--metrics", nargs="+", default=["dbfs", "lufs", "dbspl", "flux"], help="Metrics to include")
+    parser.add_argument("--metrics", nargs="+", default=["dbfs", "lufs", "dbspl", "dbspl_a", "flux"], help="Metrics to include")
 
     args = parser.parse_args()
 
