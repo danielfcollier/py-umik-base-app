@@ -4,7 +4,7 @@ In the [previous post](./10%20-%20Process%20Isolation:%20Daemon%20Priority.md), 
 
 The Producer and Consumer were still trapped on the same machine.
 
-If your microphone is in a server rack, an attic, or a factory floor, you probably don't have a 4K monitor attached to it to see the [Real-Time Meter](https://www.google.com/search?q=./09%2520-%2520Audio%2520Engineering.md). You want the data *where you are*, not where the microphone is.
+If your microphone is in a server rack, an attic, or a factory floor, you probably don't have a 4K monitor attached to it to see the [Real-Time Meter](./09%20-%20Audio%20Engineering.md). You want the data *where you are*, not where the microphone is.
 
 **The Solution:** replace the memory queue with a **TCP Socket**, turning a local Python script into a distributed IoT system.
 
@@ -65,8 +65,7 @@ Start the app in "Producer Mode". It will initialize the hardware, load the cali
 
 ```bash
 # Start capturing and broadcasting
-umik-real-time-meter --producer --calibration-file "umik-1/700.txt" --zmq-port 5555
-
+audio-tools --meter --producer --calibration-file "umik-1/700.txt" --zmq-port 5555
 ```
 
 **2. On Your Laptop (Consumer):**
@@ -74,8 +73,7 @@ Start the app in "Consumer Mode". It skips hardware initialization (it doesn't n
 
 ```bash
 # Connect to the Pi and display the meter locally
-umik-real-time-meter --consumer --zmq-host 192.168.1.50 --zmq-port 5555
-
+audio-tools --meter --consumer --zmq-host 192.168.1.50 --zmq-port 5555
 ```
 
 Now, your laptop is displaying the RMS and LUFS levels of the sound occurring in the other room, in real-time, with zero load on the Pi's CPU.

@@ -30,8 +30,7 @@ We can launch the Producer with high OS priority (using `nice` or `chrt` on Linu
 ```bash
 # Launch the Producer with highest priority (-20)
 # The OS will ALWAYS give this process CPU time before anything else.
-nice -n -20 umik-real-time-meter --producer --zmq-port 5555
-
+nice -n -20 audio-tools --meter --producer --zmq-port 5555
 ```
 
 If the system comes under heavy load, the OS will pause the *Consumer* (causing visual lag on your chart) but will keep the *Producer* running perfectly (preserving the integrity of the recording).
@@ -50,9 +49,8 @@ This architecture turns the Producer into a system service.
 Run this as a background daemon (systemd) that starts on boot.
 
 ```bash
-# /etc/systemd/system/umik-producer.service
-ExecStart=/usr/bin/nice -n -20 umik-real-time-meter --producer --zmq-port 5555
-
+# /etc/systemd/system/audio-tools-producer.service
+ExecStart=/usr/bin/nice -n -20 audio-tools --meter --producer --zmq-port 5555
 ```
 
 **Step 2: The Consumer Application**
@@ -60,7 +58,7 @@ Run this as a standard user application whenever you need to analyze the data.
 
 ```bash
 # Connects to the local daemon
-umik-real-time-meter --consumer --zmq-host localhost --zmq-port 5555
+audio-tools --meter --consumer --zmq-host localhost --zmq-port 5555
 ```
 
 By decoupling the *critical path* (hardware capture) from the *variable path* (processing), we achieve a level of stability that a standard Python script simply cannot match.
