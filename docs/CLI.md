@@ -19,7 +19,10 @@ audio-tools --<command> [options]
 | `audio-tools --batch` | `audio-tools-batch` | Batch-analyze a directory of WAV files |
 | `audio-tools --enhance` | `audio-tools-enhance` | Filter and enhance voice audio |
 | `audio-tools --convert` | `audio-tools-convert` | Convert WAV recordings to OGG / MP3 / AAC |
-| — | `audio-tools-spectrum` | Browser-based real-time spectrum analyzer (RTA) |
+| `audio-tools --play` | `audio-tools-play` | Headless audio file player (WAV / FLAC / OGG / AIFF) |
+| — ¹ | `audio-tools-spectrum` | Browser-based real-time spectrum analyzer (RTA) |
+
+¹ Spectrum launches its own web server; it is only available as the standalone `audio-tools-spectrum` command.
 
 Pass `--help` after any command for full options:
 
@@ -187,6 +190,55 @@ audio-tools-spectrum --device <id> --port 9000 --no-open
 | **Recording** | WAV recording via the REC button; calibration is applied to the saved file |
 
 > **Calibration note:** When a file is loaded the status bar switches to **dBSPL** and the time graph rescales to 20–120 dB. Switching devices automatically clears the loaded calibration.
+
+## Audio Player
+
+Play back recorded or reference audio files directly from the terminal — no desktop GUI required. Works over SSH.
+
+### Quick Start
+
+```bash
+# Play a single file
+audio-tools --play recording.wav
+
+# Play all audio files in a directory (sorted by name)
+audio-tools --play recordings/
+
+# Play a specific list of files
+audio-tools --play file1.wav file2.flac session/ambient.ogg
+```
+
+### Key Bindings
+
+| Key | Action |
+|-----|--------|
+| `Enter` or `Space` | Skip to next file |
+| `r` | Replay the current file from the start |
+| `q` | Quit the player |
+
+When the current file finishes playing it advances to the next automatically.
+
+### Display
+
+```
+──────────────────────────────────────────────────────────
+  [2/5]  recording_2025-05-26_14-32-01.wav
+  1:45  ·  48000 Hz  ·  mono
+  [Enter/Space] next   [r] replay   [q] quit
+
+  ████████████░░░░░░░░░░░░░░░░░░  0:48 / 1:45
+```
+
+### Supported Formats
+
+| Format | Notes |
+|--------|-------|
+| WAV | Primary format; recorded by `--record` |
+| FLAC | Lossless; full quality |
+| OGG | Vorbis; produced by `--convert` |
+| AIFF / AU | Standard interchange formats |
+
+Non-interactive mode (piped stdin) plays all files straight through without waiting for keystrokes.
 
 ## Analysis & Visualization
 

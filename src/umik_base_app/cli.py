@@ -19,6 +19,7 @@ _DISPATCH = {
     "batch": ("scripts.audio_batch_analysis", "main", "audio-tools-batch"),
     "enhance": ("scripts.enhance_voice", "main", "audio-tools-enhance"),
     "convert": ("umik_base_app.scripts.convert_audio", "main", "audio-tools-convert"),
+    "play": ("umik_base_app.apps.audio_player", "main", "audio-tools-play"),
 }
 
 _HELP = {
@@ -31,6 +32,7 @@ _HELP = {
     "batch": "Batch-analyze a directory of WAV files",
     "enhance": "Filter and enhance voice audio",
     "convert": "Convert WAV recordings to OGG, MP3, or AAC",
+    "play": "Play audio files (WAV / FLAC / OGG / AIFF)",
 }
 
 
