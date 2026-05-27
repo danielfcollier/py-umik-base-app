@@ -39,10 +39,12 @@ def _mock_sd():
     """Patch sounddevice play/wait/stop; stream.active=False so loops exit."""
     stream = MagicMock()
     stream.active = False
-    with patch("umik_base_app.apps.audio_player.sd.play") as mock_play, \
-         patch("umik_base_app.apps.audio_player.sd.wait") as mock_wait, \
-         patch("umik_base_app.apps.audio_player.sd.stop"), \
-         patch("umik_base_app.apps.audio_player.sd.get_stream", return_value=stream):
+    with (
+        patch("umik_base_app.apps.audio_player.sd.play") as mock_play,
+        patch("umik_base_app.apps.audio_player.sd.wait") as mock_wait,
+        patch("umik_base_app.apps.audio_player.sd.stop"),
+        patch("umik_base_app.apps.audio_player.sd.get_stream", return_value=stream),
+    ):
         yield {"play": mock_play, "wait": mock_wait}
 
 
@@ -57,10 +59,12 @@ def _mock_terminal():
     fake_stdin = MagicMock()
     fake_stdin.isatty.return_value = True
     fake_stdin.fileno.return_value = 0
-    with patch("sys.stdin", fake_stdin), \
-         patch("umik_base_app.apps.audio_player.termios.tcgetattr", return_value=[]) as mock_get, \
-         patch("umik_base_app.apps.audio_player.termios.tcsetattr") as mock_set, \
-         patch("umik_base_app.apps.audio_player.tty.setcbreak"):
+    with (
+        patch("sys.stdin", fake_stdin),
+        patch("umik_base_app.apps.audio_player.termios.tcgetattr", return_value=[]) as mock_get,
+        patch("umik_base_app.apps.audio_player.termios.tcsetattr") as mock_set,
+        patch("umik_base_app.apps.audio_player.tty.setcbreak"),
+    ):
         yield {"tcgetattr": mock_get, "tcsetattr": mock_set, "stdin": fake_stdin}
 
 

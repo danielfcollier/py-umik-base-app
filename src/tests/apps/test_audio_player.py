@@ -6,10 +6,7 @@ real file I/O or audio hardware. All external dependencies are mocked.
 """
 
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from umik_base_app.apps.audio_player import (
     AUDIO_EXTENSIONS,
@@ -18,7 +15,6 @@ from umik_base_app.apps.audio_player import (
     _is_playing,
     _read_char,
 )
-
 
 # ── _fmt ──────────────────────────────────────────────────────────────────────
 

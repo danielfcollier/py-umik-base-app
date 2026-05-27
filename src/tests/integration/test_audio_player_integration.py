@@ -7,7 +7,7 @@ of _play_file: natural completion, key bindings, and error recovery.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -35,9 +35,11 @@ def mock_sf_read():
 @pytest.fixture()
 def mock_sd():
     """Patch sounddevice play/stop/get_stream together."""
-    with patch("umik_base_app.apps.audio_player.sd.play") as mock_play, \
-         patch("umik_base_app.apps.audio_player.sd.stop") as mock_stop, \
-         patch("umik_base_app.apps.audio_player.sd.get_stream") as mock_get_stream:
+    with (
+        patch("umik_base_app.apps.audio_player.sd.play") as mock_play,
+        patch("umik_base_app.apps.audio_player.sd.stop") as mock_stop,
+        patch("umik_base_app.apps.audio_player.sd.get_stream") as mock_get_stream,
+    ):
         yield {"play": mock_play, "stop": mock_stop, "get_stream": mock_get_stream}
 
 
@@ -61,7 +63,9 @@ def test_play_file_natural_completion_returns_next(mock_sf_read, mock_sd):
 def test_play_file_advances_after_several_polls(mock_sf_read, mock_sd):
     """Returns 'next' after a few idle polls once the stream becomes inactive."""
     active_values = [True, True, True, False]
-    mock_sd["get_stream"].return_value.active.__get__ = lambda self, *a: active_values.pop(0) if active_values else False
+    mock_sd["get_stream"].return_value.active.__get__ = (
+        lambda self, *a: active_values.pop(0) if active_values else False
+    )
 
     # Provide enough None returns so we don't hit a StopIteration
     keys = iter([None, None, None])
@@ -78,11 +82,14 @@ def test_play_file_advances_after_several_polls(mock_sf_read, mock_sd):
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("key,expected", [
-    ("\n", "next"),
-    ("\r", "next"),
-    (" ", "next"),
-])
+@pytest.mark.parametrize(
+    "key,expected",
+    [
+        ("\n", "next"),
+        ("\r", "next"),
+        (" ", "next"),
+    ],
+)
 def test_play_file_skip_keys_return_next(key, expected, mock_sf_read, mock_sd):
     """Enter, carriage-return, and space all skip to the next file."""
     with patch("umik_base_app.apps.audio_player._is_playing", return_value=True):

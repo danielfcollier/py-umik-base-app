@@ -85,7 +85,7 @@ def _play_file(path: Path, index: int, total: int) -> str:
     print(f"\n{'─' * 58}")
     print(f"  [{index}/{total}]  {path.name}")
     print(f"  {_fmt(duration)}  ·  {int(samplerate)} Hz  ·  {ch_label}")
-    print(f"  [Enter/Space] next   [r] replay   [q] quit\n")
+    print("  [Enter/Space] next   [r] replay   [q] quit\n")
 
     sd.play(data, samplerate)
     start = time.monotonic()
