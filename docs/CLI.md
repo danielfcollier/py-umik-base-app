@@ -138,8 +138,9 @@ Built with [Textual](https://textual.textualize.io/):
 │  audio-tools --meter          Calibration: FULL (FIR) │
 ├──────────────────────┬────────────────────────────────┤
 │  dBFS  ████████░░░░  │  dBSPL   72.4 dB               │
-│ -24.3  ████████░░░░  │  LUFS   -28.1 LUFS             │
-│        ████████░░░░  │  RMS     0.0241                │
+│ -24.3  ████████░░░░  │  dBSPL(A) 69.1 dB(A)          │
+│        ████████░░░░  │  LUFS   -28.1 LUFS             │
+│                      │  RMS     0.0241                │
 │                      │  Flux    38.6                  │
 ├──────────────────────┴────────────────────────────────┤
 │  Mode: MONOLITHIC    SR: 48000 Hz   ● REC   [R] Stop  │
@@ -255,6 +256,39 @@ audio-tools --plot "recording_metrics.csv"
 # Save chart to PNG
 audio-tools --plot "recording_metrics.csv" --save
 ```
+
+### CSV columns
+
+| Column | Unit | Description |
+|--------|------|-------------|
+| `time_sec` | s | Elapsed time at end of chunk |
+| `timestamp` | ISO 8601 | Wall-clock time (if derivable from filename or `--start-time`) |
+| `rms` | — | Linear RMS amplitude (0–1) |
+| `dbfs` | dBFS | Broadband digital level relative to full scale |
+| `flux` | — | Peak spectral flux (onset strength) |
+| `lufs` | LUFS | Integrated perceived loudness (ITU-R BS.1770-4) |
+| `dbspl` | dBSPL | Calibrated broadband sound pressure level |
+| `dbspl_a` | dB(A) | A-weighted calibrated SPL (IEC 61672, regulatory standard) |
+
+### Analysis summary
+
+After `--analyze` completes, a summary is printed to the terminal:
+
+```
+========================================
+📈 ANALYSIS SUMMARY
+========================================
+Peak Level:    -12.30 dBFS
+Max Loudness:  -18.40 LUFS
+Max Flux:       62.10
+Max SPL:        87.30 dBSPL
+Max SPL(A):     84.20 dBSPL(A)
+L_Aeq,T:        76.50 dB(A)
+L_A90:          61.30 dB(A)
+========================================
+```
+
+`L_Aeq,T` is the energy-averaged A-weighted level over the full file — the primary metric for noise regulations (OSHA, EU Directive 2002/49/EC, ABNT NBR 10151). `L_A90` is the background noise floor (10th percentile of the dBSPL(A) distribution).
 
 ## Convert Audio
 

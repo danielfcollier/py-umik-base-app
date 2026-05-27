@@ -155,6 +155,7 @@ class AudioMetrics:
         :param audio_chunk: A numpy array of audio samples, shape (N,) or (N, C).
         :param sensitivity_dbfs: Microphone sensitivity in dBFS (from calibration file).
         :param reference_dbspl: Reference SPL used during calibration, typically 94.0 dBSPL.
+
         :return: The calibrated A-weighted sound pressure level in dBSPL(A).
         """
         return self.dBSPL(self._dBFS_A(audio_chunk), sensitivity_dbfs, reference_dbspl)
@@ -181,6 +182,28 @@ class AudioMetrics:
         """
         samples = np.asarray(dbspl_a_samples, dtype=float)
         return 10.0 * np.log10(np.mean(10.0 ** (samples / 10.0)))
+
+    @staticmethod
+    def L_A90(dbspl_a_samples: list[float] | np.ndarray) -> float:
+        """
+        Calculates the A-weighted background noise level (L_A90).
+
+        L_A90 is the dBSPL(A) level exceeded 90 % of the time over the
+        measurement period T — statistically, the quietest 10 % of the
+        signal is above this value. It characterises the residual background
+        noise in the absence of the disturbing source.
+
+        L_A90 is used alongside L_Aeq,T in:
+
+        * **ISO 1996** acoustic impact assessments
+        * **ABNT NBR 10151** environmental noise evaluation
+        * **BS 4142** (UK) industrial/commercial noise complaints
+        * Court proceedings, to establish the pre-existing ambient level
+
+        :param dbspl_a_samples: Sequence of calibrated dBSPL(A) values over T.
+        :return: L_A90 in dB(A) (10th percentile of the sample distribution).
+        """
+        return float(np.percentile(np.asarray(dbspl_a_samples, dtype=float), 10))
 
     def aggregate_lufs_chunks(self, audio_chunk: np.ndarray):
         """

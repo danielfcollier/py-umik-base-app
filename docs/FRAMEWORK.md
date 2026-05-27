@@ -25,7 +25,7 @@ from umik_base_app import (
     AppArgs,          # CLI argument parser and validator
     AppConfig,        # Validated runtime configuration
     AudioBaseApp,     # Main app class — manages threads, transport, lifecycle
-    AudioMetrics,     # Static helpers: dBFS, dBSPL, RMS, LUFS, flux
+    AudioMetrics,     # Metrics: dBFS, dBSPL, dBSPL_A, L_Aeq, L_A90, RMS, LUFS, flux
     AudioPipeline,    # Ordered transformer + fan-out sink chain
     AudioSink,        # Protocol: implement handle(ctx) to consume audio
     AudioTransformer, # Protocol: implement apply(ctx) to modify audio
@@ -88,24 +88,49 @@ Every audio chunk is delivered to transformers and sinks wrapped in a `PipelineC
 | `ctx.is_fully_calibrated()` | `bool` | Both gain and FIR applied |
 | `ctx.can_calculate_dbspl()` | `bool` | `sensitivity_dbfs` and `reference_dbspl` are set |
 
-## dBSPL Calculation
+## dBSPL / dBSPL(A) Calculation
 
 `CalibratorAdapter` applies the sensitivity gain to `ctx.audio` before any sink sees it. Calling `AudioMetrics.dBSPL()` on already-gained audio double-counts the sensitivity offset (~18.5 dB error). Use the correct branch based on calibration state:
 
 ```python
 class MetricsSink(AudioSink):
+    def __init__(self, sample_rate: float):
+        self._metrics = AudioMetrics(sample_rate)
+
     def handle(self, ctx: PipelineContext) -> None:
         dbfs = AudioMetrics.dBFS(ctx.audio)
 
         if ctx.is_gain_calibrated():
             # Gain already applied to ctx.audio — do NOT call AudioMetrics.dBSPL()
-            dbspl = dbfs + ctx.reference_dbspl
+            dbspl   = dbfs + ctx.reference_dbspl
+            dbspl_a = self._metrics._dBFS_A(ctx.audio) + ctx.reference_dbspl
         elif ctx.can_calculate_dbspl():
             # Raw audio — apply the full sensitivity offset
-            dbspl = AudioMetrics.dBSPL(dbfs, ctx.sensitivity_dbfs, ctx.reference_dbspl)
+            dbspl   = AudioMetrics.dBSPL(dbfs, ctx.sensitivity_dbfs, ctx.reference_dbspl)
+            dbspl_a = self._metrics.dBSPL_A(ctx.audio, ctx.sensitivity_dbfs, ctx.reference_dbspl)
         else:
-            dbspl = None
+            dbspl = dbspl_a = None
 ```
+
+### Regulatory metrics (L_Aeq,T and L_A90)
+
+Collect `dBSPL_A` samples over the measurement period T, then compute the aggregate:
+
+```python
+samples: list[float] = []   # fill during your measurement window
+
+# Energy-averaged equivalent continuous level (ISO 1996, OSHA, NBR 10151)
+l_aeq = AudioMetrics.L_Aeq(samples)
+
+# Background noise level — 10th percentile (ISO 1996, BS 4142, courts)
+l_a90 = AudioMetrics.L_A90(samples)
+```
+
+| Method | Returns | Regulatory use |
+|--------|---------|----------------|
+| `dBSPL_A(chunk, …)` | Instantaneous dB(A) | Source for sample collection |
+| `L_Aeq(samples)` | Energy-averaged dB(A) over T | OSHA, EU Directive, NBR 10151 |
+| `L_A90(samples)` | Background floor dB(A) (P10) | ISO 1996, BS 4142, court cases |
 
 ## Calibration Architecture
 

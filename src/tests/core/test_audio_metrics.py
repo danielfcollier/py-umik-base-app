@@ -18,8 +18,8 @@ settings = get_settings()
 
 # Constants for testing
 SAMPLE_RATE = 48000
-SENSITIVITY = -18.0   # dBFS  (typical UMIK-1 sensitivity)
-REFERENCE = 94.0      # dBSPL (standard 1 Pa reference)
+SENSITIVITY = -18.0  # dBFS  (typical UMIK-1 sensitivity)
+REFERENCE = 94.0  # dBSPL (standard 1 Pa reference)
 
 
 def _sine(freq_hz: float, duration_s: float = 0.5) -> np.ndarray:
@@ -150,6 +150,33 @@ def test_l_aeq_loud_event_dominates():
     loud = [90.0]
     # 10*log10((99*10^5 + 10^9) / 100) ≈ 70 dB — dominated by the 90 dB event
     assert AudioMetrics.L_Aeq(quiet + loud) > 70.0
+
+
+# ── L_A90 ─────────────────────────────────────────────────────────────────────
+
+
+def test_l_a90_uniform_samples():
+    """All identical samples → L_A90 equals that level."""
+    assert abs(AudioMetrics.L_A90([65.0] * 100) - 65.0) < 1e-6
+
+
+def test_l_a90_is_tenth_percentile():
+    """L_A90 is the 10th percentile of the sample distribution."""
+    samples = list(range(100))  # 0, 1, …, 99
+    # numpy 10th percentile of 0-99 = 9.9
+    assert abs(AudioMetrics.L_A90(samples) - 9.9) < 0.1
+
+
+def test_l_a90_always_le_l_aeq():
+    """L_A90 ≤ L_Aeq,T for any sample set (background ≤ energy average)."""
+    samples = [50.0, 60.0, 70.0, 80.0, 90.0]
+    assert AudioMetrics.L_A90(samples) <= AudioMetrics.L_Aeq(samples)
+
+
+def test_l_a90_accepts_numpy_array():
+    """Accepts a numpy array as input."""
+    result = AudioMetrics.L_A90(np.array([55.0, 65.0, 75.0]))
+    assert isinstance(result, float)
 
 
 # ── show_metrics ───────────────────────────────────────────────────────────────

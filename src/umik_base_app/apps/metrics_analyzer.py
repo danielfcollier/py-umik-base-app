@@ -180,9 +180,7 @@ class MetricsAnalyzer:
             # dBSPL and dBSPL(A)
             spl = self.metrics_engine.dBSPL(metrics["dbfs"], self.sensitivity, self.reference)
             metrics["dbspl"] = round(spl, 2)
-            metrics["dbspl_a"] = round(
-                self.metrics_engine.dBSPL_A(chunk, self.sensitivity, self.reference), 2
-            )
+            metrics["dbspl_a"] = round(self.metrics_engine.dBSPL_A(chunk, self.sensitivity, self.reference), 2)
 
             results.append(metrics)
 
@@ -215,9 +213,11 @@ class MetricsAnalyzer:
                 logger.info(f"Max SPL:       {spl_series.max():.2f} dBSPL")
 
         if "dbspl_a" in df.columns:
-            spl_a_series = pd.to_numeric(df["dbspl_a"], errors="coerce")
-            if not spl_a_series.isna().all():
+            spl_a_series = pd.to_numeric(df["dbspl_a"], errors="coerce").dropna()
+            if not spl_a_series.empty:
                 logger.info(f"Max SPL(A):    {spl_a_series.max():.2f} dBSPL(A)")
+                logger.info(f"L_Aeq,T:       {self.metrics_engine.L_Aeq(spl_a_series.values):.2f} dB(A)")
+                logger.info(f"L_A90:         {self.metrics_engine.L_A90(spl_a_series.values):.2f} dB(A)")
 
         logger.info("=" * 40)
 

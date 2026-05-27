@@ -86,67 +86,36 @@ To quantify the level of a digital audio signal relative to its maximum possible
 
 dBSPL measures the actual sound pressure in the real world relative to a standard reference pressure (the threshold of human hearing, $P_0 = 20 \, \mu \text{Pa}$). This requires a calibrated microphone with known sensitivity.
 
-### Formula
-
-The conversion from a measured dBFS value (obtained from a calibrated microphone) to dBSPL relies on the microphone's sensitivity:
+### Basic Formula
 
 $$
 \text{dBSPL} = \text{dBFS}_{\text{measured}} - \text{Sensitivity}_{\text{dBFS}} + \text{Reference}_{\text{dBSPL}}
 $$
 
 * $\text{dBFS}_{\text{measured}}$: The dBFS value calculated from the microphone's digital output.
-* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified sensitivity (e.g., -18 dBFS for the UMIK-1 and -12 dBFs for the UMIK-2). This is the dBFS level the microphone outputs when exposed to the reference sound pressure.
-* $\text{Reference}_{\text{dBSPL}}$: The standard sound pressure level used for calibration (typically 94 dBSPL, which corresponds to 1 Pascal).
+* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified sensitivity (e.g., -18 dBFS for the UMIK-1, -12 dBFS for the UMIK-2). This is the dBFS level the microphone outputs when exposed to the reference sound pressure.
+* $\text{Reference}_{\text{dBSPL}}$: The standard sound pressure level used for calibration (typically 94 dBSPL, corresponding to 1 Pascal).
+
+### Calibrated Formula (with FIR Filter)
+
+For accurate dBSPL across the full frequency spectrum, the raw microphone signal is first corrected with a **FIR (Finite Impulse Response) filter** designed from the manufacturer's calibration file:
+
+1. **Filter Design:** `scipy.signal.firwin2` computes coefficients that are the exact inverse of the microphone's frequency response. This is done once at startup; the result is cached as a `.npy` file.
+2. **Real-Time Filtering:** Every audio chunk is convolved with the filter before metrics are computed:
+
+$$
+x_{\text{cal}}[n] = \text{FIR}_{\text{filter}}(x_{\text{raw}}[n])
+$$
+
+3. **dBSPL from Calibrated Signal:**
+
+$$
+\text{dBSPL} = 20 \times \log_{10} \left(\text{RMS}(x_{\text{cal}})\right) - \text{Sensitivity}_{\text{dBFS}} + \text{Reference}_{\text{dBSPL}}
+$$
 
 ### Purpose
 
-To quantify the actual, physical loudness of a sound in the environment. This is the standard metric for noise measurements, acoustics, and hearing safety.
-
-## 4. Decibels Sound Pressure Level (dBSPL) - Calibrated
-
-### Definition
-
-dBSPL measures the actual sound pressure in the real world relative to a standard reference pressure (the threshold of human hearing, $P_0 = 20 \, \mu \text{Pa}$). Calculating this accurately requires applying a **calibration correction** based on a specific microphone's sensitivity and frequency response.
-
-### Calibration Process (Using FIR Filter)
-
-1.  **Calibration File:** A unique file provided by the microphone manufacturer (e.g., for a UMIK series) lists the microphone's gain deviation (in dB) at various frequencies.
-2.  **Filter Design:** A digital filter, typically a **Finite Impulse Response (FIR) filter**, is designed based on this file. The filter's frequency response is calculated to be the *exact inverse* of the microphone's response. Its goal is to apply the opposite gain correction at each frequency, effectively flattening the microphone's inaccuracies. This design process (e.g., using `scipy.signal.firwin2`) is computationally intensive and is usually performed only once when the application starts, with the filter coefficients being cached.
-3.  **Real-Time Filtering:** The raw audio signal coming directly from the microphone, $x_{\text{raw}}[n]$, is continuously passed through this pre-designed FIR filter (e.g., using `scipy.signal.lfilter`). This produces a *calibrated* audio signal, $x_{\text{cal}}[n]$. This filtering step happens in real-time for every audio chunk.
-
-$$
-x_{\text{cal}}[n] = \text{FIR}_{\text{FILTER}}(x_{\text{raw}}[n])
-$$
-
-### Formula (Using Calibrated Signal)
-
-The dBSPL is then calculated using the dBFS value derived from the **calibrated** audio signal, combined with the microphone's overall sensitivity:
-
-1.  Calculate the RMS of the *calibrated* signal:
-
-$$
-\text{RMS}_{\text{cal}} = \sqrt{\frac{1}{N} \sum_{n=0}^{N-1} (x_{\text{cal}}[n])^2}
-$$
-
-2.  Calculate the dBFS of the *calibrated* signal:
-
-$$
-\text{dBFS}_{\text{cal}} = 20 \times \log_{10} (\text{RMS}_{\text{cal}})
-$$
-
-3.  Convert the calibrated dBFS to dBSPL:
-
-$$
-\text{dBSPL} = \text{dBFS}_{\text{cal}} - \text{Sensitivity}_{\text{dBFS}} + \text{Reference}_{\text{dBSPL}}
-$$
-
-* $\text{dBFS}_{\text{cal}}$: The dBFS value calculated from the microphone's *filtered* digital output.
-* $\text{Sensitivity}_{\text{dBFS}}$: The microphone's specified broadband sensitivity (e.g., -18 dBFS for the UMIK-1 and -12 dBFS for the UMIK-2). This is the overall dBFS level the (now notionally flat) microphone outputs when exposed to the reference sound pressure.
-* $\text{Reference}_{\text{dBSPL}}$: The standard sound pressure level used for calibration (typically 94 dBSPL, which corresponds to 1 Pascal).
-
-### Purpose
-
-To quantify the actual, physical loudness of a sound in the environment with high accuracy across the frequency spectrum. This is the standard metric for noise measurements, acoustics, and hearing safety when precision is required.
+To quantify the actual, physical loudness of a sound in the environment. It is the standard metric for noise measurements, acoustics, and hearing safety. Full FIR calibration adds frequency accuracy across the spectrum; gain-only calibration is accurate for broadband levels only.
 
 
 ## 5. Spectral Flux
@@ -278,3 +247,40 @@ The 90 dB(A) event carries 10× the acoustic power of the 80 dB(A) event, so it 
 ### Purpose
 
 The legally required metric for noise impact assessments, planning permits, occupational health compliance, and environmental monitoring. Collect `dBSPL_A()` samples over T, then call `AudioMetrics.L_Aeq()` to obtain L_Aeq,T.
+
+
+## 9. Background Noise Level (L_A90)
+
+### Definition
+
+L_A90 is the A-weighted sound pressure level exceeded 90 % of the time during the measurement period T. Statistically, it is the **10th percentile** of the dBSPL(A) sample distribution — the level that only the quietest 10 % of the signal falls below. It characterises the residual ambient noise in the absence of the disturbing source.
+
+### Formula
+
+$$
+L_{A90} = P_{10}\bigl(\{L_i\}\bigr)
+$$
+
+where $P_{10}$ is the 10th percentile of the set of calibrated dBSPL(A) samples $\{L_i\}$ collected over T.
+
+### Relationship with L_Aeq,T
+
+L_A90 and L_Aeq,T are always reported together in environmental assessments:
+
+* **L_Aeq,T** — the total acoustic energy dose (dominated by loud events).
+* **L_A90** — the pre-existing background floor (what the environment sounds like without the source under evaluation).
+
+The difference **L_Aeq,T − L_A90** is a key indicator of how much the disturbing source stands out above the ambient noise level.
+
+### Standards
+
+| Standard | Role of L_A90 |
+|---|---|
+| **ISO 1996** | Characterises the residual noise in impact assessments |
+| **ABNT NBR 10151** | Background reference for environmental noise disputes |
+| **BS 4142** (UK) | Determines significance of industrial / commercial noise complaints |
+| **Court proceedings** | Establishes the pre-existing ambient level before the disputed source |
+
+### Purpose
+
+To establish what the acoustic environment sounds like without the disturbing source — the baseline against which the source's impact is measured. Required alongside L_Aeq,T for any formal environmental noise assessment or legal dispute. Collect `dBSPL_A()` samples over T, then call `AudioMetrics.L_A90()` to obtain L_A90.
