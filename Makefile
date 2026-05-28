@@ -41,7 +41,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-device-id calibrate spell-check real-time-meter real-time-meter-default-mic real-time-meter-calibrated record record-default-mic record-calibrated test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb setup-qemu build-deb-arm64 test-deb-arm64 publish-deb-arm64
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-device-id calibrate spell-check real-time-meter real-time-meter-default-mic real-time-meter-calibrated record record-default-mic record-calibrated test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio audio-clip audio-tools-clip test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb setup-qemu build-deb-arm64 test-deb-arm64 publish-deb-arm64
 
 default: help
 
@@ -262,6 +262,30 @@ else
 	@$(UV) run audio-tools-analyze "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
+endif
+
+audio-clip: ## Trim a WAV file. Requires IN=<path>. Optional: S=<start_s>, E=<end_s>, D=<duration_s>, OUT=<output_path>.
+ifeq ($(HELP),--help)
+	@$(UV) run audio-clip --help
+else
+	@if [ -z "$(IN)" ]; then \
+		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make audio-clip IN=recordings/file.wav S=4 E=7'$(NC)"; \
+		exit 1; \
+	fi
+	@$(UV) run audio-clip "$(IN)" \
+		$(if $(S),--start $(S)) \
+		$(if $(E),--end $(E)) \
+		$(if $(D),--duration $(D)) \
+		$(if $(OUT),--output "$(OUT)")
+endif
+
+audio-tools-clip: ## Open browser waveform editor. Optional: IN=<path>, PORT=8768.
+ifeq ($(HELP),--help)
+	@$(UV) run audio-tools-clip --help
+else
+	@$(UV) run audio-tools-clip \
+		$(if $(IN),"$(IN)") \
+		$(if $(PORT),--port $(PORT))
 endif
 
 batch-analyze: ## Batch analyze a directory. Requires DIR=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.

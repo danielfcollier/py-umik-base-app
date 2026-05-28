@@ -20,9 +20,11 @@ audio-tools --<command> [options]
 | `audio-tools --enhance` | `audio-tools-enhance` | Filter and enhance voice audio |
 | `audio-tools --convert` | `audio-tools-convert` | Convert WAV recordings to OGG / MP3 / AAC |
 | `audio-tools --play` | `audio-tools-play` | Headless audio file player (WAV / FLAC / OGG / AIFF) |
+| `audio-tools --clip` | `audio-clip` | Trim a WAV file to a time range |
 | — ¹ | `audio-tools-spectrum` | Browser-based real-time spectrum analyzer (RTA) |
+| — ¹ | `audio-tools-clip` | Browser-based waveform clip editor |
 
-¹ Spectrum launches its own web server; it is only available as the standalone `audio-tools-spectrum` command.
+¹ These tools launch their own web server and are only available as standalone commands — they are not sub-commands of `audio-tools`.
 
 Pass `--help` after any command for full options:
 
@@ -240,6 +242,90 @@ When the current file finishes playing it advances to the next automatically.
 | AIFF / AU | Standard interchange formats |
 
 Non-interactive mode (piped stdin) plays all files straight through without waiting for keystrokes.
+
+## Audio Clip Editor
+
+Trim a WAV recording to a specific time range. Two interfaces share the same engine:
+`audio-clip` for scripting and `audio-tools-clip` for interactive visual editing.
+
+### CLI — `audio-clip`
+
+```
+audio-clip INPUT [--start S] [--end E | --duration D] [--output PATH] [--sr RATE]
+```
+
+```bash
+# Trim seconds 4–7 → recordings/clips/bark_4s_7s.wav
+audio-clip recordings/bark.wav --start 4 --end 7
+
+# Trim by duration instead of end time
+audio-clip recordings/bark.wav --start 4 --duration 3
+
+# Trim and resample output to 22 050 Hz
+audio-clip recordings/bark.wav --start 4 --end 7 --sr 22050
+
+# Explicit output path
+audio-clip recordings/bark.wav --start 4 --end 7 --output dataset/bark_clean.wav
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `INPUT` | — | Source WAV file path |
+| `--start` / `-s` | `0.0` | Clip start in seconds |
+| `--end` / `-e` | end of file | Clip end in seconds (mutually exclusive with `--duration`) |
+| `--duration` / `-d` | — | Clip length in seconds; sets `end = start + duration` |
+| `--output` / `-o` | `<input_dir>/clips/<stem>_<start>s_<end>s.wav` | Output path |
+| `--sr` | preserve source | Resample output to this rate |
+
+**Output naming convention** — when no `--output` is given, integer seconds are formatted as `4s` and fractional as `4.5s`, making provenance obvious at a glance:
+
+```
+recordings/clips/bark_4s_7s.wav
+recordings/clips/bark_4.5s_7.2s.wav
+```
+
+**Success output:**
+
+```
+✂️   Clipped 3.0s → recordings/clips/bark_4s_7s.wav  (48000 Hz, mono)
+```
+
+### Browser UI — `audio-tools-clip`
+
+Opens a local web server at `http://localhost:8768` with a waveform editor:
+
+```bash
+# Pre-load a file (browser opens automatically)
+audio-tools-clip recordings/bark.wav
+
+# Custom port, suppress auto-open
+audio-tools-clip recordings/bark.wav --port 9000 --no-open
+```
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ✂ audio-tools-clip    📂 [recordings/bark.wav]  [Open]         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ████▓▓▒▒░░░░░░░░░░▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░          │
+│  ↑ start                                  end ↑                 │
+│  0s ─────────────────────────────────── 42.3s                   │
+│                                                                  │
+│  Start: [  4.0  ]s   End: [  7.0  ]s   Duration: 3.0s          │
+│  [▶ Preview]   [✂ Clip]   Output: recordings/clips/bark_4s_7s.wav│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+| Interaction | Action |
+|-------------|--------|
+| Drag green handle | Move start point |
+| Drag red handle | Move end point |
+| Edit Start / End fields | Sync handles to typed values |
+| **Space** | Preview selected region (audio playback) |
+| **Enter** | Clip and save |
+| Path input → **Open** | Load a different file without restarting |
+
+> Files opened in the browser are loaded by **server-side path** — the path you type is resolved on the machine running `audio-tools-clip`. This is a local tool; both client and server are on the same machine.
 
 ## Analysis & Visualization
 

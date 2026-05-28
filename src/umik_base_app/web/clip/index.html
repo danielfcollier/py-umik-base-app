@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>audio-tools-clip</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d1a;
+      color: #dde;
+      font-family: 'Menlo', 'Consolas', monospace;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Toolbar ───────────────────────────────────────────────────────────── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #13132a;
+      border-bottom: 1px solid #2a2a4a;
+      flex-shrink: 0;
+    }
+    #toolbar .title { color: #7eb3ff; font-weight: bold; margin-right: 8px; }
+    #toolbar label { color: #888; }
+    #path-input {
+      flex: 1;
+      background: #1a1a30;
+      border: 1px solid #3a3a5a;
+      color: #dde;
+      padding: 3px 8px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 3px;
+      min-width: 0;
+    }
+    #path-input:focus { outline: none; border-color: #5580cc; }
+    button {
+      background: #2a2a4a;
+      border: 1px solid #4a4a7a;
+      color: #dde;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    button:hover { background: #3a3a6a; border-color: #6a6aaa; }
+    button:active { background: #4a4a8a; }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.primary { background: #1a4a8a; border-color: #3a6aaa; color: #9fc; }
+    button.primary:hover { background: #2a5aaa; }
+
+    /* ── Waveform area ─────────────────────────────────────────────────────── */
+    #waveform-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px 4px;
+      min-height: 0;
+    }
+    #waveform-canvas {
+      width: 100%;
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+      border: 1px solid #2a2a4a;
+      border-radius: 4px;
+      background: #080810;
+    }
+    #time-axis {
+      height: 18px;
+      position: relative;
+      margin-top: 2px;
+    }
+    #time-axis canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ── Controls ──────────────────────────────────────────────────────────── */
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 12px;
+      background: #13132a;
+      border-top: 1px solid #2a2a4a;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ctrl-group label { color: #888; }
+    .time-input {
+      width: 64px;
+      background: #1a1a30;
+      border: 1px solid #3a3a5a;
+      color: #dde;
+      padding: 3px 6px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 3px;
+      text-align: right;
+    }
+    .time-input:focus { outline: none; border-color: #5580cc; }
+    #duration-display { color: #7eb3ff; min-width: 60px; }
+
+    /* ── Status bar ────────────────────────────────────────────────────────── */
+    #status {
+      padding: 4px 12px;
+      background: #0a0a18;
+      border-top: 1px solid #1a1a2a;
+      color: #777;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 22px;
+      flex-shrink: 0;
+    }
+    #status .ok   { color: #4c8; }
+    #status .err  { color: #e44; }
+    #status .info { color: #7eb3ff; }
+    #ws-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #555;
+      display: inline-block;
+    }
+    #ws-dot.connected { background: #4c8; }
+
+    /* ── Hint ──────────────────────────────────────────────────────────────── */
+    #hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #444;
+      font-size: 14px;
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.8;
+    }
+    #waveform-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <span class="title">✂ audio-tools-clip</span>
+  <label for="path-input">📂</label>
+  <input id="path-input" type="text" placeholder="path/to/recording.wav" spellcheck="false">
+  <button id="btn-open">Open</button>
+  <span style="flex:1"></span>
+  <span id="file-info" style="color:#666;font-size:11px;"></span>
+</div>
+
+<!-- Waveform -->
+<div id="waveform-area">
+  <div id="waveform-wrap">
+    <canvas id="waveform-canvas"></canvas>
+    <div id="hint">Drop a WAV file path above and click <strong>Open</strong><br>or pass the file as a CLI argument</div>
+  </div>
+  <div id="time-axis"><canvas id="axis-canvas"></canvas></div>
+</div>
+
+<!-- Controls -->
+<div id="controls">
+  <div class="ctrl-group">
+    <label for="start-input">Start</label>
+    <input id="start-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
+    <span style="color:#666">s</span>
+  </div>
+  <div class="ctrl-group">
+    <label for="end-input">End</label>
+    <input id="end-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
+    <span style="color:#666">s</span>
+  </div>
+  <div class="ctrl-group">
+    <label>Duration</label>
+    <span id="duration-display">—</span>
+  </div>
+  <div class="ctrl-group" style="margin-left:auto;">
+    <button id="btn-preview" disabled>▶ Preview</button>
+    <button id="btn-clip" class="primary" disabled>✂ Clip</button>
+  </div>
+  <div class="ctrl-group">
+    <label>Output SR</label>
+    <input id="sr-input" class="time-input" type="number" min="8000" step="1000"
+           placeholder="auto" style="width:72px">
+  </div>
+</div>
+
+<!-- Status -->
+<div id="status">
+  <span id="ws-dot"></span>
+  <span id="status-text">Not connected</span>
+</div>
+
+<script src="js/waveform.js"></script>
+<script src="js/clip_app.js"></script>
+<script>
+  const PORT = location.port || 8768;
+  window._app = new ClipApp(parseInt(PORT, 10));
+</script>
+</body>
+</html>
