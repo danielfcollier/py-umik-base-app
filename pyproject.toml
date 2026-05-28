@@ -74,6 +74,9 @@ audio-tools-batch = "umik_base_app.scripts.audio_batch_analysis:main"
 audio-tools-enhance = "umik_base_app.scripts.enhance_voice:main"
 audio-tools-convert = "umik_base_app.scripts.convert_audio:main"
 audio-tools-spectrum = "umik_base_app.apps.spectrum_analyzer:main"
+audio-tools-play = "umik_base_app.apps.audio_player:main"
+audio-clip = "umik_base_app.apps.audio_clip:main"
+audio-tools-clip = "umik_base_app.apps.audio_clip_ui:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

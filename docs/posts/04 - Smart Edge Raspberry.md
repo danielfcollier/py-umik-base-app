@@ -34,7 +34,7 @@ While the code is efficient, DSP (Digital Signal Processing) still needs room to
 | --- | --- | --- |
 | **Raspberry Pi 4 (4GB/8GB)** | ✅ **Sweet Spot** | Quad-core power handles real-time LUFS and FFTs effortlessly. USB 3.0 ensures fast disk writes. |
 | **Raspberry Pi 3 B+** | ⚠️ **Passable** | Can handle basic logging (dBFS/RMS), but may struggle with heavy spectral analysis or concurrent tasks. |
-| **Raspberry Pi Zero 2 W** | ❌ **Not Recommended** | Too constrained for 48kHz continuous monitoring. Likely to experience buffer overflows. |
+| **Raspberry Pi Zero 2 W** | ⚠️ **Constrained** | Viable for producer-only (capture + ZMQ broadcast) or with reduced `num_taps` (256) and a lightweight consumer. Not suitable for full monolithic mode at 48kHz. |
 
 ## 🌍 Real-World Use Cases
 

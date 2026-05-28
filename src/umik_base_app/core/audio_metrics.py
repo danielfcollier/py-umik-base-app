@@ -1,7 +1,7 @@
 """
 A module dedicated to calculating various audio metrics, including
-digital levels (dBFS), real-world sound pressure (dBSPL), and
-perceived loudness (LUFS).
+digital levels (dBFS), real-world sound pressure (dBSPL and dBSPL(A)),
+equivalent continuous level (L_Aeq,T), and perceived loudness (LUFS).
 
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
@@ -13,12 +13,31 @@ import logging
 import librosa
 import numpy as np
 import pyloudnorm as pyln
+from scipy.signal import bilinear_zpk, freqz_zpk, sosfilt, zpk2sos
 
 from ..settings import get_settings
 
 settings = get_settings()
 
 logger = logging.getLogger(__name__)
+
+
+def _design_a_weighting_sos(fs: float) -> np.ndarray:
+    """Design IEC 61672 A-weighting filter as second-order sections.
+
+    Analog prototype poles at 20.6, 107.7, 737.9, and 12194 Hz (IEC 61672),
+    converted to digital via the bilinear transform and normalized to 0 dB at
+    1 kHz. Accuracy is within IEC 61672 Class 1 tolerances up to ~8 kHz at
+    48 kHz sample rate; at 192 kHz the accurate range extends to ~32 kHz.
+    """
+    f1, f2, f3, f4 = 20.598997, 107.65265, 737.86223, 12194.222
+    w1, w2, w3, w4 = [2 * np.pi * f for f in (f1, f2, f3, f4)]
+    z = np.zeros(4)
+    p = np.array([-w1, -w1, -w2, -w3, -w4, -w4])
+    z_d, p_d, k_d = bilinear_zpk(z, p, 1.0, fs=fs)
+    _, h = freqz_zpk(z_d, p_d, k_d, worN=[2 * np.pi * 1000.0 / fs])
+    k_d /= abs(h[0])
+    return zpk2sos(z_d, p_d, k_d)
 
 
 class AudioMetrics:
@@ -33,6 +52,7 @@ class AudioMetrics:
         self._lufs_meter = pyln.Meter(sample_rate)
         self._lufs_chunks: list[np.ndarray] = []
         self._lufs_block_size = int(settings.AUDIO.LUFS_WINDOW_SECONDS * sample_rate)
+        self._a_weighting_sos = _design_a_weighting_sos(sample_rate)
 
     @staticmethod
     def rms(audio_chunk: np.ndarray) -> float:
@@ -112,6 +132,78 @@ class AudioMetrics:
                  sound pressure level based on the input dBFS.
         """
         return dbfs_level - sensitivity_dbfs + reference_dbspl
+
+    def _dBFS_A(self, audio_chunk: np.ndarray) -> float:
+        mono = audio_chunk.squeeze()
+        if mono.ndim > 1:
+            mono = mono.mean(axis=1)
+        return self.dBFS(sosfilt(self._a_weighting_sos, mono))
+
+    def dBSPL_A(self, audio_chunk: np.ndarray, sensitivity_dbfs: float, reference_dbspl: float) -> float:
+        """
+        Calculates the calibrated A-weighted sound pressure level (dBSPL(A)).
+
+        This is the physically meaningful dB(A) metric used by noise regulations
+        (OSHA, WHO, ABNT NBR 10151, EU Directive 2002/49/EC). It combines the
+        A-weighting filter with the microphone's calibration data to produce an
+        absolute acoustic level.
+
+        For L_Aeq,T (the time-averaged regulatory metric), collect
+        ``dBSPL_A`` samples over the measurement period T and compute the
+        energy average: ``10 * log10(mean(10 ** (samples / 10)))``.
+
+        :param audio_chunk: A numpy array of audio samples, shape (N,) or (N, C).
+        :param sensitivity_dbfs: Microphone sensitivity in dBFS (from calibration file).
+        :param reference_dbspl: Reference SPL used during calibration, typically 94.0 dBSPL.
+
+        :return: The calibrated A-weighted sound pressure level in dBSPL(A).
+        """
+        return self.dBSPL(self._dBFS_A(audio_chunk), sensitivity_dbfs, reference_dbspl)
+
+    @staticmethod
+    def L_Aeq(dbspl_a_samples: list[float] | np.ndarray) -> float:
+        """
+        Calculates the A-weighted equivalent continuous sound level (L_Aeq,T).
+
+        L_Aeq,T is the primary metric for environmental noise regulations
+        (ABNT NBR 10151, ISO 1996, EU Directive 2002/49/EC, OSHA). It
+        represents the steady level that would deliver the same acoustic energy
+        as the time-varying signal over the measurement period T.
+
+        Formula: L_Aeq,T = 10 · log₁₀( mean( 10^(L_i / 10) ) )
+
+        The caller is responsible for defining T: collect ``dBSPL_A()`` values
+        over the desired window (e.g. 10 min per NBR 10151, 8 h for occupational
+        dose) and pass them here.
+
+        :param dbspl_a_samples: Sequence of calibrated dBSPL(A) values measured
+                                over the period T.
+        :return: L_Aeq,T in dB(A).
+        """
+        samples = np.asarray(dbspl_a_samples, dtype=float)
+        return 10.0 * np.log10(np.mean(10.0 ** (samples / 10.0)))
+
+    @staticmethod
+    def L_A90(dbspl_a_samples: list[float] | np.ndarray) -> float:
+        """
+        Calculates the A-weighted background noise level (L_A90).
+
+        L_A90 is the dBSPL(A) level exceeded 90 % of the time over the
+        measurement period T — statistically, the quietest 10 % of the
+        signal is above this value. It characterises the residual background
+        noise in the absence of the disturbing source.
+
+        L_A90 is used alongside L_Aeq,T in:
+
+        * **ISO 1996** acoustic impact assessments
+        * **ABNT NBR 10151** environmental noise evaluation
+        * **BS 4142** (UK) industrial/commercial noise complaints
+        * Court proceedings, to establish the pre-existing ambient level
+
+        :param dbspl_a_samples: Sequence of calibrated dBSPL(A) values over T.
+        :return: L_A90 in dB(A) (10th percentile of the sample distribution).
+        """
+        return float(np.percentile(np.asarray(dbspl_a_samples, dtype=float), 10))
 
     def aggregate_lufs_chunks(self, audio_chunk: np.ndarray):
         """

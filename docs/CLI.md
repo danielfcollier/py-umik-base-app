@@ -19,7 +19,12 @@ audio-tools --<command> [options]
 | `audio-tools --batch` | `audio-tools-batch` | Batch-analyze a directory of WAV files |
 | `audio-tools --enhance` | `audio-tools-enhance` | Filter and enhance voice audio |
 | `audio-tools --convert` | `audio-tools-convert` | Convert WAV recordings to OGG / MP3 / AAC |
-| — | `audio-tools-spectrum` | Browser-based real-time spectrum analyzer (RTA) |
+| `audio-tools --play` | `audio-tools-play` | Headless audio file player (WAV / FLAC / OGG / AIFF) |
+| `audio-tools --clip` | `audio-clip` | Trim a WAV file to a time range |
+| — ¹ | `audio-tools-spectrum` | Browser-based real-time spectrum analyzer (RTA) |
+| — ¹ | `audio-tools-clip` | Browser-based waveform clip editor |
+
+¹ These tools launch their own web server and are only available as standalone commands — they are not sub-commands of `audio-tools`.
 
 Pass `--help` after any command for full options:
 
@@ -135,8 +140,9 @@ Built with [Textual](https://textual.textualize.io/):
 │  audio-tools --meter          Calibration: FULL (FIR) │
 ├──────────────────────┬────────────────────────────────┤
 │  dBFS  ████████░░░░  │  dBSPL   72.4 dB               │
-│ -24.3  ████████░░░░  │  LUFS   -28.1 LUFS             │
-│        ████████░░░░  │  RMS     0.0241                │
+│ -24.3  ████████░░░░  │  dBSPL(A) 69.1 dB(A)          │
+│        ████████░░░░  │  LUFS   -28.1 LUFS             │
+│                      │  RMS     0.0241                │
 │                      │  Flux    38.6                  │
 ├──────────────────────┴────────────────────────────────┤
 │  Mode: MONOLITHIC    SR: 48000 Hz   ● REC   [R] Stop  │
@@ -188,6 +194,139 @@ audio-tools-spectrum --device <id> --port 9000 --no-open
 
 > **Calibration note:** When a file is loaded the status bar switches to **dBSPL** and the time graph rescales to 20–120 dB. Switching devices automatically clears the loaded calibration.
 
+## Audio Player
+
+Play back recorded or reference audio files directly from the terminal — no desktop GUI required. Works over SSH.
+
+### Quick Start
+
+```bash
+# Play a single file
+audio-tools --play recording.wav
+
+# Play all audio files in a directory (sorted by name)
+audio-tools --play recordings/
+
+# Play a specific list of files
+audio-tools --play file1.wav file2.flac session/ambient.ogg
+```
+
+### Key Bindings
+
+| Key | Action |
+|-----|--------|
+| `Enter` or `Space` | Skip to next file |
+| `r` | Replay the current file from the start |
+| `q` | Quit the player |
+
+When the current file finishes playing it advances to the next automatically.
+
+### Display
+
+```
+──────────────────────────────────────────────────────────
+  [2/5]  recording_2025-05-26_14-32-01.wav
+  1:45  ·  48000 Hz  ·  mono
+  [Enter/Space] next   [r] replay   [q] quit
+
+  ████████████░░░░░░░░░░░░░░░░░░  0:48 / 1:45
+```
+
+### Supported Formats
+
+| Format | Notes |
+|--------|-------|
+| WAV | Primary format; recorded by `--record` |
+| FLAC | Lossless; full quality |
+| OGG | Vorbis; produced by `--convert` |
+| AIFF / AU | Standard interchange formats |
+
+Non-interactive mode (piped stdin) plays all files straight through without waiting for keystrokes.
+
+## Audio Clip Editor
+
+Trim a WAV recording to a specific time range. Two interfaces share the same engine:
+`audio-clip` for scripting and `audio-tools-clip` for interactive visual editing.
+
+### CLI — `audio-clip`
+
+```
+audio-clip INPUT [--start S] [--end E | --duration D] [--output PATH] [--sr RATE]
+```
+
+```bash
+# Trim seconds 4–7 → recordings/clips/bark_4s_7s.wav
+audio-clip recordings/bark.wav --start 4 --end 7
+
+# Trim by duration instead of end time
+audio-clip recordings/bark.wav --start 4 --duration 3
+
+# Trim and resample output to 22 050 Hz
+audio-clip recordings/bark.wav --start 4 --end 7 --sr 22050
+
+# Explicit output path
+audio-clip recordings/bark.wav --start 4 --end 7 --output dataset/bark_clean.wav
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `INPUT` | — | Source WAV file path |
+| `--start` / `-s` | `0.0` | Clip start in seconds |
+| `--end` / `-e` | end of file | Clip end in seconds (mutually exclusive with `--duration`) |
+| `--duration` / `-d` | — | Clip length in seconds; sets `end = start + duration` |
+| `--output` / `-o` | `<input_dir>/clips/<stem>_<start>s_<end>s.wav` | Output path |
+| `--sr` | preserve source | Resample output to this rate |
+
+**Output naming convention** — when no `--output` is given, integer seconds are formatted as `4s` and fractional as `4.5s`, making provenance obvious at a glance:
+
+```
+recordings/clips/bark_4s_7s.wav
+recordings/clips/bark_4.5s_7.2s.wav
+```
+
+**Success output:**
+
+```
+✂️   Clipped 3.0s → recordings/clips/bark_4s_7s.wav  (48000 Hz, mono)
+```
+
+### Browser UI — `audio-tools-clip`
+
+Opens a local web server at `http://localhost:8768` with a waveform editor:
+
+```bash
+# Pre-load a file (browser opens automatically)
+audio-tools-clip recordings/bark.wav
+
+# Custom port, suppress auto-open
+audio-tools-clip recordings/bark.wav --port 9000 --no-open
+```
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ✂ audio-tools-clip    📂 [recordings/bark.wav]  [Open]         │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ████▓▓▒▒░░░░░░░░░░▓▓▓▓▓▓▒▒░░░░░░░░░░░░░░░░░░░░░░░░░░          │
+│  ↑ start                                  end ↑                 │
+│  0s ─────────────────────────────────── 42.3s                   │
+│                                                                  │
+│  Start: [  4.0  ]s   End: [  7.0  ]s   Duration: 3.0s          │
+│  [▶ Preview]   [✂ Clip]   Output: recordings/clips/bark_4s_7s.wav│
+└──────────────────────────────────────────────────────────────────┘
+```
+
+| Interaction | Action |
+|-------------|--------|
+| Drag green handle | Move start point |
+| Drag red handle | Move end point |
+| Edit Start / End fields | Sync handles to typed values |
+| **Space** | Preview selected region (audio playback) |
+| **Enter** | Clip and save |
+| Path input → **Open** | Load a different file without restarting |
+
+> Files opened in the browser are loaded by **server-side path** — the path you type is resolved on the machine running `audio-tools-clip`. This is a local tool; both client and server are on the same machine.
+
 ## Analysis & Visualization
 
 ```bash
@@ -203,6 +342,39 @@ audio-tools --plot "recording_metrics.csv"
 # Save chart to PNG
 audio-tools --plot "recording_metrics.csv" --save
 ```
+
+### CSV columns
+
+| Column | Unit | Description |
+|--------|------|-------------|
+| `time_sec` | s | Elapsed time at end of chunk |
+| `timestamp` | ISO 8601 | Wall-clock time (if derivable from filename or `--start-time`) |
+| `rms` | — | Linear RMS amplitude (0–1) |
+| `dbfs` | dBFS | Broadband digital level relative to full scale |
+| `flux` | — | Peak spectral flux (onset strength) |
+| `lufs` | LUFS | Integrated perceived loudness (ITU-R BS.1770-4) |
+| `dbspl` | dBSPL | Calibrated broadband sound pressure level |
+| `dbspl_a` | dB(A) | A-weighted calibrated SPL (IEC 61672, regulatory standard) |
+
+### Analysis summary
+
+After `--analyze` completes, a summary is printed to the terminal:
+
+```
+========================================
+📈 ANALYSIS SUMMARY
+========================================
+Peak Level:    -12.30 dBFS
+Max Loudness:  -18.40 LUFS
+Max Flux:       62.10
+Max SPL:        87.30 dBSPL
+Max SPL(A):     84.20 dBSPL(A)
+L_Aeq,T:        76.50 dB(A)
+L_A90:          61.30 dB(A)
+========================================
+```
+
+`L_Aeq,T` is the energy-averaged A-weighted level over the full file — the primary metric for noise regulations (OSHA, EU Directive 2002/49/EC, ABNT NBR 10151). `L_A90` is the background noise floor (10th percentile of the dBSPL(A) distribution).
 
 ## Convert Audio
 

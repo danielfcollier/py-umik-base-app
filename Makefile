@@ -20,8 +20,12 @@ DOCS_DIR        := $(SCRIPT_DIR)/docs
 APP_DIR         := $(SRC_DIR)/umik_base_app/apps
 SCRIPTS_DIR     := $(SRC_DIR)/scripts
 
+# Device name substring used for auto-detection (get-device-id).
+# Override to target a different microphone: make meter-calibrated DEVICE="my-mic"
+DEVICE ?= UMIK-1
+
 # Calibration file path (MUST be set when calling relevant targets)
-# Example: make calibrate-umik F="path/to/cal.txt"
+# Example: make calibrate F="path/to/cal.txt"
 F ?= "umik-1/7175488.txt"
 OUT ?= "recordings/"
 CSV_OUT ?= 
@@ -37,7 +41,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m # No Color
 
-.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-umik-id calibrate-umik spell-check real-time-meter real-time-meter-default-mic real-time-meter-umik record record-default-mic record-umik test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb setup-qemu build-deb-arm64 test-deb-arm64 publish-deb-arm64
+.PHONY: all default help clean clean-all venv install lint format check test list-audio-devices get-device-id calibrate spell-check real-time-meter real-time-meter-default-mic real-time-meter-calibrated record record-default-mic record-calibrated test coverage test-publish metrics-analyzer batch-analyze plot-view plot-save enhance-audio convert-audio audio-clip audio-tools-clip test-end-to-end lock setup bump-patch bump-minor bump-major install-build-deps vendor build-deb test-deb publish-deb prune-deb setup-qemu build-deb-arm64 test-deb-arm64 publish-deb-arm64
 
 default: help
 
@@ -148,46 +152,46 @@ ifeq ($(SILENT),)
 endif
 	@$(UV) run audio-tools-devices
 
-get-umik-id: ## Attempt to find and print the ID of the UMIK-1 microphone. Use SILENT=1 for raw output.
+get-device-id: ## Find and print the device ID matching DEVICE=<name>. Use SILENT=1 for raw output.
 ifeq ($(SILENT),)
-	@echo -e "$(GREEN)>>> Searching for UMIK-1 device ID...$(NC)"
+	@echo -e "$(GREEN)>>> Searching for $(DEVICE) device ID...$(NC)"
 endif
-	@id=$$($(MAKE) --no-print-directory list-audio-devices SILENT=$(SILENT) | grep -i "UMIK-1" | awk '{ print $$2 }' || true); \
+	@id=$$($(MAKE) --no-print-directory list-audio-devices SILENT=$(SILENT) | grep -i "$(DEVICE)" | awk '{ print $$2 }' || true); \
 	if [ -z "$$id" ]; then \
-		echo "Error: UMIK-1 device not found!" >&2; \
+		echo "Error: $(DEVICE) device not found!" >&2; \
 		exit 1; \
 	fi; \
 	echo -n "$$id"
 
-calibrate-umik:  ## Run the calibration test script.
+calibrate: ## Generate FIR filter cache from a calibration file. Requires F=<path/to/cal.txt>.
 ifndef F
-	$(error Calibration file path not set. Use 'make calibrate-umik F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make calibrate F="<path/to/calibration_file.txt>"')
 endif
-	@echo -e "$(GREEN)--- Running Calibration Test ---$(NC)"
+	@echo -e "$(GREEN)--- Running Calibration ---$(NC)"
 	@echo "Calibration File: ${F}"
-	@echo "--------------------------------"
+	@echo "---------------------------"
 	@$(UV) run audio-tools-calibrate "${F}"
 
 # ==============================================================================
 # Real Time Meter
 # ==============================================================================
 
-real-time-meter: real-time-meter-umik ## Run the real time meter using the UMIK-1 (Default alias)
+real-time-meter: real-time-meter-calibrated ## Run the real-time meter with auto-detected device (Default alias).
 
-real-time-meter-umik: ## Run the real time meter using the UMIK-1. Requires F=<cal_file>. Use HELP=--help for usage.
+real-time-meter-calibrated: ## Run the real-time meter with calibration. Requires F=<cal_file>. Optional: DEVICE=<name>.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for real_time_meter.py...$(NC)"
+	@echo -e "$(YELLOW)>>> Showing help for audio-tools-meter...$(NC)"
 	@$(UV) run audio-tools-meter --help
 else
-	@echo -e "$(YELLOW)>>> Attempting to run Real Time Meter with UMIK-1...$(NC)"
-	$(eval ID := $(shell $(MAKE) --no-print-directory get-umik-id SILENT=1))
+	@echo -e "$(YELLOW)>>> Attempting to run Real Time Meter with $(DEVICE)...$(NC)"
+	$(eval ID := $(shell $(MAKE) --no-print-directory get-device-id SILENT=1))
 	@if [ -z "$(ID)" ]; then \
-		echo -e "$(RED)>>> ERROR: Could not automatically find UMIK-1 device ID.$(NC)"; \
+		echo -e "$(RED)>>> ERROR: Could not automatically find $(DEVICE) device ID.$(NC)"; \
 		echo -e "$(YELLOW)    Please check 'make list-audio-devices' and ensure the microphone is connected.$(NC)"; \
 		exit 1; \
 	fi
 ifndef F
-	$(error Calibration file path not set. Use 'make real-time-meter-umik F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make real-time-meter-calibrated F="<path/to/calibration_file.txt>"')
 endif
 	@$(UV) run audio-tools-meter $(HELP) --device-id $(ID) --calibration-file "$(F)"
 endif
@@ -205,22 +209,22 @@ endif
 # Recording
 # ==============================================================================
 
-record: record-umik ## Record audio using the UMIK-1 (Default alias)
+record: record-calibrated ## Record audio with auto-detected device (Default alias).
 
-record-umik: ## Record audio using the UMIK-1. Requires F=<cal_file>. Optional: OUT=<path>.
+record-calibrated: ## Record audio with calibration. Requires F=<cal_file>. Optional: DEVICE=<name>, OUT=<path>.
 ifeq ($(HELP),--help)
-	@echo -e "$(YELLOW)>>> Showing help for basic_recorder.py...$(NC)"
+	@echo -e "$(YELLOW)>>> Showing help for audio-tools-record...$(NC)"
 	@$(UV) run audio-tools-record --help
 else
-	@echo -e "$(YELLOW)>>> Attempting to record with UMIK-1...$(NC)"
-	$(eval ID := $(shell $(MAKE) --no-print-directory get-umik-id SILENT=1))
+	@echo -e "$(YELLOW)>>> Attempting to record with $(DEVICE)...$(NC)"
+	$(eval ID := $(shell $(MAKE) --no-print-directory get-device-id SILENT=1))
 	@if [ -z "$(ID)" ]; then \
-		echo -e "$(RED)>>> ERROR: Could not automatically find UMIK-1 device ID.$(NC)"; \
+		echo -e "$(RED)>>> ERROR: Could not automatically find $(DEVICE) device ID.$(NC)"; \
 		echo -e "$(YELLOW)    Please check 'make list-audio-devices' and ensure the microphone is connected.$(NC)"; \
 		exit 1; \
 	fi
 ifndef F
-	$(error Calibration file path not set. Use 'make record-umik F="<path/to/calibration_file.txt>"')
+	$(error Calibration file path not set. Use 'make record-calibrated F="<path/to/calibration_file.txt>"')
 endif
 	@echo -e "$(GREEN)>>> Recording to path $(OUT)...$(NC)"
 	@$(UV) run audio-tools-record $(HELP) \
@@ -258,6 +262,30 @@ else
 	@$(UV) run audio-tools-analyze "$(IN)" \
 		$(if $(F),--calibration-file "$(F)") \
 		$(if $(CSV_OUT),--output-file "$(CSV_OUT)")
+endif
+
+audio-clip: ## Trim a WAV file. Requires IN=<path>. Optional: S=<start_s>, E=<end_s>, D=<duration_s>, OUT=<output_path>.
+ifeq ($(HELP),--help)
+	@$(UV) run audio-clip --help
+else
+	@if [ -z "$(IN)" ]; then \
+		echo -e "$(RED)>>> ERROR: Input file not set. Use 'make audio-clip IN=recordings/file.wav S=4 E=7'$(NC)"; \
+		exit 1; \
+	fi
+	@$(UV) run audio-clip "$(IN)" \
+		$(if $(S),--start $(S)) \
+		$(if $(E),--end $(E)) \
+		$(if $(D),--duration $(D)) \
+		$(if $(OUT),--output "$(OUT)")
+endif
+
+audio-tools-clip: ## Open browser waveform editor. Optional: IN=<path>, PORT=8768.
+ifeq ($(HELP),--help)
+	@$(UV) run audio-tools-clip --help
+else
+	@$(UV) run audio-tools-clip \
+		$(if $(IN),"$(IN)") \
+		$(if $(PORT),--port $(PORT))
 endif
 
 batch-analyze: ## Batch analyze a directory. Requires DIR=<path>. Optional: F=<cal_file>, CSV_OUT=<csv_path>.

@@ -48,23 +48,28 @@ The days of `setup.py` are over. The modern standard is `pyproject.toml`.
 
 The coolest part of this configuration is the `[project.scripts]` section. This block is what creates the "magic" terminal commands. When you install my package, pip looks at this list and automatically creates executables in your system path.
 
-Here is the actual snippet from my [pyproject.toml](https://www.google.com/search?q=https://github.com/danielfcollier/py-umik-base-app/blob/main/pyproject.toml):
+Here is the actual snippet from my [pyproject.toml](https://github.com/danielfcollier/py-umik-base-app/blob/main/pyproject.toml):
 
 ```toml
 [project.scripts]
-# Command Name           = "Python Module : Function to Run"
-umik-calibrate           = "umik_base_app.apps.umik1_calibrator:main"
-umik-list-devices        = "umik_base_app.apps.list_audio_devices:main"
-umik-real-time-meter     = "umik_base_app.apps.real_time_meter:main"
-umik-recorder            = "umik_base_app.apps.basic_recorder:main"
-umik-metrics-analyzer    = "umik_base_app.apps.metrics_analyzer:main"
-umik-metrics-plotter        = "umik_base_app.apps.metrics_plotter:main"
+# Command Name              = "Python Module : Function to Run"
+audio-tools                 = "umik_base_app.cli:main"
+audio-tools-calibrate       = "umik_base_app.apps.umik1_calibrator:main"
+audio-tools-devices         = "umik_base_app.apps.list_audio_devices:main"
+audio-tools-meter           = "umik_base_app.apps.real_time_meter:main"
+audio-tools-record          = "umik_base_app.apps.basic_recorder:main"
+audio-tools-analyze         = "umik_base_app.apps.metrics_analyzer:main"
+audio-tools-plot            = "umik_base_app.apps.metrics_plotter:main"
+audio-tools-batch           = "umik_base_app.scripts.audio_batch_analysis:main"
+audio-tools-enhance         = "umik_base_app.scripts.enhance_voice:main"
+audio-tools-convert         = "umik_base_app.scripts.convert_audio:main"
+audio-tools-spectrum        = "umik_base_app.apps.spectrum_analyzer:main"
 ```
 
 Because of these few lines, users don't have to type `python src/umik_base_app/apps/real_time_meter.py`. They just type:
 
 ```bash
-umik-real-time-meter
+audio-tools --meter
 ```
 
 ## 🤖 Automating the Release (CI/CD)
