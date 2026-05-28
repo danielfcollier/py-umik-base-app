@@ -19,7 +19,7 @@ Get immediate access to the robust audio pipeline right now:
 pip install umik-base-app
 
 # 2. Run the real-time meter using your default laptop mic
-umik-real-time-meter
+audio-tools --meter
 ```
 
 **What you get immediately:**
@@ -66,8 +66,7 @@ When you plug it in and tell `umik-base-app` where to find its unique calibratio
 
 ```bash
 # Run with UMIK-1 and apply scientific calibration
-umik-real-time-meter --calibration-file "umik-1/700xxxx.txt"
-
+audio-tools --meter --calibration-file "umik-1/700xxxx.txt"
 ```
 
 ### What changes?

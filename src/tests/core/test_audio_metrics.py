@@ -8,6 +8,7 @@ Year: 2025
 
 from unittest.mock import patch, sentinel
 
+import numpy as np
 import pytest
 
 from umik_base_app import AudioMetrics
@@ -17,6 +18,14 @@ settings = get_settings()
 
 # Constants for testing
 SAMPLE_RATE = 48000
+SENSITIVITY = -18.0  # dBFS  (typical UMIK-1 sensitivity)
+REFERENCE = 94.0  # dBSPL (standard 1 Pa reference)
+
+
+def _sine(freq_hz: float, duration_s: float = 0.5) -> np.ndarray:
+    """Return a pure sine wave long enough for filter transients to settle."""
+    t = np.linspace(0, duration_s, int(SAMPLE_RATE * duration_s), endpoint=False)
+    return np.sin(2 * np.pi * freq_hz * t).astype(np.float32)
 
 
 @pytest.fixture(autouse=True)
@@ -66,6 +75,111 @@ def test_lufs_aggregation(metrics):
     assert retrieved[0] is sentinel.chunk1
     assert retrieved[1] is sentinel.chunk2
     assert len(metrics._lufs_chunks) == 0  # Should be cleared
+
+
+# ── dBSPL_A ───────────────────────────────────────────────────────────────────
+
+
+def test_dbspl_a_1khz_matches_dbspl(metrics):
+    """At 1 kHz A-weighting gain is 0 dB, so dBSPL_A ≈ dBSPL."""
+    chunk = _sine(1000.0)
+    dbspl = metrics.dBSPL(metrics.dBFS(chunk), SENSITIVITY, REFERENCE)
+    dbspl_a = metrics.dBSPL_A(chunk, SENSITIVITY, REFERENCE)
+    assert abs(dbspl_a - dbspl) < 0.5
+
+
+def test_dbspl_a_100hz_attenuated(metrics):
+    """At 100 Hz A-weighting attenuates by ~19 dB, so dBSPL_A << dBSPL."""
+    chunk = _sine(100.0)
+    dbspl = metrics.dBSPL(metrics.dBFS(chunk), SENSITIVITY, REFERENCE)
+    dbspl_a = metrics.dBSPL_A(chunk, SENSITIVITY, REFERENCE)
+    # IEC 61672 reference attenuation at 100 Hz: −19.1 dB
+    assert 17.0 < (dbspl - dbspl_a) < 21.0
+
+
+def test_dbspl_a_applies_calibration_offset(metrics):
+    """Calibration sensitivity and reference shift are applied to the A-weighted level."""
+    chunk = _sine(1000.0)
+    dbfs_a = metrics._dBFS_A(chunk)
+    expected = dbfs_a - SENSITIVITY + REFERENCE
+    assert abs(metrics.dBSPL_A(chunk, SENSITIVITY, REFERENCE) - expected) < 1e-6
+
+
+def test_dbspl_a_stereo_input(metrics):
+    """Stereo (N, 2) input is mixed to mono and processed without error."""
+    mono = _sine(1000.0)
+    stereo = np.stack([mono, mono], axis=1)
+    result = metrics.dBSPL_A(stereo, SENSITIVITY, REFERENCE)
+    assert isinstance(result, float)
+
+
+# ── L_Aeq ─────────────────────────────────────────────────────────────────────
+
+
+def test_l_aeq_uniform_samples():
+    """All identical samples → L_Aeq equals that level exactly."""
+    assert abs(AudioMetrics.L_Aeq([75.0] * 100) - 75.0) < 1e-6
+
+
+def test_l_aeq_energy_average_not_arithmetic():
+    """L_Aeq is energy-based, not the arithmetic mean of the dB values."""
+    result = AudioMetrics.L_Aeq([90.0, 80.0])
+    # Energy average: 10*log10((10^9 + 10^8) / 2) ≈ 87.4 dB
+    assert abs(result - 87.4) < 0.1
+    assert result != 85.0  # arithmetic mean would be 85.0
+
+
+def test_l_aeq_single_sample():
+    """A single sample → L_Aeq equals that sample."""
+    assert abs(AudioMetrics.L_Aeq([83.5]) - 83.5) < 1e-6
+
+
+def test_l_aeq_accepts_list():
+    """Accepts a plain Python list."""
+    assert isinstance(AudioMetrics.L_Aeq([60.0, 65.0, 70.0]), float)
+
+
+def test_l_aeq_accepts_numpy_array():
+    """Accepts a numpy array."""
+    assert isinstance(AudioMetrics.L_Aeq(np.array([60.0, 65.0, 70.0])), float)
+
+
+def test_l_aeq_loud_event_dominates():
+    """A single loud event raises L_Aeq significantly above the quiet baseline."""
+    quiet = [50.0] * 99
+    loud = [90.0]
+    # 10*log10((99*10^5 + 10^9) / 100) ≈ 70 dB — dominated by the 90 dB event
+    assert AudioMetrics.L_Aeq(quiet + loud) > 70.0
+
+
+# ── L_A90 ─────────────────────────────────────────────────────────────────────
+
+
+def test_l_a90_uniform_samples():
+    """All identical samples → L_A90 equals that level."""
+    assert abs(AudioMetrics.L_A90([65.0] * 100) - 65.0) < 1e-6
+
+
+def test_l_a90_is_tenth_percentile():
+    """L_A90 is the 10th percentile of the sample distribution."""
+    samples = list(range(100))  # 0, 1, …, 99
+    # numpy 10th percentile of 0-99 = 9.9
+    assert abs(AudioMetrics.L_A90(samples) - 9.9) < 0.1
+
+
+def test_l_a90_always_le_l_aeq():
+    """L_A90 ≤ L_Aeq,T for any sample set (background ≤ energy average)."""
+    samples = [50.0, 60.0, 70.0, 80.0, 90.0]
+    assert AudioMetrics.L_A90(samples) <= AudioMetrics.L_Aeq(samples)
+
+
+def test_l_a90_accepts_numpy_array():
+    """Accepts a numpy array as input."""
+    result = AudioMetrics.L_A90(np.array([55.0, 65.0, 75.0]))
+    assert isinstance(result, float)
+
+
+# ── show_metrics ───────────────────────────────────────────────────────────────
 
 
 def test_show_metrics(metrics):

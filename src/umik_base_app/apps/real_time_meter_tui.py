@@ -136,6 +136,7 @@ class TuiMetricsSink(AudioMetricsSink):
 
         if ctx.can_calculate_dbspl():
             data["dbspl"] = self._calculate_dbspl(dbfs, ctx)
+            data["dbspl_a"] = self._calculate_dbspl_a(audio_data, ctx)
             if ctx.is_fully_calibrated():
                 data["calibration"] = "FULL (FIR)"
             elif ctx.is_gain_calibrated():
@@ -308,8 +309,9 @@ class MeterTuiApp(App[None]):
 
         lines: list[str] = []
         if "dbspl" in data:
-            lines.append(f"[bold cyan]dBSPL[/bold cyan]   {data['dbspl']:+.1f} dB")
-        lines.append(f"[bold]LUFS [/bold]   {data['lufs']:.1f} LUFS")
+            lines.append(f"[bold cyan]dBSPL  [/bold cyan] {data['dbspl']:+.1f} dB")
+            lines.append(f"[bold cyan]dBSPL(A)[/bold cyan] {data['dbspl_a']:+.1f} dB(A)")
+        lines.append(f"[bold]LUFS   [/bold] {data['lufs']:.1f} LUFS")
         lines.append(f"[bold]RMS  [/bold]   {data['rms']:.4f}")
         lines.append(f"[bold]Flux [/bold]   {data['flux']:.1f}")
         if "dbspl" not in data:

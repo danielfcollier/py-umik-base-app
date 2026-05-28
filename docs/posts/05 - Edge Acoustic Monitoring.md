@@ -47,7 +47,7 @@ This efficiency opens the door for conservation technology that wasn't possible 
 Consider the fight against illegal logging in protected rainforests:
 
 * **The Cloud Problem:** You cannot stream 24/7 audio from the middle of the Amazon (no 4G/Wi-Fi) to detect chainsaws. It burns too much power and requires infrastructure that doesn't exist.
-* **The Edge Solution:** A Raspberry Pi Zero 2 W running `umik-base-app`, powered by a small solar panel.
+* **The Edge Solution:** A Raspberry Pi Zero 2 W running `umik-base-app` in producer-only mode (capture + ZMQ broadcast, no local processing), powered by a small solar panel.
 
 The device sits silently in the canopy, processing audio locally. It filters out wind and rain noise using DSP. The moment it detects the specific acoustic signature of a **Chainsaw** (using a pre-trained YamNet model), it wakes up its long-range radio (LoRaWAN) and pings the rangers with a GPS coordinate.
 

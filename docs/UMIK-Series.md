@@ -18,10 +18,9 @@ While the application defaults to searching for "UMIK-1", you can configure it t
    class HardwareSettings(BaseModel):
        TARGET_DEVICE_NAME: str = "UMIK-2"  # or any substring of your device name
        NOMINAL_SENSITIVITY_DBFS: float = -12.0  # Adjust for your specific hardware
+   ```
 
-```
-
-3. The `umik-list-devices --only` command and auto-detection logic will now target your specified device.
+3. The `audio-tools --devices` command and auto-detection logic will now target your specified device.
 
 | Feature | UMIK-1 | UMIK-2 | Application Support |
 | --- | --- | --- | --- |
@@ -47,12 +46,12 @@ Using a calibrated microphone is the difference between building a simple "volum
 The principle is simple: **Garbage In, Garbage Out.** The quality of your analysis is fundamentally limited by the quality of your input data.
 
 * **Uncalibrated Microphones (Laptops, Phones):** These are "colored." They are designed to boost speech frequencies and cut low-frequency rumble. When you feed this biased signal into your application:
-* **LUFS measurements will be inaccurate**, as they are calculated on an altered signal.
-* **Low-frequency noise** (traffic, HVAC, machinery) will be underestimated.
+  * **LUFS measurements will be inaccurate**, as they are calculated on an altered signal.
+  * **Low-frequency noise** (traffic, HVAC, machinery) will be underestimated.
 * **Calibrated UMIK Series:** This provides a "ground truth" signal.
-* It ensures that a sound's energy is represented accurately across the entire frequency spectrum, **including critical low frequencies**.
-* This allows metrics like **LUFS** and **dBSPL** to be calculated with scientific accuracy.
-* It provides Machine Learning models with a clean, unbiased signal, leading to more reliable classification.
+  * It ensures that a sound's energy is represented accurately across the entire frequency spectrum, **including critical low frequencies**.
+  * This allows metrics like **LUFS** and **dBSPL** to be calculated with scientific accuracy.
+  * It provides Machine Learning models with a clean, unbiased signal, leading to more reliable classification.
 
 ## 3. The Real-Time Calibration Process
 

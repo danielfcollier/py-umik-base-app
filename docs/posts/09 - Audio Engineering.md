@@ -19,7 +19,7 @@ If the code relies solely on RMS, the system will trigger alerts for thunder but
 
 ## 🧠 The Shift to Psychoacoustics (LUFS)
 
-To solve this, I shifted the project's primary metric from RMS to **LUFS (Loudness Units Full Scale)** within the `src/umik_base_app/sinks/audio_metrics.py` module.
+To solve this, I shifted the project's primary metric from RMS to **LUFS (Loudness Units Full Scale)** within the `src/umik_base_app/core/audio_metrics.py` module.
 
 Unlike RMS, LUFS is an audio engineering standard (ITU-R BS.1770-4) designed to model the non-linear way humans hear. It achieves this by applying **K-Weighting** - a specific filter curve applied to the signal *before* measurement.
 
@@ -51,7 +51,7 @@ By using gating, the meter indicates how loud the *events* actually were, withou
 | **Measures** | Physical Signal Power | Perceived Human Loudness |
 | **Frequency Bias** | **None** (Flat response) | **K-Weighted** (Boosts speech frequencies) |
 | **Use Case** | Protecting hardware/circuits | Normalizing audio for human listeners |
-| **Project Integration** | Legacy / Raw Data | **Active** (`src/umik_base_app/sinks/audio_metrics.py`) |
+| **Project Integration** | Legacy / Raw Data | **Active** (`src/umik_base_app/core/audio_metrics.py`) |
 
 By switching to LUFS, this project doesn't just report how much energy is on the wire - it reports how loud the world actually sounds. It is a small detail that marks the difference between a code experiment and a piece of audio engineering.
 

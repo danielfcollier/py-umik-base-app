@@ -146,12 +146,11 @@ class AudioMetricsSink(AudioSink):
             "LUFS": self._audio_metrics.lufs(audio_data),
         }
 
-        # Calculate dBSPL if calibration metadata is available
+        # Calculate dBSPL and dBSPL(A) if calibration metadata is available
         if ctx.can_calculate_dbspl():
-            dbspl = self._calculate_dbspl(dbfs, ctx)
-            metrics_data["dBSPL"] = dbspl
+            metrics_data["dBSPL"] = self._calculate_dbspl(dbfs, ctx)
+            metrics_data["dBSPL_A"] = self._calculate_dbspl_a(audio_data, ctx)
 
-            # Add accuracy indicator based on calibration level
             if ctx.is_fully_calibrated():
                 metrics_data["calibration"] = "full"
             elif ctx.is_gain_calibrated():
@@ -213,6 +212,17 @@ class AudioMetricsSink(AudioSink):
                 reference_dbspl=reference,
             )
 
+    def _calculate_dbspl_a(self, audio_data: np.ndarray, ctx: PipelineContext) -> float:
+        """Calculate dBSPL(A) by applying A-weighting before the calibration offset."""
+        dbfs_a = self._audio_metrics._dBFS_A(audio_data)
+        if ctx.is_gain_calibrated():
+            return dbfs_a + ctx.reference_dbspl
+        return self._audio_metrics.dBSPL(
+            dbfs_level=dbfs_a,
+            sensitivity_dbfs=ctx.sensitivity_dbfs,
+            reference_dbspl=ctx.reference_dbspl,
+        )
+
 
 def _parse_rate(rate_str: str) -> float:
     """Parse a rate string like '60s', '2m', or '30' into seconds."""
@@ -231,7 +241,7 @@ class TopMetricsSink(AudioSink):
     Optionally appends the top entry to a file.
     """
 
-    _VALID_KEYS = {"rms", "flux", "dBFS", "LUFS", "dBSPL"}
+    _VALID_KEYS = {"rms", "flux", "dBFS", "LUFS", "dBSPL", "dBSPL_A"}
     _KEY_ALIASES = {k.lower(): k for k in _VALID_KEYS}
 
     def __init__(
@@ -310,6 +320,7 @@ class TopMetricsSink(AudioSink):
         }
         if ctx.can_calculate_dbspl():
             metrics["dBSPL"] = self._calculate_dbspl(dbfs, ctx)
+            metrics["dBSPL_A"] = self._calculate_dbspl_a(audio_data, ctx)
             if ctx.is_fully_calibrated():
                 metrics["calibration"] = "full"
             elif ctx.is_gain_calibrated():
@@ -323,6 +334,17 @@ class TopMetricsSink(AudioSink):
             return dbfs + ctx.reference_dbspl
         return self._audio_metrics.dBSPL(
             dbfs_level=dbfs,
+            sensitivity_dbfs=ctx.sensitivity_dbfs,
+            reference_dbspl=ctx.reference_dbspl,
+        )
+
+    def _calculate_dbspl_a(self, audio_data: np.ndarray, ctx: PipelineContext) -> float:
+        """Calculate dBSPL(A) by applying A-weighting before the calibration offset."""
+        dbfs_a = self._audio_metrics._dBFS_A(audio_data)
+        if ctx.is_gain_calibrated():
+            return dbfs_a + ctx.reference_dbspl
+        return self._audio_metrics.dBSPL(
+            dbfs_level=dbfs_a,
             sensitivity_dbfs=ctx.sensitivity_dbfs,
             reference_dbspl=ctx.reference_dbspl,
         )
