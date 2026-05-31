@@ -9,18 +9,22 @@ GitHub: https://github.com/danielfcollier
 Year: 2025
 """
 
+import io
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 import soundfile as sf
 
+from umik_base_app.apps.audio_clip import main as clip_main
 from umik_base_app.apps.audio_clip_engine import (
     clip_audio,
     default_output_path,
     format_time,
     load_audio,
+    region_to_wav_bytes,
     validate_range,
     waveform_envelope,
 )
@@ -227,3 +231,100 @@ def test_waveform_envelope_stereo(tmp_path: Path):
     samples, _, _ = load_audio(str(path))
     envelope = waveform_envelope(samples, n_points=100)
     assert len(envelope) == 100
+
+
+def test_waveform_envelope_empty_samples():
+    """Empty sample array returns an empty list without error."""
+    assert waveform_envelope(np.array([])) == []
+
+
+# ── load_audio error path ──────────────────────────────────────────────────────
+
+
+def test_load_audio_corrupt_file_raises_runtime_error(tmp_path: Path):
+    """A file that exists but is not valid audio raises RuntimeError."""
+    bad = tmp_path / "corrupt.wav"
+    bad.write_bytes(b"this is definitely not a wav file")
+    with pytest.raises(RuntimeError, match="Cannot read"):
+        load_audio(str(bad))
+
+
+# ── clip_audio: end=None ───────────────────────────────────────────────────────
+
+
+def test_clip_end_none_clips_to_end_of_file(wav_file: Path, tmp_path: Path):
+    """clip_audio with end=None clips from start to the end of the file."""
+    out = str(tmp_path / "full.wav")
+    result = clip_audio(str(wav_file), 2.0, None, out)
+    samples, sr = sf.read(result)
+    expected = int((SOURCE_DURATION - 2.0) * SOURCE_SR)
+    assert abs(len(samples) - expected) <= 1
+
+
+# ── region_to_wav_bytes ────────────────────────────────────────────────────────
+
+
+def test_region_to_wav_bytes_returns_valid_wav(wav_file: Path):
+    """region_to_wav_bytes produces parseable WAV bytes of the correct length."""
+    samples, sr, subtype = load_audio(str(wav_file))
+    data = region_to_wav_bytes(samples, sr, subtype, 1.0, 2.0)
+    out, sr_out = sf.read(io.BytesIO(data))
+    assert sr_out == sr
+    assert abs(len(out) - sr) <= 1
+
+
+def test_region_to_wav_bytes_unknown_subtype_falls_back_to_pcm16(wav_file: Path):
+    """Subtypes not writable as WAV fall back to PCM_16 rather than erroring."""
+    samples, sr, _ = load_audio(str(wav_file))
+    data = region_to_wav_bytes(samples, sr, "ALAW", 0.0, 1.0)
+    assert data[:4] == b"RIFF"
+    _, sr_out = sf.read(io.BytesIO(data))
+    assert sr_out == sr
+
+
+# ── stereo resampling (multi-channel _resample branch) ────────────────────────
+
+
+def test_clip_resample_stereo_preserves_channels(tmp_path: Path):
+    """Resampling a stereo file produces a stereo output at the target rate."""
+    sr_in, n = 48_000, 96_000
+    stereo = np.zeros((n, 2), dtype=np.float32)
+    src = tmp_path / "stereo.wav"
+    sf.write(str(src), stereo, sr_in, subtype="PCM_16")
+    out = str(tmp_path / "stereo_resampled.wav")
+    clip_audio(str(src), 0.0, 1.0, out, target_sr=22_050)
+    samples, sr_out = sf.read(out)
+    assert sr_out == 22_050
+    assert samples.ndim == 2
+
+
+# ── audio_clip CLI main() ──────────────────────────────────────────────────────
+
+
+def test_cli_duration_flag_sets_end(wav_file: Path, tmp_path: Path, capsys):
+    """--duration N clips exactly N seconds starting from --start."""
+    out = str(tmp_path / "dur.wav")
+    with patch("sys.argv", ["audio-clip", str(wav_file), "--start", "1.0", "--duration", "2.0", "--output", out]):
+        clip_main()
+    samples, _ = sf.read(out)
+    assert abs(len(samples) - 2 * SOURCE_SR) <= 1
+    assert "Clipped" in capsys.readouterr().out
+
+
+def test_cli_no_end_clips_to_file_end(wav_file: Path, tmp_path: Path, capsys):
+    """Omitting --end reads the file duration and clips to end of file."""
+    out = str(tmp_path / "toend.wav")
+    with patch("sys.argv", ["audio-clip", str(wav_file), "--start", "3.0", "--output", out]):
+        clip_main()
+    samples, _ = sf.read(out)
+    assert abs(len(samples) - int(2.0 * SOURCE_SR)) <= 1
+    assert "Clipped" in capsys.readouterr().out
+
+
+def test_cli_missing_file_no_end_exits_1(tmp_path: Path, capsys):
+    """Missing file with no --end hits the load-for-duration path and exits 1."""
+    with patch("sys.argv", ["audio-clip", str(tmp_path / "ghost.wav")]):
+        with pytest.raises(SystemExit) as exc:
+            clip_main()
+    assert exc.value.code == 1
+    assert "error" in capsys.readouterr().err.lower()

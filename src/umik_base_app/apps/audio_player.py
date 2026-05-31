@@ -2,14 +2,19 @@
 Headless audio file player.
 
 Plays audio files in sequence. Key bindings during playback:
-  Enter / Space  – skip to next file
-  r              – replay current file
+  Space / Enter  – skip to next file
+  p              – pause / resume
+  r              – replay current file from the start
+  c              – open current file in the browser clip editor (audio-tools-clip)
+  x              – quick-clip: prompt for start/end, run audio-clip, then resume
+  d              – delete current file (asks for confirmation)
   q              – quit
 """
 
 import argparse
 import glob
 import select
+import subprocess
 import sys
 import termios
 import time
@@ -69,9 +74,9 @@ def _read_char(timeout: float = 0.1) -> str | None:
     return None
 
 
-def _play_file(path: Path, index: int, total: int) -> str:
+def _play_file(path: Path, index: int, total: int, old_settings: list | None = None) -> str:
     """
-    Play one file. Returns 'next', 'replay', or 'quit'.
+    Play one file. Returns 'next', 'replay', 'delete', or 'quit'.
     """
     try:
         data, samplerate = sf.read(str(path), dtype="float32", always_2d=False)
@@ -85,18 +90,30 @@ def _play_file(path: Path, index: int, total: int) -> str:
     print(f"\n{'─' * 58}")
     print(f"  [{index}/{total}]  {path.name}")
     print(f"  {_fmt(duration)}  ·  {int(samplerate)} Hz  ·  {ch_label}")
-    print("  [Enter/Space] next   [r] replay   [q] quit\n")
+    print("  [Spc] next  [b] prev  [p] pause  [r] replay  [u] clip-UI  [c] clip  [d] delete  [q] quit\n")
 
-    sd.play(data, samplerate)
+    def _start_from(offset: float) -> None:
+        start_sample = int(offset * samplerate)
+        sd.play(data[start_sample:], samplerate)
+
+    _start_from(0.0)
     start = time.monotonic()
+    paused = False
+    elapsed = 0.0
 
     while True:
-        elapsed = min(time.monotonic() - start, duration)
+        if not paused:
+            elapsed = min(time.monotonic() - start, duration)
+
         filled = int((elapsed / duration) * 30) if duration > 0 else 0
         bar = "█" * filled + "░" * (30 - filled)
-        print(f"\r  {bar}  {_fmt(elapsed)} / {_fmt(duration)}  ", end="", flush=True)
 
-        if not _is_playing():
+        if paused:
+            print(f"\r  {bar}  {_fmt(elapsed)} / {_fmt(duration)}  [PAUSED]  ", end="", flush=True)
+        else:
+            print(f"\r  {bar}  {_fmt(elapsed)} / {_fmt(duration)}  ", end="", flush=True)
+
+        if not paused and not _is_playing():
             print()
             return "next"
 
@@ -108,11 +125,77 @@ def _play_file(path: Path, index: int, total: int) -> str:
             sd.stop()
             print()
             return "next"
-        if ch in ("r", "R"):
+
+        elif ch in ("p", "P"):
+            if paused:
+                paused = False
+                start = time.monotonic() - elapsed
+                _start_from(elapsed)
+            else:
+                elapsed = min(time.monotonic() - start, duration)
+                sd.stop()
+                paused = True
+
+        elif ch in ("b", "B"):
+            sd.stop()
+            print()
+            return "prev"
+
+        elif ch in ("r", "R"):
             sd.stop()
             print()
             return "replay"
-        if ch in ("q", "Q"):
+
+        elif ch in ("u", "U"):
+            # Open browser clip editor in background; player keeps running
+            subprocess.Popen(
+                ["audio-tools-clip", str(path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("\n  🌐 Clip editor opened → http://localhost:8768")
+            # Reprint the progress bar on the next line
+            print()
+
+        elif ch in ("c", "C"):
+            # Quick-clip: prompt for start/end, run audio-clip, resume
+            saved_elapsed = elapsed if paused else min(time.monotonic() - start, duration)
+            sd.stop()
+            if old_settings is not None:
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+            print(f"\n\n  Quick-clip  '{path.name}'  (0 – {duration:.2f}s)")
+            try:
+                start_s = input("  Start (s): ").strip()
+                end_s = input("  End   (s): ").strip()
+                cmd = ["audio-clip", str(path), "--start", start_s, "--end", end_s]
+                subprocess.run(cmd)
+            except (ValueError, KeyboardInterrupt):
+                print("  Cancelled.")
+            finally:
+                if old_settings is not None:
+                    tty.setcbreak(sys.stdin.fileno())
+            print()
+            # Resume from saved position
+            _start_from(saved_elapsed)
+            start = time.monotonic() - saved_elapsed
+            elapsed = saved_elapsed
+            paused = False
+
+        elif ch in ("d", "D"):
+            sd.stop()
+            print(f"\n\n  Delete '{path.name}'? [y/N] ", end="", flush=True)
+            confirm = _read_char(timeout=30.0)
+            print(confirm or "n")
+            if confirm in ("y", "Y"):
+                print()
+                return "delete"
+            # Not confirmed — resume from where we left off
+            print()
+            _start_from(elapsed)
+            start = time.monotonic() - elapsed
+            paused = False
+
+        elif ch in ("q", "Q"):
             sd.stop()
             print()
             return "quit"
@@ -164,11 +247,20 @@ def main() -> None:
         tty.setcbreak(sys.stdin.fileno())
         i = 0
         while i < len(files):
-            action = _play_file(files[i], i + 1, len(files))
+            action = _play_file(files[i], i + 1, len(files), old_settings)
             if action == "next":
                 i += 1
+            elif action == "prev":
+                i = max(0, i - 1)
             elif action == "replay":
                 pass  # stay on same index
+            elif action == "delete":
+                try:
+                    files[i].unlink()
+                    print(f"  🗑  Deleted {files[i].name}")
+                except OSError as e:
+                    print(f"  Could not delete {files[i].name}: {e}", file=sys.stderr)
+                i += 1
             elif action == "quit":
                 break
     except KeyboardInterrupt:

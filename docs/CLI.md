@@ -216,7 +216,12 @@ audio-tools --play file1.wav file2.flac session/ambient.ogg
 | Key | Action |
 |-----|--------|
 | `Enter` or `Space` | Skip to next file |
+| `b` | Go back to the previous file |
+| `p` | Pause / resume |
 | `r` | Replay the current file from the start |
+| `u` | Open current file in the browser clip editor (`audio-tools-clip`) |
+| `c` | Quick-clip: prompt for start/end seconds, save clip, resume playback |
+| `d` | Delete the current file (asks for confirmation) |
 | `q` | Quit the player |
 
 When the current file finishes playing it advances to the next automatically.
@@ -227,10 +232,18 @@ When the current file finishes playing it advances to the next automatically.
 ──────────────────────────────────────────────────────────
   [2/5]  recording_2025-05-26_14-32-01.wav
   1:45  ·  48000 Hz  ·  mono
-  [Enter/Space] next   [r] replay   [q] quit
+  [Spc] next  [b] prev  [p] pause  [r] replay  [u] clip-UI  [c] clip  [d] delete  [q] quit
 
   ████████████░░░░░░░░░░░░░░░░░░  0:48 / 1:45
 ```
+
+While paused the progress bar stays visible and the status shows `[PAUSED]`. Press `p` again to resume from the same position.
+
+**`u` — browser clip editor**: launches `audio-tools-clip` with the current file pre-loaded in the background. The browser opens at `http://localhost:8768`; the player keeps running so you can listen while you drag the handles.
+
+**`c` — quick-clip**: pauses playback, restores the terminal to normal mode, and prompts for start/end times. Runs `audio-clip` and prints the result, then resumes from where you left off. Useful for scripting clips without leaving the player.
+
+**`d` — delete**: prompts `Delete 'filename'? [y/N]` — any key other than `y`/`Y` cancels and resumes playback.
 
 ### Supported Formats
 
