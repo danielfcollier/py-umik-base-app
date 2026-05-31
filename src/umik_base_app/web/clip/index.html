@@ -28,8 +28,7 @@
       border-bottom: 1px solid #2a2a4a;
       flex-shrink: 0;
     }
-    #toolbar .title { color: #7eb3ff; font-weight: bold; margin-right: 8px; }
-    #toolbar label { color: #888; }
+    #toolbar .title { color: #7eb3ff; font-weight: bold; margin-right: 4px; white-space: nowrap; }
     #path-input {
       flex: 1;
       background: #1a1a30;
@@ -59,13 +58,150 @@
     button.primary { background: #1a4a8a; border-color: #3a6aaa; color: #9fc; }
     button.primary:hover { background: #2a5aaa; }
 
-    /* ── Waveform area ─────────────────────────────────────────────────────── */
-    #waveform-area {
+    /* ── Main area ─────────────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    /* ── Left panel (file navigation) ──────────────────────────────────────── */
+    #left-panel {
+      width: 240px;
+      min-width: 160px;
+      flex-shrink: 0;
+      display: none;
+      flex-direction: column;
+      border-right: 1px solid #2a2a4a;
+      background: #0b0b18;
+    }
+    #left-panel.open { display: flex; }
+
+    #left-header {
+      padding: 6px 10px 5px;
+      background: #13132a;
+      border-bottom: 1px solid #1e1e3a;
+      flex-shrink: 0;
+    }
+    #left-dir {
+      display: block;
+      color: #7eb3ff;
+      font-size: 11px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #left-count { color: #555; font-size: 10px; }
+
+    #left-filter-row {
+      padding: 5px 8px;
+      border-bottom: 1px solid #1a1a3a;
+      flex-shrink: 0;
+    }
+    #left-filter {
+      width: 100%;
+      background: #1a1a30;
+      border: 1px solid #3a3a5a;
+      color: #dde;
+      padding: 3px 7px;
+      font-family: inherit;
+      font-size: 11px;
+      border-radius: 3px;
+    }
+    #left-filter:focus { outline: none; border-color: #5580cc; }
+
+    #left-items { flex: 1; overflow-y: auto; }
+
+    .file-item {
+      padding: 5px 10px;
+      cursor: pointer;
+      color: #99a;
+      border-bottom: 1px solid #111128;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .file-item:hover  { background: #1a1a38; color: #dde; }
+    .file-item.active { background: #1a3a6a; color: #9fd; border-left: 2px solid #5af; padding-left: 8px; }
+    .file-list-empty  { padding: 12px 10px; color: #555; font-style: italic; font-size: 11px; }
+
+    /* ── Right panel ────────────────────────────────────────────────────────── */
+    #right-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 12px 12px 4px;
+      min-width: 0;
+    }
+
+    /* ── File info bar ──────────────────────────────────────────────────────── */
+    #file-info-bar {
+      display: none;
+      padding: 4px 12px;
+      background: #0f0f22;
+      border-bottom: 1px solid #1e1e3a;
+      color: #666;
+      font-size: 11px;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #file-info-bar span.name { color: #aab; }
+
+    /* ── Custom audio player ─────────────────────────────────────────────────  */
+    /*
+     * #player-ctrls and #waveform-gutter share the same fixed width so the
+     * scrubber and the waveform canvas are guaranteed to start and end at the
+     * same horizontal position — no magic-number offsets needed.
+     */
+    #player-row {
+      display: none;
+      align-items: center;
+      padding: 6px 12px;
+      gap: 8px;
+      background: #13132a;
+      border-bottom: 1px solid #2a2a4a;
+      flex-shrink: 0;
+    }
+    #player-ctrls {
+      width: 140px; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+    #btn-play-pause {
+      width: 28px; height: 22px; flex-shrink: 0; padding: 0;
+      font-size: 12px; line-height: 1; border-radius: 3px;
+    }
+    #audio-time {
+      flex: 1; white-space: nowrap; overflow: hidden;
+      color: #666; font-size: 11px; text-align: center;
+    }
+    #audio-scrubber-wrap {
+      flex: 1; height: 4px; background: #252540; border-radius: 2px;
+      cursor: pointer; position: relative; overflow: hidden;
+      align-self: center;
+    }
+    #audio-scrubber-wrap:hover { height: 6px; }
+    #audio-progress {
+      height: 100%; width: 0%; background: #5580cc; border-radius: 2px;
+      pointer-events: none;
+    }
+
+    /* ── Waveform area ───────────────────────────────────────────────────────  */
+    #waveform-area {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      padding: 10px 12px 4px;
       min-height: 0;
+    }
+    /* Same width as #player-ctrls — keeps canvas left-aligned with scrubber */
+    #waveform-gutter { width: 140px; flex-shrink: 0; }
+    #waveform-center {
+      flex: 1; display: flex; flex-direction: column;
+      min-width: 0; min-height: 0;
     }
     #waveform-canvas {
       width: 100%;
@@ -75,27 +211,44 @@
       border: 1px solid #2a2a4a;
       border-radius: 4px;
       background: #080810;
+      min-height: 80px;
     }
-    #time-axis {
-      height: 18px;
+    #time-axis { height: 18px; position: relative; margin-top: 2px; }
+    #time-axis canvas { width: 100%; height: 100%; display: block; }
+
+    /* ── Hint ────────────────────────────────────────────────────────────────  */
+    #hint {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: #444;
+      font-size: 13px;
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.8;
+    }
+    #waveform-wrap {
       position: relative;
-      margin-top: 2px;
-    }
-    #time-axis canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* ── Controls ──────────────────────────────────────────────────────────── */
+    /* ── Controls ────────────────────────────────────────────────────────────  */
     #controls {
       display: flex;
-      align-items: center;
-      gap: 16px;
+      flex-direction: column;
+      gap: 6px;
       padding: 8px 12px;
       background: #13132a;
       border-top: 1px solid #2a2a4a;
       flex-shrink: 0;
+    }
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       flex-wrap: wrap;
     }
     .ctrl-group {
@@ -103,9 +256,9 @@
       align-items: center;
       gap: 6px;
     }
-    .ctrl-group label { color: #888; }
+    .ctrl-group label, .ctrl-group > span.lbl { color: #888; white-space: nowrap; }
     .time-input {
-      width: 64px;
+      width: 68px;
       background: #1a1a30;
       border: 1px solid #3a3a5a;
       color: #dde;
@@ -116,9 +269,22 @@
       text-align: right;
     }
     .time-input:focus { outline: none; border-color: #5580cc; }
-    #duration-display { color: #7eb3ff; min-width: 60px; }
+    #duration-display { color: #7eb3ff; min-width: 52px; }
+    #output-input {
+      flex: 1;
+      min-width: 160px;
+      background: #1a1a30;
+      border: 1px solid #3a3a5a;
+      color: #dde;
+      padding: 3px 8px;
+      font-family: inherit;
+      font-size: 12px;
+      border-radius: 3px;
+    }
+    #output-input:focus { outline: none; border-color: #5580cc; }
+    #output-input::placeholder { color: #444; }
 
-    /* ── Status bar ────────────────────────────────────────────────────────── */
+    /* ── Status bar ───────────────────────────────────────────────────────────  */
     #status {
       padding: 4px 12px;
       background: #0a0a18;
@@ -139,22 +305,9 @@
       border-radius: 50%;
       background: #555;
       display: inline-block;
+      flex-shrink: 0;
     }
     #ws-dot.connected { background: #4c8; }
-
-    /* ── Hint ──────────────────────────────────────────────────────────────── */
-    #hint {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #444;
-      font-size: 14px;
-      pointer-events: none;
-      text-align: center;
-      line-height: 1.8;
-    }
-    #waveform-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   </style>
 </head>
 <body>
@@ -162,50 +315,96 @@
 <!-- Toolbar -->
 <div id="toolbar">
   <span class="title">✂ audio-tools-clip</span>
-  <label for="path-input">📂</label>
-  <input id="path-input" type="text" placeholder="path/to/recording.wav" spellcheck="false">
+  <input id="path-input" type="text" placeholder="file or directory path…" spellcheck="false">
   <button id="btn-open">Open</button>
-  <span style="flex:1"></span>
-  <span id="file-info" style="color:#666;font-size:11px;"></span>
 </div>
 
-<!-- Waveform -->
-<div id="waveform-area">
-  <div id="waveform-wrap">
-    <canvas id="waveform-canvas"></canvas>
-    <div id="hint">Drop a WAV file path above and click <strong>Open</strong><br>or pass the file as a CLI argument</div>
-  </div>
-  <div id="time-axis"><canvas id="axis-canvas"></canvas></div>
-</div>
+<!-- Main: left nav + right editor -->
+<div id="main">
 
-<!-- Controls -->
-<div id="controls">
-  <div class="ctrl-group">
-    <label for="start-input">Start</label>
-    <input id="start-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
-    <span style="color:#666">s</span>
+  <!-- Left: file navigation -->
+  <div id="left-panel">
+    <div id="left-header">
+      <span id="left-dir" title=""></span>
+      <span id="left-count"></span>
+    </div>
+    <div id="left-filter-row">
+      <input id="left-filter" type="text" placeholder="filter files…" spellcheck="false">
+    </div>
+    <div id="left-items"></div>
   </div>
-  <div class="ctrl-group">
-    <label for="end-input">End</label>
-    <input id="end-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
-    <span style="color:#666">s</span>
-  </div>
-  <div class="ctrl-group">
-    <label>Duration</label>
-    <span id="duration-display">—</span>
-  </div>
-  <div class="ctrl-group" style="margin-left:auto;">
-    <button id="btn-preview" disabled>▶ Preview</button>
-    <button id="btn-clip" class="primary" disabled>✂ Clip</button>
-  </div>
-  <div class="ctrl-group">
-    <label>Output SR</label>
-    <input id="sr-input" class="time-input" type="number" min="8000" step="1000"
-           placeholder="auto" style="width:72px">
-  </div>
-</div>
 
-<!-- Status -->
+  <!-- Right: editor -->
+  <div id="right-panel">
+
+    <!-- File metadata -->
+    <div id="file-info-bar">
+      <span id="file-info-text"></span>
+    </div>
+
+    <!-- Audio player (selection) -->
+    <div id="player-row">
+      <div id="player-ctrls">
+        <button id="btn-play-pause" disabled>▶</button>
+        <span id="audio-time">0:00 / 0:00</span>
+      </div>
+      <div id="audio-scrubber-wrap"><div id="audio-progress"></div></div>
+      <audio id="audio-player" style="display:none"></audio>
+    </div>
+
+    <!-- Waveform -->
+    <div id="waveform-area">
+      <div id="waveform-gutter"></div>
+      <div id="waveform-center">
+        <div id="waveform-wrap">
+          <canvas id="waveform-canvas"></canvas>
+          <div id="hint">Open a file or directory to get started</div>
+        </div>
+        <div id="time-axis"><canvas id="axis-canvas"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+      <!-- Row 1: selection + playback -->
+      <div class="ctrl-row">
+        <div class="ctrl-group">
+          <label for="start-input">Start</label>
+          <input id="start-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
+          <span class="lbl">s</span>
+        </div>
+        <div class="ctrl-group">
+          <label for="end-input">End</label>
+          <input id="end-input" class="time-input" type="number" min="0" step="0.1" value="0.00">
+          <span class="lbl">s</span>
+        </div>
+        <div class="ctrl-group">
+          <span class="lbl">Duration</span>
+          <span id="duration-display">—</span>
+        </div>
+        <div class="ctrl-group">
+          <label for="sr-input">SR</label>
+          <input id="sr-input" class="time-input" type="number" min="8000" step="1000"
+                 placeholder="auto" style="width:72px">
+        </div>
+        <div class="ctrl-group" style="margin-left:auto;">
+          <button id="btn-preview" disabled>▶ Preview</button>
+          <button id="btn-clip" class="primary" disabled>✂ Clip</button>
+        </div>
+      </div>
+      <!-- Row 2: output location -->
+      <div class="ctrl-row">
+        <div class="ctrl-group" style="flex:1; min-width:0;">
+          <span class="lbl">📁 Save to</span>
+          <input id="output-input" type="text" placeholder="default: ./clips">
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #right-panel -->
+</div><!-- #main -->
+
+<!-- Status bar -->
 <div id="status">
   <span id="ws-dot"></span>
   <span id="status-text">Not connected</span>

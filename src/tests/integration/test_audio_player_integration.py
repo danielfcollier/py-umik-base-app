@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import numpy.testing as npt
 import pytest
 
 from umik_base_app.apps.audio_player import _play_file
@@ -55,7 +56,9 @@ def test_play_file_natural_completion_returns_next(mock_sf_read, mock_sd):
         result = _play_file(Path("fake.wav"), 1, 1)
 
     assert result == "next"
-    mock_sd["play"].assert_called_once_with(FAKE_AUDIO, SAMPLE_RATE)
+    mock_sd["play"].assert_called_once()
+    npt.assert_array_equal(mock_sd["play"].call_args[0][0], FAKE_AUDIO)
+    assert mock_sd["play"].call_args[0][1] == SAMPLE_RATE
     mock_sd["stop"].assert_not_called()
 
 
@@ -122,6 +125,97 @@ def test_play_file_quit_key_returns_quit(key, mock_sf_read, mock_sd):
 
     assert result == "quit"
     mock_sd["stop"].assert_called_once()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["b", "B"])
+def test_play_file_prev_key_returns_prev(key, mock_sf_read, mock_sd):
+    """b/B stops playback and returns 'prev'."""
+    with patch("umik_base_app.apps.audio_player._is_playing", return_value=True):
+        with patch("umik_base_app.apps.audio_player._read_char", return_value=key):
+            result = _play_file(Path("fake.wav"), 2, 5)
+
+    assert result == "prev"
+    mock_sd["stop"].assert_called_once()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["p", "P"])
+def test_play_file_pause_then_resume(key, mock_sf_read, mock_sd):
+    """p pauses playback; a second p resumes it; player finishes naturally."""
+    key_seq = iter([key, key])
+    # _is_playing is only called when not paused: True (iter1), False (iter3 after resume)
+    with patch("umik_base_app.apps.audio_player._is_playing", side_effect=[True, False]):
+        with patch("umik_base_app.apps.audio_player._read_char", side_effect=lambda *a, **kw: next(key_seq, None)):
+            result = _play_file(Path("fake.wav"), 1, 1)
+
+    assert result == "next"
+    mock_sd["stop"].assert_called()  # called when pausing
+    mock_sd["play"].assert_called()  # called on resume (_start_from)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["d", "D"])
+def test_play_file_delete_confirmed(key, mock_sf_read, mock_sd):
+    """d then y confirms deletion and returns 'delete'."""
+    calls = iter([key, "y"])
+    with patch("umik_base_app.apps.audio_player._is_playing", return_value=True):
+        with patch("umik_base_app.apps.audio_player._read_char", side_effect=lambda *a, **kw: next(calls, None)):
+            result = _play_file(Path("fake.wav"), 1, 1)
+
+    assert result == "delete"
+    mock_sd["stop"].assert_called()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["d", "D"])
+def test_play_file_delete_cancelled(key, mock_sf_read, mock_sd):
+    """d then n cancels deletion; player resumes and finishes naturally."""
+    calls = iter([key, "n"])
+    with patch("umik_base_app.apps.audio_player._is_playing", side_effect=[True, False]):
+        with patch("umik_base_app.apps.audio_player._read_char", side_effect=lambda *a, **kw: next(calls, None)):
+            result = _play_file(Path("fake.wav"), 1, 1)
+
+    assert result == "next"
+    mock_sd["play"].assert_called()  # resumed after cancel
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["c", "C"])
+def test_play_file_quick_clip_invokes_audio_clip(key, mock_sf_read, mock_sd):
+    """c prompts for start/end, invokes audio-clip, then resumes to natural end."""
+    key_seq = iter([key])
+    with patch("umik_base_app.apps.audio_player._is_playing", side_effect=[True, False]):
+        with patch("umik_base_app.apps.audio_player._read_char", side_effect=lambda *a, **kw: next(key_seq, None)):
+            with patch("builtins.input", side_effect=["1.0", "3.0"]):
+                with patch("umik_base_app.apps.audio_player.subprocess.run") as mock_run:
+                    result = _play_file(Path("clip_me.wav"), 1, 1)
+
+    mock_run.assert_called_once()
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] == "audio-clip"
+    assert "clip_me.wav" in cmd[1]
+    assert "--start" in cmd and "1.0" in cmd
+    assert "--end" in cmd and "3.0" in cmd
+    assert result == "next"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("key", ["u", "U"])
+def test_play_file_clip_ui_key_opens_browser(key, mock_sf_read, mock_sd, capsys):
+    """u/U launches audio-tools-clip in the background and keeps playing."""
+    # After the u key, we need the loop to end — make the stream go inactive.
+    read_seq = iter([key, None])
+    with patch("umik_base_app.apps.audio_player._is_playing", side_effect=[True, True, False]):
+        with patch("umik_base_app.apps.audio_player._read_char", side_effect=lambda t=0.1: next(read_seq, None)):
+            with patch("umik_base_app.apps.audio_player.subprocess.Popen") as mock_popen:
+                result = _play_file(Path("track.wav"), 1, 1)
+
+    mock_popen.assert_called_once()
+    args = mock_popen.call_args[0][0]
+    assert args[0] == "audio-tools-clip"
+    assert "track.wav" in args[1]
+    assert result == "next"  # player continued, ended naturally
 
 
 # ── error recovery ─────────────────────────────────────────────────────────────

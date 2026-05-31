@@ -8,6 +8,8 @@ audio playback, then click Clip to save the result.
 Usage:
     audio-tools-clip [INPUT] [--port PORT] [--no-open]
 
+    INPUT may be an audio file (pre-loaded) or a directory (file picker shown).
+
 Author: Daniel Collier
 GitHub: https://github.com/danielfcollier
 Year: 2025
@@ -16,6 +18,7 @@ Year: 2025
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -26,25 +29,33 @@ from pathlib import Path
 import aiohttp
 from aiohttp import web
 
-from .audio_clip_engine import clip_audio, load_audio, region_to_wav_bytes, waveform_envelope
+from .audio_clip_engine import clip_audio, format_time, load_audio, region_to_wav_bytes, waveform_envelope
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 _WEB_DIR = Path(__file__).parent.parent / "web" / "clip"
+_AUDIO_EXTENSIONS = {".wav", ".flac", ".ogg", ".aiff", ".aif", ".au"}
 
 
 class ClipUIServer:
     """Self-contained aiohttp server that serves the waveform editor UI."""
 
-    def __init__(self, port: int = 8768, initial_file: str | None = None) -> None:
+    def __init__(
+        self,
+        port: int = 8768,
+        initial_file: str | None = None,
+        initial_dir: str | None = None,
+    ) -> None:
         self._port = port
         self._current_path: str | None = initial_file
+        self._initial_dir: str | None = initial_dir
         self._samples = None
         self._sr: int | None = None
         self._subtype: str | None = None
         self._duration: float = 0.0
         self._websockets: set[web.WebSocketResponse] = set()
+        self._last_broadcast: dict | None = None  # replayed on reconnection
 
     # ── File loading ──────────────────────────────────────────────────────────
 
@@ -72,6 +83,21 @@ class ClipUIServer:
             "channels": channels,
             "subtype": subtype,
             "waveform": envelope,
+        }
+
+    def _list_dir(self, path: str) -> dict:
+        """Return a ``file_list`` message for all audio files in *path*, newest first."""
+        p = Path(path).resolve()
+        files = sorted(
+            (f for f in p.iterdir() if f.is_file() and f.suffix.lower() in _AUDIO_EXTENSIONS),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        logger.info("Listed directory %s  (%d file(s))", p, len(files))
+        return {
+            "type": "file_list",
+            "dir": str(p),
+            "files": [{"name": f.name, "path": str(f)} for f in files],
         }
 
     # ── HTTP handlers ─────────────────────────────────────────────────────────
@@ -114,12 +140,24 @@ class ClipUIServer:
         self._websockets.add(ws)
 
         try:
-            if self._current_path is not None:
+            # Send initial state on connect; replay cached message on reconnections
+            if self._initial_dir is not None:
+                initial_dir, self._initial_dir = self._initial_dir, None  # clear before any await
                 try:
-                    msg = self._load_file(self._current_path)
+                    msg = self._list_dir(initial_dir)
+                    self._last_broadcast = msg
                     await ws.send_json(msg)
                 except Exception as exc:
                     await ws.send_json({"type": "error", "message": str(exc)})
+            elif self._current_path is not None:
+                try:
+                    msg = self._load_file(self._current_path)
+                    self._last_broadcast = msg
+                    await ws.send_json(msg)
+                except Exception as exc:
+                    await ws.send_json({"type": "error", "message": str(exc)})
+            elif self._last_broadcast is not None:
+                await ws.send_json(self._last_broadcast)
 
             async for raw in ws:
                 if raw.type == aiohttp.WSMsgType.TEXT:
@@ -130,6 +168,9 @@ class ClipUIServer:
                         await ws.send_json({"type": "error", "message": "Invalid JSON"})
                 elif raw.type in (aiohttp.WSMsgType.ERROR, aiohttp.WSMsgType.CLOSE):
                     break
+
+        except asyncio.CancelledError:
+            pass  # clean shutdown (Ctrl+C)
         finally:
             self._websockets.discard(ws)
 
@@ -143,9 +184,22 @@ class ClipUIServer:
             if not path:
                 await ws.send_json({"type": "error", "message": "No path provided"})
                 return
+            p = Path(path)
             try:
-                msg = self._load_file(path)
-                await self._broadcast(msg)
+                if p.is_dir():
+                    await self._broadcast(self._list_dir(path))
+                else:
+                    await self._broadcast(self._load_file(path))
+            except Exception as exc:
+                await ws.send_json({"type": "error", "message": str(exc)})
+
+        elif msg_type == "list_dir":
+            path = str(data.get("path", "")).strip()
+            if not path:
+                await ws.send_json({"type": "error", "message": "No path provided"})
+                return
+            try:
+                await self._broadcast(self._list_dir(path))
             except Exception as exc:
                 await ws.send_json({"type": "error", "message": str(exc)})
 
@@ -156,8 +210,12 @@ class ClipUIServer:
             try:
                 start = float(data.get("start", 0))
                 end = float(data.get("end", self._duration))
-                output = data.get("output") or None
                 target_sr = int(data["sr"]) if data.get("sr") else None
+                output = data.get("output") or None
+                output_dir = data.get("output_dir") or None
+                if output is None and output_dir:
+                    stem = f"{Path(self._current_path).stem}_{format_time(start)}_{format_time(end)}.wav"
+                    output = str(Path(output_dir) / stem)
                 out_path = clip_audio(self._current_path, start, end, output, target_sr)
                 await self._broadcast(
                     {
@@ -173,6 +231,7 @@ class ClipUIServer:
             await ws.send_json({"type": "error", "message": f"Unknown message type: {msg_type!r}"})
 
     async def _broadcast(self, msg: dict) -> None:
+        self._last_broadcast = msg
         dead: set[web.WebSocketResponse] = set()
         for ws in list(self._websockets):
             try:
@@ -191,7 +250,7 @@ class ClipUIServer:
         app.router.add_get("/audio/region", self._handle_audio_region)
         app.router.add_get("/ws", self._handle_ws)
         logger.info("Starting audio-tools-clip server on http://localhost:%d", self._port)
-        web.run_app(app, host="localhost", port=self._port, access_log=None)
+        web.run_app(app, host="localhost", port=self._port, access_log=None, shutdown_timeout=1)
 
 
 def main() -> None:
@@ -205,7 +264,7 @@ def main() -> None:
         nargs="?",
         default=None,
         metavar="INPUT",
-        help="WAV file to pre-load on startup (optional; files can also be opened in the browser)",
+        help="Audio file or directory to open on startup (optional)",
     )
     parser.add_argument(
         "--port",
@@ -220,11 +279,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.input is not None and not Path(args.input).exists():
-        print(f"error: Source file not found: {args.input}", file=sys.stderr)
-        sys.exit(1)
+    initial_file: str | None = None
+    initial_dir: str | None = None
 
-    server = ClipUIServer(port=args.port, initial_file=args.input)
+    if args.input is not None:
+        p = Path(args.input)
+        if p.is_dir():
+            initial_dir = str(p.resolve())
+        elif p.is_file():
+            initial_file = str(p)
+        else:
+            print(f"error: Path not found: {args.input}", file=sys.stderr)
+            sys.exit(1)
+
+    server = ClipUIServer(port=args.port, initial_file=initial_file, initial_dir=initial_dir)
 
     if not args.no_open:
         url = f"http://localhost:{args.port}"

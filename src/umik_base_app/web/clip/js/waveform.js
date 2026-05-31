@@ -11,18 +11,20 @@ class WaveformView {
    * @param {HTMLCanvasElement} axisCanvas  - separate canvas for the time axis
    * @param {function(number, number): void} onChange - called with (startSec, endSec)
    */
-  constructor(canvas, axisCanvas, onChange) {
+  constructor(canvas, axisCanvas, onChange, onDragEnd = null) {
     this._canvas = canvas;
     this._axisCanvas = axisCanvas;
     this._ctx = canvas.getContext('2d');
     this._axisCtx = axisCanvas.getContext('2d');
-    this._onChange = onChange;
+    this._onChange  = onChange;
+    this._onDragEnd = onDragEnd;
 
     /** @type {Array<{min: number, max: number}>} */
     this._envelope = [];
     this._duration = 0;
     this._startTime = 0;
     this._endTime = 0;
+    this._playheadTime = null;
 
     this._dragging = null;   // 'start' | 'end' | null
     this._dragOffsetX = 0;
@@ -42,6 +44,7 @@ class WaveformView {
     this._duration = duration;
     this._startTime = 0;
     this._endTime = duration;
+    this._playheadTime = null;
     this._syncSize();
     this._draw();
   }
@@ -53,11 +56,18 @@ class WaveformView {
     this._draw();
   }
 
+  /** Move the playhead to time t (seconds in the full file). Pass null to hide it. */
+  setPlayhead(t) {
+    this._playheadTime = t;
+    this._draw();
+  }
+
   clear() {
     this._envelope = [];
     this._duration = 0;
     this._startTime = 0;
     this._endTime = 0;
+    this._playheadTime = null;
     this._ctx.clearRect(0, 0, this._canvas.width, this._canvas.height);
     this._axisCtx.clearRect(0, 0, this._axisCanvas.width, this._axisCanvas.height);
   }
@@ -87,6 +97,28 @@ class WaveformView {
 
   // ── Drawing ────────────────────────────────────────────────────────────────
 
+  // ── Envelope drawing helper ────────────────────────────────────────────────
+
+  _drawEnvelope(ctx, W, H, midY, fillColor, strokeColor) {
+    const n = this._envelope.length;
+    ctx.fillStyle = fillColor;
+    for (let i = 0; i < n; i++) {
+      const x  = (i / n) * W;
+      const dx = Math.max(1, W / n);
+      const { min, max } = this._envelope[i];
+      ctx.fillRect(x, midY - max * midY, dx, Math.max(1, (max - min) * midY));
+    }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = (i / n) * W + (W / n) / 2;
+      const y = midY - this._envelope[i].max * midY;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
   _draw() {
     const { width: W, height: H } = this._canvas;
     const ctx = this._ctx;
@@ -96,31 +128,22 @@ class WaveformView {
 
     const midY = H / 2;
 
-    // Waveform envelope
-    const n = this._envelope.length;
-    const envelopeColor = '#2a6a40';
-    const peakColor     = '#3db866';
+    // Pass 1: full waveform — dim (unplayed) colour
+    this._drawEnvelope(ctx, W, H, midY, '#1e5232', '#2a6a40');
 
-    ctx.fillStyle = envelopeColor;
-    for (let i = 0; i < n; i++) {
-      const x  = (i / n) * W;
-      const dx = Math.max(1, W / n);
-      const { min, max } = this._envelope[i];
-      const yTop = midY - max * midY;
-      const yBot = midY - min * midY;
-      ctx.fillRect(x, yTop, dx, Math.max(1, yBot - yTop));
+    // Pass 2: played region — bright colour, clipped to [selStart → playhead]
+    if (this._playheadTime !== null && this._duration > 0) {
+      const sx = this._timeToX(this._startTime);
+      const px = this._timeToX(this._playheadTime);
+      if (px > sx) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(sx, 0, px - sx, H);
+        ctx.clip();
+        this._drawEnvelope(ctx, W, H, midY, '#3db866', '#5dce88');
+        ctx.restore();
+      }
     }
-
-    // Peak line (brighter, 1px)
-    ctx.strokeStyle = peakColor;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < n; i++) {
-      const x = (i / n) * W + (W / n) / 2;
-      const y = midY - this._envelope[i].max * midY;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
 
     // Selection region
     if (this._duration > 0) {
@@ -141,6 +164,20 @@ class WaveformView {
       this._drawHandle(ctx, this._timeToX(this._startTime), H, '#3c8', 'start');
       // End handle
       this._drawHandle(ctx, this._timeToX(this._endTime), H, '#e54', 'end');
+    }
+
+    // Playhead
+    if (this._playheadTime !== null && this._duration > 0) {
+      const px = this._timeToX(this._playheadTime);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, H);
+      ctx.stroke();
+      ctx.restore();
     }
 
     this._drawAxis();
@@ -233,6 +270,7 @@ class WaveformView {
       if (this._dragging) {
         this._dragging = null;
         this._canvas.style.cursor = 'crosshair';
+        if (this._onDragEnd) this._onDragEnd(this._startTime, this._endTime);
       }
     });
 
@@ -258,12 +296,17 @@ class WaveformView {
   }
 
   _observeSize() {
+    let pending = false;
     const ro = new ResizeObserver(() => {
-      this._syncSize();
-      this._draw();
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        this._syncSize();
+        this._draw();
+      });
     });
-    ro.observe(this._canvas);
-    ro.observe(this._axisCanvas);
+    ro.observe(this._canvas);  // axis canvas follows; observing it separately causes double redraws
   }
 }
 

@@ -90,7 +90,7 @@ The package ships a set of reference applications accessible via `audio-tools`. 
 | `audio-tools --batch` | 📁 Batch-analyze a directory of WAV files |
 | `audio-tools --enhance` | ✨ Filter and enhance voice audio |
 | `audio-tools --convert` | 🔄 Convert WAV recordings to OGG / MP3 / AAC |
-| `audio-tools --clip` | ✂️ Trim a WAV file to a time range (CLI) |
+| `audio-tools --clip` | ✂️ Trim a WAV file to a time range |
 | `audio-tools-spectrum` | 🌐 Browser-based real-time spectrum analyzer (RTA) |
 | `audio-tools-clip` | 🎛️ Browser-based waveform clip editor |
 
@@ -102,27 +102,6 @@ A browser-based **Real-Time Analyzer (RTA)** — comparable to the RTA panel in 
 
 ```bash
 audio-tools-spectrum --device <id> --calibration-file "umik-1/7175488.txt"
-```
-
-### ✂️ Audio Clip Editor
-
-Trim WAV recordings to clean segments — visually or from the command line. Built for curating acoustic event recordings (dog barks, alarms) into focused training examples for MFCC classifiers.
-
-**CLI** — scriptable, no server:
-
-```bash
-# Trim seconds 4–7; output → recordings/clips/bark_4s_7s.wav
-audio-clip recordings/bark.wav --start 4 --end 7
-
-# Trim by duration, resample output
-audio-clip recordings/bark.wav --start 4 --duration 3 --sr 22050
-```
-
-**Browser UI** — waveform view with draggable handles, audio preview, one-click save:
-
-```bash
-# Pre-load a file; browser opens at http://localhost:8768
-audio-tools-clip recordings/bark.wav
 ```
 
 Full CLI reference: [docs/CLI.md](./docs/CLI.md)
